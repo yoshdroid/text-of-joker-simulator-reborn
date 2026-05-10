@@ -1,11 +1,17 @@
 import unittest
 from pathlib import Path
+import sys
+
+
+ROOT = Path(__file__).resolve().parents[1]
+SRC_PATH = ROOT / "src"
+if SRC_PATH.exists():
+    sys.path.insert(0, str(SRC_PATH))
 
 from tojs_reborn.cardpool.excel_loader import load_cardpool_from_xlsx
 from tojs_reborn.cardpool.normalizer import normalize_cardpool, write_normalized_outputs
 
 
-ROOT = Path(__file__).resolve().parents[1]
 EXCEL_PATH = ROOT / "carddata" / "text-of-joker.cardpool.xlsx"
 MAPPING_PATH = ROOT / "carddata" / "manual" / "ability_mapping.json"
 
