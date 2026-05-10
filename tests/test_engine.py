@@ -11,7 +11,7 @@ if SRC_PATH.exists():
 from tojs_reborn.cardpool.normalizer import normalize_cardpool
 from tojs_reborn.engine.actions import draw_cards, drive_unit
 from tojs_reborn.engine.events import EventStore
-from tojs_reborn.engine.state import create_game_state
+from tojs_reborn.engine.state import AbilityDefinition, CardDefinition, create_game_state
 
 
 EXCEL_PATH = ROOT / "carddata" / "text-of-joker.cardpool.xlsx"
@@ -20,8 +20,6 @@ MAPPING_PATH = ROOT / "carddata" / "manual" / "ability_mapping.json"
 
 def build_catalog():
     normalized, _report = normalize_cardpool(EXCEL_PATH, MAPPING_PATH)
-    from tojs_reborn.engine.state import CardDefinition, AbilityDefinition
-
     catalog = {}
     for item in normalized["cards"]:
         catalog[item["card_no"]] = CardDefinition(
@@ -45,6 +43,28 @@ def build_catalog():
             ),
         )
     return catalog
+
+
+def draw_watcher_card(card_no: str, name: str, timing: str) -> CardDefinition:
+    return CardDefinition(
+        card_no=card_no,
+        category="unit",
+        color="test",
+        name=name,
+        cp=1,
+        bp_by_level=(1, 1, 1),
+        abilities=(
+            AbilityDefinition(
+                ability_id=f"{card_no}:a1",
+                name=f"{timing} watcher",
+                status="supported",
+                timing=timing,
+                optional=False,
+                effect_steps=({"effect": "draw_cards", "player": "owner", "count": 1},),
+                raw={},
+            ),
+        ),
+    )
 
 
 class EngineTest(unittest.TestCase):
@@ -116,7 +136,46 @@ class EngineTest(unittest.TestCase):
         self.assertEqual(len(ability_events), 1)
         self.assertEqual(ability_events[0].source.card_instance_id, new_happaloid.instance_id)
 
+    def test_your_cip_existing_unit_triggers_after_entering_self_cip(self) -> None:
+        catalog = dict(self.catalog)
+        catalog["T-0-001"] = draw_watcher_card("T-0-001", "Your CIP Watcher", "YOUR_CIP")
+        state = create_game_state(catalog)
+        watcher_card = state.create_card_instance("T-0-001", "P1")
+        watcher_unit = state.create_unit(watcher_card.instance_id)
+        state.players["P1"].battlefield.add(watcher_unit.unit_id)
+        entering = state.create_card_instance("1-0-040", "P1")
+        first_draw = state.create_card_instance("1-0-001", "P1")
+        second_draw = state.create_card_instance("1-0-004", "P1")
+        state.players["P1"].hand.add(entering.instance_id)
+        state.players["P1"].deck.cards.extend([first_draw.instance_id, second_draw.instance_id])
+
+        drive_unit(state, "P1", entering.instance_id)
+
+        ability_events = [event for event in state.event_store.events if event.type == "ability_resolved"]
+        self.assertEqual([event.source.ability_id for event in ability_events], ["1-0-040:a1", "T-0-001:a1"])
+        self.assertEqual(state.players["P1"].hand.cards, [first_draw.instance_id, second_draw.instance_id])
+
+    def test_rival_cip_existing_opponent_unit_triggers_but_opponent_happaloid_self_cip_does_not(self) -> None:
+        catalog = dict(self.catalog)
+        catalog["T-0-002"] = draw_watcher_card("T-0-002", "Rival CIP Watcher", "RIVAL_CIP")
+        state = create_game_state(catalog)
+        opponent_happaloid = state.create_card_instance("1-0-040", "P2")
+        opponent_happaloid_unit = state.create_unit(opponent_happaloid.instance_id)
+        state.players["P2"].battlefield.add(opponent_happaloid_unit.unit_id)
+        rival_watcher = state.create_card_instance("T-0-002", "P2")
+        rival_watcher_unit = state.create_unit(rival_watcher.instance_id)
+        state.players["P2"].battlefield.add(rival_watcher_unit.unit_id)
+        entering = state.create_card_instance("1-0-001", "P1")
+        opponent_draw = state.create_card_instance("1-0-004", "P2")
+        state.players["P1"].hand.add(entering.instance_id)
+        state.players["P2"].deck.cards.append(opponent_draw.instance_id)
+
+        drive_unit(state, "P1", entering.instance_id)
+
+        ability_events = [event for event in state.event_store.events if event.type == "ability_resolved"]
+        self.assertEqual([event.source.ability_id for event in ability_events], ["T-0-002:a1"])
+        self.assertEqual(state.players["P2"].hand.cards, [opponent_draw.instance_id])
+
 
 if __name__ == "__main__":
     unittest.main()
-

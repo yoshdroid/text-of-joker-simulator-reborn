@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 from .events import EventSource, FactEvent
+from .resolver import resolve_unit_entered
 from .state import GameState, UnitState
 
 
@@ -100,39 +101,21 @@ def drive_unit(state: GameState, player_id: str, card_instance_id: str) -> UnitS
         ),
         payload={"owner_player_id": player_id},
     )
-    _resolve_self_cip(state, unit, enter_event)
+    resolve_unit_entered(state, unit, enter_event, {"draw_cards": _handle_draw_cards})
     return unit
 
 
-def _resolve_self_cip(state: GameState, unit: UnitState, cause_event: FactEvent) -> None:
-    card = state.card_catalog[unit.card_no]
-    for ability in card.abilities:
-        if ability.status != "supported" or ability.timing != "SELF_CIP":
-            continue
-        ability_event = state.event_store.append(
-            "ability_resolved",
-            round_no=state.round_no,
-            turn_no=state.turn_no,
-            actor_player_id=unit.owner_player_id,
-            cause_event_no=cause_event.event_no,
-            source=EventSource(
-                card_no=unit.card_no,
-                card_instance_id=unit.card_instance_id,
-                unit_id=unit.unit_id,
-                ability_id=ability.ability_id,
-            ),
-            payload={
-                "ability_name": ability.name,
-                "timing": ability.timing,
-            },
-        )
-        for step in ability.effect_steps:
-            if step.get("effect") == "draw_cards":
-                draw_cards(
-                    state,
-                    unit.owner_player_id,
-                    int(step.get("count", 0)),
-                    cause_event_no=ability_event.event_no,
-                    source=ability_event.source,
-                )
-
+def _handle_draw_cards(
+    state: GameState,
+    unit: UnitState,
+    _ability,
+    ability_event: FactEvent,
+    step: dict,
+) -> None:
+    draw_cards(
+        state,
+        unit.owner_player_id,
+        int(step.get("count", 0)),
+        cause_event_no=ability_event.event_no,
+        source=ability_event.source,
+    )
