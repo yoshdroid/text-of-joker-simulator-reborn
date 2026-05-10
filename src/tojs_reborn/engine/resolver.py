@@ -50,6 +50,21 @@ def resolve_unit_entered(
         )
 
 
+def resolve_unit_destroyed(
+    state: GameState,
+    destroyed_unit: UnitState,
+    cause_event: FactEvent,
+    effect_handlers: dict[str, EffectHandler],
+) -> None:
+    _resolve_supported_abilities(
+        state,
+        destroyed_unit,
+        "SELF_PIG",
+        cause_event,
+        effect_handlers,
+    )
+
+
 def _resolve_supported_abilities(
     state: GameState,
     ability_source_unit: UnitState,
@@ -86,4 +101,3 @@ def _resolve_supported_abilities(
 
 def _opponent_id(player_id: str) -> str:
     return "P2" if player_id == "P1" else "P1"
-

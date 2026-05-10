@@ -28,7 +28,9 @@ KNOWN_EFFECTS = {
     "change_cp",
     "deal_damage_to_unit",
     "deal_life_damage",
+    "discard_from_hand",
     "destroy_trigger_zone_card",
+    "draw_card_by_category",
     "draw_cards",
     "modify_bp",
     "move_card",
@@ -314,4 +316,3 @@ def _write_json(path: Path, data: dict[str, Any]) -> None:
     with path.open("w", encoding="utf-8", newline="\n") as handle:
         json.dump(data, handle, ensure_ascii=False, indent=2)
         handle.write("\n")
-

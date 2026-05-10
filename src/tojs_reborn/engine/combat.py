@@ -1,7 +1,9 @@
 from __future__ import annotations
 
+from .actions import get_effect_handlers
 from .events import EventSource
 from .rules import get_unit_bp, opponent_id
+from .resolver import resolve_unit_destroyed
 from .state import GameState, UnitState
 
 
@@ -43,8 +45,7 @@ def attack_unit(state: GameState, player_id: str, attacker_unit_id: str, blocker
     )
     _deal_battle_damage(state, attacker, blocker, battle_event.event_no)
     _deal_battle_damage(state, blocker, attacker, battle_event.event_no)
-    _destroy_if_lethal(state, attacker, battle_event.event_no)
-    _destroy_if_lethal(state, blocker, battle_event.event_no)
+    _destroy_lethal_units(state, [attacker, blocker], battle_event.event_no)
 
 
 def _declare_attack(state: GameState, player_id: str, attacker: UnitState):
@@ -91,11 +92,18 @@ def _deal_battle_damage(state: GameState, source: UnitState, target: UnitState, 
     )
 
 
-def _destroy_if_lethal(state: GameState, unit: UnitState, cause_event_no: int) -> None:
-    if unit.unit_id not in state.units:
-        return
-    if unit.current_damage < get_unit_bp(state, unit):
-        return
+def _destroy_lethal_units(state: GameState, units: list[UnitState], cause_event_no: int) -> None:
+    destroyed_units = [
+        unit
+        for unit in units
+        if unit.unit_id in state.units and unit.current_damage >= get_unit_bp(state, unit)
+    ]
+    destroyed_units.sort(key=lambda unit: 0 if unit.owner_player_id == state.turn_player_id else 1)
+    for unit in destroyed_units:
+        _destroy_unit(state, unit, cause_event_no)
+
+
+def _destroy_unit(state: GameState, unit: UnitState, cause_event_no: int) -> None:
     player = state.players[unit.owner_player_id]
     player.battlefield.remove(unit.unit_id)
     player.discard_pile.add(unit.card_instance_id)
@@ -112,7 +120,7 @@ def _destroy_if_lethal(state: GameState, unit: UnitState, cause_event_no: int) -
             "owner_player_id": unit.owner_player_id,
         },
     )
-    state.event_store.append(
+    destroyed_event = state.event_store.append(
         "unit_destroyed",
         round_no=state.round_no,
         turn_no=state.turn_no,
@@ -121,6 +129,7 @@ def _destroy_if_lethal(state: GameState, unit: UnitState, cause_event_no: int) -
         source=_unit_source(unit),
         payload={"reason": "battle"},
     )
+    resolve_unit_destroyed(state, unit, destroyed_event, get_effect_handlers())
     del state.units[unit.unit_id]
 
 

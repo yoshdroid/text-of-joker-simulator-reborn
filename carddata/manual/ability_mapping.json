@@ -128,6 +128,67 @@
         }
       ]
     },
+    "1-0-027": {
+      "card_name": "ミイラくん",
+      "abilities": [
+        {
+          "ability_key": "1-0-027:a1",
+          "ability_name": "ロスト",
+          "source_text": "このユニットが破壊された時、対戦相手は手札を１枚ランダムで捨てる。",
+          "status": "supported",
+          "timing": "SELF_PIG",
+          "optional": false,
+          "priority": {
+            "band": "unit",
+            "order": "source_only"
+          },
+          "condition": null,
+          "cost_steps": [],
+          "selector": {
+            "id": "target",
+            "type": "hand_card",
+            "controller": "rival",
+            "count": 1,
+            "required": false,
+            "random": true
+          },
+          "effect_steps": [
+            {
+              "effect": "discard_from_hand",
+              "target": "target"
+            }
+          ]
+        }
+      ]
+    },
+    "1-0-029": {
+      "card_name": "カラスマドウ",
+      "abilities": [
+        {
+          "ability_key": "1-0-029:a1",
+          "ability_name": "インターセプトドロー",
+          "source_text": "このユニットが破壊された時、あなたはインターセプトカードを１枚引く。",
+          "status": "supported",
+          "timing": "SELF_PIG",
+          "optional": false,
+          "priority": {
+            "band": "unit",
+            "order": "source_only"
+          },
+          "condition": null,
+          "cost_steps": [],
+          "selector": null,
+          "effect_steps": [
+            {
+              "effect": "draw_card_by_category",
+              "player": "owner",
+              "category": "intercept",
+              "count": 1
+            }
+          ]
+        }
+      ]
+    },
     "1-0-040": {
       "card_name": "ハッパロイド",
       "abilities": [

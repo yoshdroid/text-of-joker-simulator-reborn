@@ -254,6 +254,39 @@ class EngineTest(unittest.TestCase):
             ],
         )
 
+    def test_simultaneous_destroyed_self_pig_resolves_turn_player_first(self) -> None:
+        state = create_game_state(self.catalog)
+        state.turn_player_id = "P1"
+        mummy_card = state.create_card_instance("1-0-027", "P1")
+        crow_card = state.create_card_instance("1-0-029", "P2")
+        mummy = state.create_unit(mummy_card.instance_id)
+        crow = state.create_unit(crow_card.instance_id)
+        state.players["P1"].battlefield.add(mummy.unit_id)
+        state.players["P2"].battlefield.add(crow.unit_id)
+        p2_hand = state.create_card_instance("1-0-001", "P2")
+        p2_intercept = state.create_card_instance("1-0-065", "P2")
+        state.players["P2"].hand.add(p2_hand.instance_id)
+        state.players["P2"].deck.cards.append(p2_intercept.instance_id)
+
+        attack_unit(state, "P1", mummy.unit_id, crow.unit_id)
+
+        ability_events = [event for event in state.event_store.events if event.type == "ability_resolved"]
+        self.assertEqual(
+            [event.source.ability_id for event in ability_events],
+            ["1-0-027:a1", "1-0-029:a1"],
+        )
+        self.assertIn(p2_hand.instance_id, state.players["P2"].discard_pile.cards)
+        self.assertIn(p2_intercept.instance_id, state.players["P2"].hand.cards)
+        random_index = next(
+            index for index, event in enumerate(state.event_store.events) if event.type == "random_resolved"
+        )
+        crow_ability_index = next(
+            index
+            for index, event in enumerate(state.event_store.events)
+            if event.type == "ability_resolved" and event.source.ability_id == "1-0-029:a1"
+        )
+        self.assertLess(random_index, crow_ability_index)
+
 
 if __name__ == "__main__":
     unittest.main()

@@ -299,6 +299,19 @@ null
 }
 ```
 
+対戦相手の手札からランダムに 1 枚選ぶ:
+
+```json
+{
+  "id": "target",
+  "type": "hand_card",
+  "controller": "rival",
+  "count": 1,
+  "required": false,
+  "random": true
+}
+```
+
 対象不適正時:
 
 - 対象選択不可能時には、効果を発動させない。
@@ -317,6 +330,8 @@ null
 | `modify_bp` | BP を変更する |
 | `destroy_unit` | ユニットを破壊する |
 | `destroy_trigger_zone_card` | トリガーゾーンのカードを破壊する |
+| `discard_from_hand` | 手札を捨てる |
+| `draw_card_by_category` | 指定カテゴリのカードを引く |
 | `recover_action` | 行動権を回復する |
 | `set_level` | レベルを変更する |
 | `change_cp` | CP を変更する |
@@ -380,6 +395,28 @@ battle     戦闘終了まで
 ```
 
 この効果は、`selector.type: trigger_zone_card` と組み合わせる。
+
+### `discard_from_hand`
+
+```json
+{
+  "effect": "discard_from_hand",
+  "target": "target"
+}
+```
+
+この効果は、`selector.type: hand_card` と組み合わせる。
+
+### `draw_card_by_category`
+
+```json
+{
+  "effect": "draw_card_by_category",
+  "player": "owner",
+  "category": "intercept",
+  "count": 1
+}
+```
 
 ## 初期対象カードの記述例
 
