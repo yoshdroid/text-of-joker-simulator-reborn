@@ -1,4 +1,5 @@
 carddata/generated/
 test_output/
 tmp*/
-
+__pycache__/
+*.py[cod]
