@@ -31,6 +31,9 @@ class BattleField:
     def add(self, unit_id: str) -> None:
         self.units.append(unit_id)
 
+    def remove(self, unit_id: str) -> None:
+        self.units.remove(unit_id)
+
 
 @dataclass
 class TriggerZone:
@@ -41,3 +44,5 @@ class TriggerZone:
 class DiscardPile:
     cards: list[str] = field(default_factory=list)
 
+    def add(self, card_instance_id: str) -> None:
+        self.cards.insert(0, card_instance_id)

@@ -10,8 +10,10 @@ if SRC_PATH.exists():
 
 from tojs_reborn.cardpool.normalizer import normalize_cardpool
 from tojs_reborn.engine.actions import draw_cards, drive_unit
+from tojs_reborn.engine.combat import attack_player, attack_unit
 from tojs_reborn.engine.events import EventStore
 from tojs_reborn.engine.state import AbilityDefinition, CardDefinition, create_game_state
+from tojs_reborn.engine.turn import end_turn, start_turn
 
 
 EXCEL_PATH = ROOT / "carddata" / "text-of-joker.cardpool.xlsx"
@@ -175,6 +177,82 @@ class EngineTest(unittest.TestCase):
         ability_events = [event for event in state.event_store.events if event.type == "ability_resolved"]
         self.assertEqual([event.source.ability_id for event in ability_events], ["T-0-002:a1"])
         self.assertEqual(state.players["P2"].hand.cards, [opponent_draw.instance_id])
+
+    def test_start_turn_sets_cp_and_draws_cards(self) -> None:
+        state = create_game_state(self.catalog)
+        card = state.create_card_instance("1-0-001", "P1")
+        state.players["P1"].deck.cards.append(card.instance_id)
+
+        start_turn(state, "P1", draw_count=1, cp=2)
+
+        self.assertEqual(state.turn_player_id, "P1")
+        self.assertEqual(state.players["P1"].current_cp, 2)
+        self.assertEqual(state.players["P1"].hand.cards, [card.instance_id])
+        self.assertEqual(
+            [event.type for event in state.event_store.events],
+            ["turn_started", "cp_set", "card_moved", "cards_drawn"],
+        )
+
+    def test_end_turn_switches_player_and_increments_round_after_p2(self) -> None:
+        state = create_game_state(self.catalog)
+        state.turn_player_id = "P1"
+
+        end_turn(state, "P1")
+        self.assertEqual(state.turn_player_id, "P2")
+        self.assertEqual(state.round_no, 1)
+        self.assertEqual(state.turn_no, 2)
+
+        end_turn(state, "P2")
+        self.assertEqual(state.turn_player_id, "P1")
+        self.assertEqual(state.round_no, 2)
+        self.assertEqual(state.turn_no, 3)
+
+    def test_attack_player_deals_one_life_damage(self) -> None:
+        state = create_game_state(self.catalog)
+        attacker_card = state.create_card_instance("1-0-001", "P1")
+        attacker = state.create_unit(attacker_card.instance_id)
+        state.players["P1"].battlefield.add(attacker.unit_id)
+
+        attack_player(state, "P1", attacker.unit_id)
+
+        self.assertTrue(attacker.exhausted)
+        self.assertEqual(state.players["P2"].life, 6)
+        self.assertEqual(
+            [event.type for event in state.event_store.events],
+            ["action_declared", "unit_attacked", "life_changed"],
+        )
+
+    def test_blocked_battle_destroys_both_units_and_moves_to_discard(self) -> None:
+        state = create_game_state(self.catalog)
+        attacker_card = state.create_card_instance("1-0-001", "P1")
+        blocker_card = state.create_card_instance("1-0-001", "P2")
+        attacker = state.create_unit(attacker_card.instance_id)
+        blocker = state.create_unit(blocker_card.instance_id)
+        state.players["P1"].battlefield.add(attacker.unit_id)
+        state.players["P2"].battlefield.add(blocker.unit_id)
+
+        attack_unit(state, "P1", attacker.unit_id, blocker.unit_id)
+
+        self.assertEqual(state.players["P1"].battlefield.units, [])
+        self.assertEqual(state.players["P2"].battlefield.units, [])
+        self.assertEqual(state.players["P1"].discard_pile.cards, [attacker_card.instance_id])
+        self.assertEqual(state.players["P2"].discard_pile.cards, [blocker_card.instance_id])
+        self.assertNotIn(attacker.unit_id, state.units)
+        self.assertNotIn(blocker.unit_id, state.units)
+        self.assertEqual(
+            [event.type for event in state.event_store.events],
+            [
+                "action_declared",
+                "unit_attacked",
+                "battle_started",
+                "damage_dealt",
+                "damage_dealt",
+                "card_moved",
+                "unit_destroyed",
+                "card_moved",
+                "unit_destroyed",
+            ],
+        )
 
 
 if __name__ == "__main__":
