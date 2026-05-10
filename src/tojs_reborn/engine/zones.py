@@ -39,6 +39,12 @@ class BattleField:
 class TriggerZone:
     cards: list[str] = field(default_factory=list)
 
+    def add(self, card_instance_id: str) -> None:
+        self.cards.append(card_instance_id)
+
+    def remove(self, card_instance_id: str) -> None:
+        self.cards.remove(card_instance_id)
+
 
 @dataclass
 class DiscardPile:

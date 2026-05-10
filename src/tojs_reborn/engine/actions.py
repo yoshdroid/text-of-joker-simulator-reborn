@@ -1,16 +1,22 @@
 from __future__ import annotations
 
 from .events import EventSource, FactEvent
-from .rules import opponent_id
+from .rules import get_unit_bp, opponent_id
 from .resolver import resolve_unit_entered
 from .state import AbilityDefinition, GameState, UnitState
 
 
 def get_effect_handlers():
     return {
+        "change_cp": _handle_change_cp,
+        "deal_damage_to_unit": _handle_deal_damage_to_unit,
+        "deal_life_damage": _handle_deal_life_damage,
         "discard_from_hand": _handle_discard_from_hand,
+        "destroy_trigger_zone_card": _handle_destroy_trigger_zone_card,
         "draw_card_by_category": _handle_draw_card_by_category,
         "draw_cards": _handle_draw_cards,
+        "modify_bp": _handle_modify_bp,
+        "recover_action": _handle_recover_action,
     }
 
 
@@ -136,6 +142,151 @@ def drive_unit(state: GameState, player_id: str, card_instance_id: str) -> UnitS
     return unit
 
 
+def set_trigger(state: GameState, player_id: str, card_instance_id: str) -> None:
+    player = state.players[player_id]
+    instance = state.card_instances[card_instance_id]
+    action_event = state.event_store.append(
+        "action_declared",
+        round_no=state.round_no,
+        turn_no=state.turn_no,
+        actor_player_id=player_id,
+        source=EventSource(card_no=instance.card_no, card_instance_id=card_instance_id),
+        payload={"action": "set_trigger"},
+    )
+    player.hand.remove(card_instance_id)
+    player.trigger_zone.add(card_instance_id)
+    state.event_store.append(
+        "card_moved",
+        round_no=state.round_no,
+        turn_no=state.turn_no,
+        actor_player_id=player_id,
+        cause_event_no=action_event.event_no,
+        source=EventSource(card_no=instance.card_no, card_instance_id=card_instance_id),
+        payload={
+            "from_zone": "hand",
+            "to_zone": "trigger_zone",
+            "owner_player_id": player_id,
+            "public_color": state.card_catalog[instance.card_no].color,
+        },
+    )
+
+
+def overclock_unit(state: GameState, player_id: str, card_instance_id: str, target_unit_id: str) -> UnitState:
+    player = state.players[player_id]
+    unit = state.units[target_unit_id]
+    instance = state.card_instances[card_instance_id]
+    if unit.owner_player_id != player_id:
+        raise ValueError(f"unit {target_unit_id} is not controlled by {player_id}")
+    if unit.card_no != instance.card_no:
+        raise ValueError("overclock requires the same card number")
+    if card_instance_id not in player.hand.cards:
+        raise ValueError(f"card is not in hand: {card_instance_id}")
+    action_event = state.event_store.append(
+        "action_declared",
+        round_no=state.round_no,
+        turn_no=state.turn_no,
+        actor_player_id=player_id,
+        source=EventSource(card_no=instance.card_no, card_instance_id=card_instance_id, unit_id=unit.unit_id),
+        payload={"action": "overclock_unit", "target_unit_id": target_unit_id},
+    )
+    player.hand.remove(card_instance_id)
+    player.discard_pile.add(card_instance_id)
+    state.event_store.append(
+        "card_moved",
+        round_no=state.round_no,
+        turn_no=state.turn_no,
+        actor_player_id=player_id,
+        cause_event_no=action_event.event_no,
+        source=EventSource(card_no=instance.card_no, card_instance_id=card_instance_id),
+        payload={"from_zone": "hand", "to_zone": "discard_pile", "owner_player_id": player_id},
+    )
+    before_level = unit.level
+    unit.level = min(3, unit.level + 1)
+    level_event = state.event_store.append(
+        "unit_level_changed",
+        round_no=state.round_no,
+        turn_no=state.turn_no,
+        actor_player_id=player_id,
+        cause_event_no=action_event.event_no,
+        source=EventSource(card_no=unit.card_no, card_instance_id=unit.card_instance_id, unit_id=unit.unit_id),
+        payload={"before_level": before_level, "after_level": unit.level},
+    )
+    oc_event = state.event_store.append(
+        "unit_overclocked",
+        round_no=state.round_no,
+        turn_no=state.turn_no,
+        actor_player_id=player_id,
+        cause_event_no=level_event.event_no,
+        source=EventSource(card_no=unit.card_no, card_instance_id=unit.card_instance_id, unit_id=unit.unit_id),
+        payload={"before_level": before_level, "after_level": unit.level},
+    )
+    from .resolver import resolve_unit_overclocked
+
+    resolve_unit_overclocked(state, unit, oc_event, get_effect_handlers())
+    return unit
+
+
+def deal_damage_to_unit(
+    state: GameState,
+    source_unit: UnitState,
+    target_unit: UnitState,
+    amount: int,
+    *,
+    cause_event_no: int,
+    source: EventSource,
+    reason: str = "effect",
+) -> None:
+    before_damage = target_unit.current_damage
+    target_unit.current_damage += amount
+    damage_event = state.event_store.append(
+        "damage_dealt",
+        round_no=state.round_no,
+        turn_no=state.turn_no,
+        actor_player_id=source_unit.owner_player_id,
+        cause_event_no=cause_event_no,
+        source=source,
+        payload={
+            "target_unit_id": target_unit.unit_id,
+            "before_damage": before_damage,
+            "after_damage": target_unit.current_damage,
+            "amount": amount,
+            "reason": reason,
+        },
+    )
+    if target_unit.current_damage >= get_unit_bp(state, target_unit):
+        from .combat import destroy_lethal_units
+
+        destroy_lethal_units(state, [target_unit], damage_event.event_no)
+
+
+def change_cp(
+    state: GameState,
+    player_id: str,
+    amount: int,
+    *,
+    cause_event_no: int,
+    source: EventSource,
+    reason: str = "effect",
+) -> None:
+    player = state.players[player_id]
+    before_cp = player.current_cp
+    player.current_cp += amount
+    state.event_store.append(
+        "cp_changed",
+        round_no=state.round_no,
+        turn_no=state.turn_no,
+        actor_player_id=player_id,
+        cause_event_no=cause_event_no,
+        source=source,
+        payload={
+            "before_cp": before_cp,
+            "after_cp": player.current_cp,
+            "amount": amount,
+            "reason": reason,
+        },
+    )
+
+
 def _handle_draw_cards(
     state: GameState,
     unit: UnitState,
@@ -164,8 +315,7 @@ def _handle_discard_from_hand(
     if not target_player.hand.cards:
         return
     candidates = list(target_player.hand.cards)
-    # Deterministic for now, but the event contains all candidates for replay and later RNG replacement.
-    chosen_index = 0
+    chosen_index = state.rng.randrange(len(candidates))
     chosen_card_instance_id = target_player.hand.cards.pop(chosen_index)
     chosen_instance = state.card_instances[chosen_card_instance_id]
     random_event = state.event_store.append(
@@ -177,6 +327,7 @@ def _handle_discard_from_hand(
         source=ability_event.source,
         payload={
             "kind": "hand_card",
+            "seed": state.seed,
             "player_id": target_player_id,
             "candidate_card_instance_ids": candidates,
             "chosen_index": chosen_index,
@@ -202,6 +353,259 @@ def _handle_discard_from_hand(
         },
     )
 
+
+def _handle_deal_damage_to_unit(
+    state: GameState,
+    unit: UnitState,
+    ability: AbilityDefinition,
+    ability_event: FactEvent,
+    step: dict,
+) -> None:
+    target = _resolve_unit_target_for_effect(state, unit, ability, ability_event, step.get("target"))
+    if target is None:
+        return
+    deal_damage_to_unit(
+        state,
+        unit,
+        target,
+        int(step.get("amount", 0)),
+        cause_event_no=ability_event.event_no,
+        source=ability_event.source,
+    )
+
+
+def _handle_deal_life_damage(
+    state: GameState,
+    unit: UnitState,
+    _ability: AbilityDefinition,
+    ability_event: FactEvent,
+    step: dict,
+) -> None:
+    target_player_id = _resolve_player_id(unit.owner_player_id, step.get("player"))
+    player = state.players[target_player_id]
+    amount = int(step.get("amount", 0))
+    before_life = player.life
+    player.life -= amount
+    state.event_store.append(
+        "life_changed",
+        round_no=state.round_no,
+        turn_no=state.turn_no,
+        actor_player_id=unit.owner_player_id,
+        cause_event_no=ability_event.event_no,
+        source=ability_event.source,
+        payload={
+            "player_id": target_player_id,
+            "before_life": before_life,
+            "after_life": player.life,
+            "amount": -amount,
+            "reason": "effect",
+        },
+    )
+
+
+def _handle_change_cp(
+    state: GameState,
+    unit: UnitState,
+    _ability: AbilityDefinition,
+    ability_event: FactEvent,
+    step: dict,
+) -> None:
+    change_cp(
+        state,
+        _resolve_player_id(unit.owner_player_id, step.get("player")),
+        int(step.get("amount", 0)),
+        cause_event_no=ability_event.event_no,
+        source=ability_event.source,
+    )
+
+
+def _handle_modify_bp(
+    state: GameState,
+    unit: UnitState,
+    ability: AbilityDefinition,
+    ability_event: FactEvent,
+    step: dict,
+) -> None:
+    target = _resolve_unit_target_for_effect(state, unit, ability, ability_event, step.get("target"))
+    if target is None:
+        return
+    amount = int(step.get("amount", 0))
+    before_bp = get_unit_bp(state, target)
+    target.bp_modifiers.append(
+        {
+            "amount": amount,
+            "duration": step.get("duration", "turn"),
+            "source_event_no": ability_event.event_no,
+        }
+    )
+    state.event_store.append(
+        "bp_modified",
+        round_no=state.round_no,
+        turn_no=state.turn_no,
+        actor_player_id=unit.owner_player_id,
+        cause_event_no=ability_event.event_no,
+        source=ability_event.source,
+        payload={
+            "target_unit_id": target.unit_id,
+            "before_bp": before_bp,
+            "after_bp": get_unit_bp(state, target),
+            "amount": amount,
+            "duration": step.get("duration", "turn"),
+        },
+    )
+
+
+def _handle_recover_action(
+    state: GameState,
+    unit: UnitState,
+    ability: AbilityDefinition,
+    ability_event: FactEvent,
+    step: dict,
+) -> None:
+    target = _resolve_unit_target_for_effect(state, unit, ability, ability_event, step.get("target"))
+    if target is None or not target.exhausted:
+        return
+    target.exhausted = False
+    state.event_store.append(
+        "unit_action_recovered",
+        round_no=state.round_no,
+        turn_no=state.turn_no,
+        actor_player_id=unit.owner_player_id,
+        cause_event_no=ability_event.event_no,
+        source=ability_event.source,
+        payload={"unit_id": target.unit_id, "reason": "effect"},
+    )
+
+
+def _handle_destroy_trigger_zone_card(
+    state: GameState,
+    unit: UnitState,
+    _ability: AbilityDefinition,
+    ability_event: FactEvent,
+    _step: dict,
+) -> None:
+    target_player_id = opponent_id(unit.owner_player_id)
+    target_player = state.players[target_player_id]
+    if not target_player.trigger_zone.cards:
+        return
+    candidates = list(target_player.trigger_zone.cards)
+    chosen_index = state.rng.randrange(len(candidates))
+    chosen_card_instance_id = candidates[chosen_index]
+    target_player.trigger_zone.remove(chosen_card_instance_id)
+    chosen_instance = state.card_instances[chosen_card_instance_id]
+    random_event = state.event_store.append(
+        "random_resolved",
+        round_no=state.round_no,
+        turn_no=state.turn_no,
+        actor_player_id=unit.owner_player_id,
+        cause_event_no=ability_event.event_no,
+        source=ability_event.source,
+        payload={
+            "kind": "trigger_zone_card",
+            "seed": state.seed,
+            "player_id": target_player_id,
+            "candidate_card_instance_ids": candidates,
+            "chosen_index": chosen_index,
+            "chosen_card_instance_id": chosen_card_instance_id,
+        },
+    )
+    target_player.discard_pile.add(chosen_card_instance_id)
+    state.event_store.append(
+        "card_moved",
+        round_no=state.round_no,
+        turn_no=state.turn_no,
+        actor_player_id=target_player_id,
+        cause_event_no=random_event.event_no,
+        source=EventSource(card_no=chosen_instance.card_no, card_instance_id=chosen_card_instance_id),
+        payload={
+            "from_zone": "trigger_zone",
+            "to_zone": "discard_pile",
+            "owner_player_id": target_player_id,
+            "reason": "effect",
+        },
+    )
+
+
+def _resolve_unit_target(
+    state: GameState,
+    source_unit: UnitState,
+    target_ref,
+    selector: dict | None = None,
+) -> UnitState | None:
+    if target_ref == "source":
+        return source_unit
+    if isinstance(target_ref, str) and target_ref in state.units:
+        return state.units[target_ref]
+    if selector is None:
+        return source_unit if target_ref in (None, "source") else None
+    controller = selector.get("controller")
+    if controller == "rival":
+        player_id = opponent_id(source_unit.owner_player_id)
+    elif controller == "owner":
+        player_id = source_unit.owner_player_id
+    else:
+        player_id = source_unit.owner_player_id
+    candidates = [state.units[unit_id] for unit_id in state.players[player_id].battlefield.units if unit_id in state.units]
+    return candidates[0] if candidates else None
+
+
+def _resolve_unit_target_for_effect(
+    state: GameState,
+    source_unit: UnitState,
+    ability: AbilityDefinition,
+    ability_event: FactEvent,
+    target_ref,
+) -> UnitState | None:
+    selector = ability.raw.get("selector")
+    if not isinstance(selector, dict):
+        return _resolve_unit_target(state, source_unit, target_ref)
+    if target_ref != selector.get("id") or selector.get("type") != "unit":
+        return _resolve_unit_target(state, source_unit, target_ref, selector)
+    controller = selector.get("controller")
+    if controller == "rival":
+        player_id = opponent_id(source_unit.owner_player_id)
+    elif controller == "owner":
+        player_id = source_unit.owner_player_id
+    else:
+        player_id = source_unit.owner_player_id
+    candidates = [unit_id for unit_id in state.players[player_id].battlefield.units if unit_id in state.units]
+    if not candidates:
+        return None
+    request_event = state.event_store.append(
+        "choice_requested",
+        round_no=state.round_no,
+        turn_no=state.turn_no,
+        actor_player_id=source_unit.owner_player_id,
+        cause_event_no=ability_event.event_no,
+        source=ability_event.source,
+        payload={
+            "choice_id": selector.get("id"),
+            "type": "unit",
+            "candidate_unit_ids": candidates,
+            "required": bool(selector.get("required", True)),
+        },
+    )
+    chosen_unit_id = candidates[0]
+    state.event_store.append(
+        "choice_selected",
+        round_no=state.round_no,
+        turn_no=state.turn_no,
+        actor_player_id=source_unit.owner_player_id,
+        cause_event_no=request_event.event_no,
+        source=ability_event.source,
+        payload={
+            "choice_id": selector.get("id"),
+            "chosen_unit_id": chosen_unit_id,
+            "fallback": "first_legal",
+        },
+    )
+    return state.units[chosen_unit_id]
+
+
+def _resolve_player_id(owner_player_id: str, player_ref) -> str:
+    if player_ref == "rival":
+        return opponent_id(owner_player_id)
+    return owner_player_id
 
 def _handle_draw_card_by_category(
     state: GameState,

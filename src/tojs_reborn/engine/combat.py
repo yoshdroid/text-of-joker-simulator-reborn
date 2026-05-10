@@ -3,13 +3,14 @@ from __future__ import annotations
 from .actions import get_effect_handlers
 from .events import EventSource
 from .rules import get_unit_bp, opponent_id
-from .resolver import resolve_unit_destroyed
+from .resolver import resolve_unit_attacked, resolve_unit_blocked, resolve_unit_destroyed
 from .state import GameState, UnitState
 
 
 def attack_player(state: GameState, player_id: str, attacker_unit_id: str) -> None:
     attacker = _get_owned_unit(state, player_id, attacker_unit_id)
     action_event = _declare_attack(state, player_id, attacker)
+    resolve_unit_attacked(state, attacker, action_event, get_effect_handlers())
     opponent = state.players[opponent_id(player_id)]
     before_life = opponent.life
     opponent.life -= 1
@@ -34,6 +35,9 @@ def attack_unit(state: GameState, player_id: str, attacker_unit_id: str, blocker
     attacker = _get_owned_unit(state, player_id, attacker_unit_id)
     blocker = _get_owned_unit(state, opponent_id(player_id), blocker_unit_id)
     action_event = _declare_attack(state, player_id, attacker)
+    resolve_unit_attacked(state, attacker, action_event, get_effect_handlers())
+    block_event = declare_block(state, opponent_id(player_id), blocker.unit_id, attacker.unit_id, action_event.event_no)
+    resolve_unit_blocked(state, blocker, block_event, get_effect_handlers())
     battle_event = state.event_store.append(
         "battle_started",
         round_no=state.round_no,
@@ -49,7 +53,28 @@ def attack_unit(state: GameState, player_id: str, attacker_unit_id: str, blocker
     destroy_lethal_units(state, [attacker, blocker], battle_event.event_no)
 
 
+def declare_block(
+    state: GameState,
+    player_id: str,
+    blocker_unit_id: str,
+    attacker_unit_id: str,
+    cause_event_no: int,
+):
+    blocker = _get_owned_unit(state, player_id, blocker_unit_id)
+    return state.event_store.append(
+        "block_declared",
+        round_no=state.round_no,
+        turn_no=state.turn_no,
+        actor_player_id=player_id,
+        cause_event_no=cause_event_no,
+        source=_unit_source(blocker),
+        payload={"blocker_unit_id": blocker_unit_id, "attacker_unit_id": attacker_unit_id},
+    )
+
+
 def _declare_attack(state: GameState, player_id: str, attacker: UnitState):
+    if state.turn_player_id != player_id:
+        raise ValueError(f"not turn player: {player_id}")
     if attacker.exhausted:
         raise ValueError(f"unit already exhausted: {attacker.unit_id}")
     action_event = state.event_store.append(

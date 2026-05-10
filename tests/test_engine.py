@@ -9,9 +9,11 @@ if SRC_PATH.exists():
     sys.path.insert(0, str(SRC_PATH))
 
 from tojs_reborn.cardpool.normalizer import normalize_cardpool
-from tojs_reborn.engine.actions import draw_cards, drive_unit
+from tojs_reborn.engine.actions import draw_cards, drive_unit, overclock_unit, set_trigger
 from tojs_reborn.engine.combat import attack_player, attack_unit, destroy_lethal_units
 from tojs_reborn.engine.events import EventStore
+from tojs_reborn.engine.replay import build_replay_record, verify_replay_record
+from tojs_reborn.engine.rules import get_unit_bp
 from tojs_reborn.engine.state import AbilityDefinition, CardDefinition, create_game_state
 from tojs_reborn.engine.turn import end_turn, start_turn
 
@@ -265,6 +267,7 @@ class EngineTest(unittest.TestCase):
             [
                 "action_declared",
                 "unit_attacked",
+                "block_declared",
                 "battle_started",
                 "damage_dealt",
                 "damage_dealt",
@@ -371,6 +374,154 @@ class EngineTest(unittest.TestCase):
         self.assertIn("battle_won", [event.type for event in state.event_store.events])
         self.assertIn(attacker.unit_id, state.units)
         self.assertNotIn(blocker.unit_id, state.units)
+
+    def test_replay_record_verifies_event_log_and_final_state(self) -> None:
+        state = create_game_state(self.catalog)
+        card = state.create_card_instance("1-0-001", "P1")
+        state.players["P1"].deck.cards.append(card.instance_id)
+
+        draw_cards(state, "P1", 1)
+        replay_record = build_replay_record(state)
+
+        self.assertTrue(verify_replay_record(state, replay_record))
+        replay_record["events"][0]["type"] = "changed"
+        self.assertFalse(verify_replay_record(state, replay_record))
+
+    def test_seeded_random_discard_records_replayable_choice(self) -> None:
+        state = create_game_state(self.catalog, seed=3)
+        state.turn_player_id = "P1"
+        mummy_card = state.create_card_instance("1-0-027", "P1")
+        mummy = state.create_unit(mummy_card.instance_id)
+        state.players["P1"].battlefield.add(mummy.unit_id)
+        hand_cards = [state.create_card_instance("1-0-001", "P2") for _ in range(3)]
+        for card in hand_cards:
+            state.players["P2"].hand.add(card.instance_id)
+        mummy.current_damage = 1
+
+        destroy_lethal_units(state, [mummy], cause_event_no=0)
+
+        random_event = next(event for event in state.event_store.events if event.type == "random_resolved")
+        chosen_index = random_event.payload["chosen_index"]
+        self.assertEqual(random_event.payload["seed"], 3)
+        self.assertEqual(
+            random_event.payload["chosen_card_instance_id"],
+            random_event.payload["candidate_card_instance_ids"][chosen_index],
+        )
+
+    def test_attack_damage_uses_selector_and_can_destroy_target(self) -> None:
+        state = create_game_state(self.catalog)
+        state.turn_player_id = "P1"
+        lancer_card = state.create_card_instance("1-0-004", "P1")
+        target_card = state.create_card_instance("1-0-001", "P2")
+        lancer = state.create_unit(lancer_card.instance_id)
+        target = state.create_unit(target_card.instance_id)
+        state.players["P1"].battlefield.add(lancer.unit_id)
+        state.players["P2"].battlefield.add(target.unit_id)
+        target.current_damage = 2000
+
+        attack_player(state, "P1", lancer.unit_id)
+
+        self.assertNotIn(target.unit_id, state.units)
+        self.assertIn("ability_resolved", [event.type for event in state.event_store.events])
+        self.assertIn("choice_requested", [event.type for event in state.event_store.events])
+        self.assertIn("choice_selected", [event.type for event in state.event_store.events])
+        damage_events = [event for event in state.event_store.events if event.type == "damage_dealt"]
+        self.assertEqual(damage_events[0].payload["reason"], "effect")
+
+    def test_target_required_ability_does_not_resolve_without_target(self) -> None:
+        state = create_game_state(self.catalog)
+        state.turn_player_id = "P1"
+        lancer_card = state.create_card_instance("1-0-004", "P1")
+        lancer = state.create_unit(lancer_card.instance_id)
+        state.players["P1"].battlefield.add(lancer.unit_id)
+
+        attack_player(state, "P1", lancer.unit_id)
+
+        ability_events = [event for event in state.event_store.events if event.type == "ability_resolved"]
+        self.assertEqual(ability_events, [])
+
+    def test_grind_beetle_cip_changes_cp(self) -> None:
+        state = create_game_state(self.catalog)
+        beetle = state.create_card_instance("1-0-043", "P1")
+        state.players["P1"].hand.add(beetle.instance_id)
+        state.players["P1"].current_cp = 10
+
+        drive_unit(state, "P1", beetle.instance_id)
+
+        self.assertEqual(state.players["P1"].current_cp, 10 - self.catalog["1-0-043"].cp + 2)
+        self.assertIn("cp_changed", [event.type for event in state.event_store.events])
+        self.assertEqual(
+            [event.source.ability_id for event in state.event_store.events if event.type == "ability_resolved"],
+            ["1-0-043:a1"],
+        )
+
+    def test_trigger_zone_card_can_be_set_and_destroyed_randomly(self) -> None:
+        state = create_game_state(self.catalog, seed=1)
+        trigger_card = state.create_card_instance("1-0-065", "P2")
+        hellhound = state.create_card_instance("1-0-005", "P1")
+        state.players["P2"].hand.add(trigger_card.instance_id)
+        state.players["P1"].hand.add(hellhound.instance_id)
+        state.players["P1"].current_cp = 10
+
+        set_trigger(state, "P2", trigger_card.instance_id)
+        drive_unit(state, "P1", hellhound.instance_id)
+
+        self.assertEqual(state.players["P2"].trigger_zone.cards, [])
+        self.assertIn(trigger_card.instance_id, state.players["P2"].discard_pile.cards)
+        self.assertIn("random_resolved", [event.type for event in state.event_store.events])
+
+    def test_block_declared_resolves_block_bp_modifier_and_expires_at_turn_end(self) -> None:
+        state = create_game_state(self.catalog)
+        state.turn_player_id = "P1"
+        attacker_card = state.create_card_instance("1-0-001", "P1")
+        blocker_card = state.create_card_instance("1-0-045", "P2")
+        attacker = state.create_unit(attacker_card.instance_id)
+        blocker = state.create_unit(blocker_card.instance_id)
+        state.players["P1"].battlefield.add(attacker.unit_id)
+        state.players["P2"].battlefield.add(blocker.unit_id)
+        before_bp = get_unit_bp(state, blocker)
+
+        attack_unit(state, "P1", attacker.unit_id, blocker.unit_id)
+
+        event_types = [event.type for event in state.event_store.events]
+        self.assertIn("block_declared", event_types)
+        self.assertIn("bp_modified", event_types)
+        if blocker.unit_id in state.units:
+            self.assertEqual(get_unit_bp(state, blocker), before_bp + 2000)
+            end_turn(state, "P1")
+            self.assertEqual(get_unit_bp(state, blocker), before_bp)
+            self.assertIn("modifier_expired", [event.type for event in state.event_store.events])
+
+    def test_turn_end_ability_recovers_exhausted_source_unit(self) -> None:
+        state = create_game_state(self.catalog)
+        state.turn_player_id = "P1"
+        cat_card = state.create_card_instance("1-0-044", "P1")
+        cat = state.create_unit(cat_card.instance_id)
+        cat.exhausted = True
+        state.players["P1"].battlefield.add(cat.unit_id)
+
+        end_turn(state, "P1")
+
+        self.assertFalse(cat.exhausted)
+        self.assertEqual(
+            [event.source.ability_id for event in state.event_store.events if event.type == "ability_resolved"],
+            ["1-0-044:a1"],
+        )
+
+    def test_overclock_resolves_self_oc_life_damage(self) -> None:
+        state = create_game_state(self.catalog)
+        state.turn_player_id = "P1"
+        base = state.create_card_instance("1-0-007", "P1")
+        material = state.create_card_instance("1-0-007", "P1")
+        unit = state.create_unit(base.instance_id)
+        state.players["P1"].battlefield.add(unit.unit_id)
+        state.players["P1"].hand.add(material.instance_id)
+
+        overclock_unit(state, "P1", material.instance_id, unit.unit_id)
+
+        self.assertEqual(unit.level, 2)
+        self.assertEqual(state.players["P2"].life, 6)
+        self.assertIn("unit_overclocked", [event.type for event in state.event_store.events])
 
 
 if __name__ == "__main__":

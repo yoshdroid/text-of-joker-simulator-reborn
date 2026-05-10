@@ -32,7 +32,7 @@ class CardpoolNormalizerTest(unittest.TestCase):
         ability = happaloid["abilities"][0]
 
         self.assertEqual(report["errors"], [])
-        self.assertEqual(report["supported_ability_count"], 3)
+        self.assertEqual(report["supported_ability_count"], 12)
         self.assertEqual(happaloid["name"], "ハッパロイド")
         self.assertEqual(ability["status"], "supported")
         self.assertEqual(ability["timing"], "SELF_CIP")

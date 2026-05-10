@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 import json
+import random
 from dataclasses import dataclass, field
 from pathlib import Path
 from typing import Any
@@ -48,6 +49,7 @@ class UnitState:
     level: int = 1
     exhausted: bool = False
     current_damage: int = 0
+    bp_modifiers: list[dict[str, Any]] = field(default_factory=list)
 
 
 @dataclass
@@ -74,6 +76,8 @@ class GameState:
     turn_player_id: str = "P1"
     next_card_instance_no: int = 1
     next_unit_no: int = 1
+    seed: int = 0
+    rng: random.Random = field(default_factory=lambda: random.Random(0))
 
     def create_card_instance(self, card_no: str, owner_player_id: str, level: int = 1) -> CardInstance:
         instance = CardInstance(
@@ -129,12 +133,14 @@ def load_card_catalog(path: str | Path) -> dict[str, CardDefinition]:
     return cards
 
 
-def create_game_state(card_catalog: dict[str, CardDefinition]) -> GameState:
-    return GameState(
+def create_game_state(card_catalog: dict[str, CardDefinition], *, seed: int = 0) -> GameState:
+    state = GameState(
         card_catalog=card_catalog,
         players={
             "P1": AgentInfo(player_id="P1"),
             "P2": AgentInfo(player_id="P2"),
         },
+        seed=seed,
+        rng=random.Random(seed),
     )
-
+    return state

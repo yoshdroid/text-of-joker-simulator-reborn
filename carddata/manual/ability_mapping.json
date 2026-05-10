@@ -1,6 +1,6 @@
 {
   "schema_version": 1,
-  "notes": "Initial draft for the first 9 unit cards. Exact effects are mapped from carddata/text-of-joker.cardpool.xlsx. Entries marked deferred are intentionally outside the first draw_cards-focused implementation slice.",
+  "notes": "Initial draft for the first unit cards. Exact effects are mapped from carddata/text-of-joker.cardpool.xlsx. Entries marked supported are handled by the current minimal v1 engine.",
   "cards": {
     "1-0-001": {
       "card_name": "ブラッドハウンド",
@@ -9,7 +9,7 @@
           "ability_key": "1-0-001:a1",
           "ability_name": "ダメージブレイク",
           "source_text": "このユニットがオーバークロックした時、対戦相手のユニットを１体選ぶ。それに４０００ダメージを与える。",
-          "status": "deferred",
+          "status": "supported",
           "timing": "SELF_OC",
           "optional": false,
           "priority": {
@@ -42,7 +42,7 @@
           "ability_key": "1-0-004:a1",
           "ability_name": "ダメージブレイク",
           "source_text": "このユニットがアタックした時、対戦相手のユニットを１体選ぶ。それに１０００ダメージを与える。",
-          "status": "deferred",
+          "status": "supported",
           "timing": "SELF_ATK",
           "optional": false,
           "priority": {
@@ -75,7 +75,7 @@
           "ability_key": "1-0-005:a1",
           "ability_name": "トリガーロスト",
           "source_text": "このユニットがフィールドに出た時、対戦相手のトリガーゾーンにあるカードを１枚ランダムで破壊する。",
-          "status": "deferred",
+          "status": "supported",
           "timing": "SELF_CIP",
           "optional": false,
           "priority": {
@@ -108,7 +108,7 @@
           "ability_key": "1-0-007:a1",
           "ability_name": "マグニボム",
           "source_text": "このユニットがオーバークロックした時、対戦相手に１ライフダメージを与える。",
-          "status": "deferred",
+          "status": "supported",
           "timing": "SELF_OC",
           "optional": false,
           "priority": {
@@ -223,7 +223,7 @@
           "ability_key": "1-0-043:a1",
           "ability_name": "チャージ",
           "source_text": "このユニットがフィールドに出た時、あなたのＣＰを＋２する。",
-          "status": "deferred",
+          "status": "supported",
           "timing": "SELF_CIP",
           "optional": false,
           "priority": {
@@ -245,7 +245,7 @@
           "ability_key": "1-0-043:a2",
           "ability_name": "連撃・グラインドドロー",
           "source_text": "このユニットがフィールドに出た時、このターンにあなたがこのユニット以外のコスト２以上の緑属性のカードを使用している場合、あなたはカードを１枚引く。",
-          "status": "deferred",
+          "status": "supported",
           "timing": "SELF_CIP",
           "optional": false,
           "priority": {
@@ -278,7 +278,7 @@
           "ability_key": "1-0-044:a1",
           "ability_name": "不屈",
           "source_text": "",
-          "status": "deferred",
+          "status": "supported",
           "timing": "SELF_TURN_END",
           "optional": false,
           "priority": {
@@ -304,7 +304,7 @@
           "ability_key": "1-0-045:a1",
           "ability_name": "ブロッカー",
           "source_text": "このユニットがブロックした時、ターン終了時までこのユニットのＢＰを＋２０００する。",
-          "status": "deferred",
+          "status": "supported",
           "timing": "SELF_BLOCK",
           "optional": false,
           "priority": {
@@ -332,7 +332,7 @@
           "ability_key": "1-0-048:a1",
           "ability_name": "不屈",
           "source_text": "",
-          "status": "deferred",
+          "status": "supported",
           "timing": "SELF_TURN_END",
           "optional": false,
           "priority": {

@@ -1,7 +1,8 @@
 from __future__ import annotations
 
-from .actions import draw_cards
+from .actions import draw_cards, get_effect_handlers
 from .events import EventSource
+from .resolver import resolve_turn_ended
 from .rules import opponent_id
 from .state import GameState
 
@@ -51,13 +52,37 @@ def start_turn(state: GameState, player_id: str, *, draw_count: int = 1, cp: int
 def end_turn(state: GameState, player_id: str) -> None:
     if state.turn_player_id != player_id:
         raise ValueError(f"not turn player: {player_id}")
-    state.event_store.append(
+    turn_event = state.event_store.append(
         "turn_ended",
         round_no=state.round_no,
         turn_no=state.turn_no,
         actor_player_id=player_id,
     )
+    resolve_turn_ended(state, player_id, turn_event, get_effect_handlers())
+    _expire_turn_modifiers(state, turn_event.event_no)
     if player_id == "P2":
         state.round_no += 1
     state.turn_no += 1
     state.turn_player_id = opponent_id(player_id)
+
+
+def _expire_turn_modifiers(state: GameState, cause_event_no: int) -> None:
+    for unit in list(state.units.values()):
+        kept_modifiers = []
+        expired_count = 0
+        for modifier in unit.bp_modifiers:
+            if modifier.get("duration") == "turn":
+                expired_count += 1
+            else:
+                kept_modifiers.append(modifier)
+        if expired_count == 0:
+            continue
+        unit.bp_modifiers = kept_modifiers
+        state.event_store.append(
+            "modifier_expired",
+            round_no=state.round_no,
+            turn_no=state.turn_no,
+            actor_player_id=unit.owner_player_id,
+            cause_event_no=cause_event_no,
+            payload={"unit_id": unit.unit_id, "expired_count": expired_count, "duration": "turn"},
+        )

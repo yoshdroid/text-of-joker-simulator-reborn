@@ -65,6 +65,68 @@ def resolve_unit_destroyed(
     )
 
 
+def resolve_unit_attacked(
+    state: GameState,
+    attacking_unit: UnitState,
+    cause_event: FactEvent,
+    effect_handlers: dict[str, EffectHandler],
+) -> None:
+    _resolve_supported_abilities(
+        state,
+        attacking_unit,
+        "SELF_ATK",
+        cause_event,
+        effect_handlers,
+    )
+
+
+def resolve_unit_blocked(
+    state: GameState,
+    blocking_unit: UnitState,
+    cause_event: FactEvent,
+    effect_handlers: dict[str, EffectHandler],
+) -> None:
+    _resolve_supported_abilities(
+        state,
+        blocking_unit,
+        "SELF_BLOCK",
+        cause_event,
+        effect_handlers,
+    )
+
+
+def resolve_turn_ended(
+    state: GameState,
+    player_id: str,
+    cause_event: FactEvent,
+    effect_handlers: dict[str, EffectHandler],
+) -> None:
+    for unit_id in list(state.players[player_id].battlefield.units):
+        if unit_id in state.units:
+            _resolve_supported_abilities(
+                state,
+                state.units[unit_id],
+                "SELF_TURN_END",
+                cause_event,
+                effect_handlers,
+            )
+
+
+def resolve_unit_overclocked(
+    state: GameState,
+    unit: UnitState,
+    cause_event: FactEvent,
+    effect_handlers: dict[str, EffectHandler],
+) -> None:
+    _resolve_supported_abilities(
+        state,
+        unit,
+        "SELF_OC",
+        cause_event,
+        effect_handlers,
+    )
+
+
 def _resolve_supported_abilities(
     state: GameState,
     ability_source_unit: UnitState,
@@ -76,6 +138,12 @@ def _resolve_supported_abilities(
     for ability in card.abilities:
         if ability.status != "supported" or ability.timing != timing:
             continue
+        if not _condition_matches(state, ability_source_unit, ability):
+            continue
+        selector = ability.raw.get("selector")
+        if isinstance(selector, dict) and selector.get("type") == "unit":
+            if not _has_unit_target(state, ability_source_unit, selector):
+                continue
         ability_event = state.event_store.append(
             "ability_resolved",
             round_no=state.round_no,
@@ -97,6 +165,44 @@ def _resolve_supported_abilities(
             handler = effect_handlers.get(str(step.get("effect")))
             if handler is not None:
                 handler(state, ability_source_unit, ability, ability_event, step)
+
+
+def _condition_matches(state: GameState, ability_source_unit: UnitState, ability: AbilityDefinition) -> bool:
+    condition = ability.raw.get("condition")
+    if condition is None:
+        return True
+    if not isinstance(condition, dict):
+        return False
+    if condition.get("type") != "used_other_card_this_turn":
+        return False
+    min_cp = int(condition.get("min_cp", 0))
+    color = condition.get("color")
+    for event in state.event_store.events:
+        if event.turn_no != state.turn_no or event.type != "action_declared":
+            continue
+        if event.payload.get("action") != "drive_unit":
+            continue
+        if event.actor_player_id != ability_source_unit.owner_player_id:
+            continue
+        if condition.get("exclude_source") and event.source.card_instance_id == ability_source_unit.card_instance_id:
+            continue
+        if event.source.card_no is None:
+            continue
+        card = state.card_catalog[event.source.card_no]
+        if (card.cp or 0) >= min_cp and (color is None or card.color == color):
+            return True
+    return False
+
+
+def _has_unit_target(state: GameState, source_unit: UnitState, selector: dict) -> bool:
+    controller = selector.get("controller")
+    if controller == "rival":
+        player_id = _opponent_id(source_unit.owner_player_id)
+    elif controller == "owner":
+        player_id = source_unit.owner_player_id
+    else:
+        player_id = source_unit.owner_player_id
+    return any(unit_id in state.units for unit_id in state.players[player_id].battlefield.units)
 
 
 def _opponent_id(player_id: str) -> str:
