@@ -1,0 +1,294 @@
+{
+  "schema_version": 1,
+  "notes": "Initial draft for the first 9 unit cards. Exact effects are mapped from carddata/text-of-joker.cardpool.xlsx. Entries marked deferred are intentionally outside the first draw_cards-focused implementation slice.",
+  "cards": {
+    "1-0-001": {
+      "card_name": "ブラッドハウンド",
+      "abilities": [
+        {
+          "ability_key": "1-0-001:a1",
+          "ability_name": "ダメージブレイク",
+          "source_text": "このユニットがオーバークロックした時、対戦相手のユニットを１体選ぶ。それに４０００ダメージを与える。",
+          "status": "deferred",
+          "timing": "SELF_OC",
+          "optional": false,
+          "priority": {
+            "band": "unit",
+            "order": "source_only"
+          },
+          "condition": null,
+          "cost_steps": [],
+          "selector": {
+            "id": "target",
+            "type": "unit",
+            "controller": "rival",
+            "count": 1,
+            "required": true
+          },
+          "effect_steps": [
+            {
+              "effect": "deal_damage_to_unit",
+              "target": "target",
+              "amount": 4000
+            }
+          ]
+        }
+      ]
+    },
+    "1-0-004": {
+      "card_name": "ランサー",
+      "abilities": [
+        {
+          "ability_key": "1-0-004:a1",
+          "ability_name": "ダメージブレイク",
+          "source_text": "このユニットがアタックした時、対戦相手のユニットを１体選ぶ。それに１０００ダメージを与える。",
+          "status": "deferred",
+          "timing": "SELF_ATK",
+          "optional": false,
+          "priority": {
+            "band": "unit",
+            "order": "source_only"
+          },
+          "condition": null,
+          "cost_steps": [],
+          "selector": {
+            "id": "target",
+            "type": "unit",
+            "controller": "rival",
+            "count": 1,
+            "required": true
+          },
+          "effect_steps": [
+            {
+              "effect": "deal_damage_to_unit",
+              "target": "target",
+              "amount": 1000
+            }
+          ]
+        }
+      ]
+    },
+    "1-0-005": {
+      "card_name": "ヘルハウンド",
+      "abilities": [
+        {
+          "ability_key": "1-0-005:a1",
+          "ability_name": "トリガーロスト",
+          "source_text": "このユニットがフィールドに出た時、対戦相手のトリガーゾーンにあるカードを１枚ランダムで破壊する。",
+          "status": "deferred",
+          "timing": "SELF_CIP",
+          "optional": false,
+          "priority": {
+            "band": "unit",
+            "order": "source_only"
+          },
+          "condition": null,
+          "cost_steps": [],
+          "selector": {
+            "id": "target",
+            "type": "trigger_zone_card",
+            "controller": "rival",
+            "count": 1,
+            "required": false,
+            "random": true
+          },
+          "effect_steps": [
+            {
+              "effect": "destroy_trigger_zone_card",
+              "target": "target"
+            }
+          ]
+        }
+      ]
+    },
+    "1-0-007": {
+      "card_name": "ゴライアス",
+      "abilities": [
+        {
+          "ability_key": "1-0-007:a1",
+          "ability_name": "マグニボム",
+          "source_text": "このユニットがオーバークロックした時、対戦相手に１ライフダメージを与える。",
+          "status": "deferred",
+          "timing": "SELF_OC",
+          "optional": false,
+          "priority": {
+            "band": "unit",
+            "order": "source_only"
+          },
+          "condition": null,
+          "cost_steps": [],
+          "selector": null,
+          "effect_steps": [
+            {
+              "effect": "deal_life_damage",
+              "player": "rival",
+              "amount": 1
+            }
+          ]
+        }
+      ]
+    },
+    "1-0-040": {
+      "card_name": "ハッパロイド",
+      "abilities": [
+        {
+          "ability_key": "1-0-040:a1",
+          "ability_name": "ドロー",
+          "source_text": "このユニットがフィールドに出た時、あなたはカードを１枚引く。",
+          "status": "supported",
+          "timing": "SELF_CIP",
+          "optional": false,
+          "priority": {
+            "band": "unit",
+            "order": "source_only"
+          },
+          "condition": null,
+          "cost_steps": [],
+          "selector": null,
+          "effect_steps": [
+            {
+              "effect": "draw_cards",
+              "player": "owner",
+              "count": 1
+            }
+          ]
+        }
+      ]
+    },
+    "1-0-043": {
+      "card_name": "グラインドビートル",
+      "abilities": [
+        {
+          "ability_key": "1-0-043:a1",
+          "ability_name": "チャージ",
+          "source_text": "このユニットがフィールドに出た時、あなたのＣＰを＋２する。",
+          "status": "deferred",
+          "timing": "SELF_CIP",
+          "optional": false,
+          "priority": {
+            "band": "unit",
+            "order": "source_only"
+          },
+          "condition": null,
+          "cost_steps": [],
+          "selector": null,
+          "effect_steps": [
+            {
+              "effect": "change_cp",
+              "player": "owner",
+              "amount": 2
+            }
+          ]
+        },
+        {
+          "ability_key": "1-0-043:a2",
+          "ability_name": "連撃・グラインドドロー",
+          "source_text": "このユニットがフィールドに出た時、このターンにあなたがこのユニット以外のコスト２以上の緑属性のカードを使用している場合、あなたはカードを１枚引く。",
+          "status": "deferred",
+          "timing": "SELF_CIP",
+          "optional": false,
+          "priority": {
+            "band": "unit",
+            "order": "source_only"
+          },
+          "condition": {
+            "type": "used_other_card_this_turn",
+            "owner": "owner",
+            "exclude_source": true,
+            "min_cp": 2,
+            "color": "緑"
+          },
+          "cost_steps": [],
+          "selector": null,
+          "effect_steps": [
+            {
+              "effect": "draw_cards",
+              "player": "owner",
+              "count": 1
+            }
+          ]
+        }
+      ]
+    },
+    "1-0-044": {
+      "card_name": "キャットムル",
+      "abilities": [
+        {
+          "ability_key": "1-0-044:a1",
+          "ability_name": "不屈",
+          "source_text": "",
+          "status": "deferred",
+          "timing": "SELF_TURN_END",
+          "optional": false,
+          "priority": {
+            "band": "unit",
+            "order": "source_only"
+          },
+          "condition": null,
+          "cost_steps": [],
+          "selector": null,
+          "effect_steps": [
+            {
+              "effect": "recover_action",
+              "target": "source"
+            }
+          ]
+        }
+      ]
+    },
+    "1-0-045": {
+      "card_name": "リーフィア",
+      "abilities": [
+        {
+          "ability_key": "1-0-045:a1",
+          "ability_name": "ブロッカー",
+          "source_text": "このユニットがブロックした時、ターン終了時までこのユニットのＢＰを＋２０００する。",
+          "status": "deferred",
+          "timing": "SELF_BLOCK",
+          "optional": false,
+          "priority": {
+            "band": "unit",
+            "order": "source_only"
+          },
+          "condition": null,
+          "cost_steps": [],
+          "selector": null,
+          "effect_steps": [
+            {
+              "effect": "modify_bp",
+              "target": "source",
+              "amount": 2000,
+              "duration": "turn"
+            }
+          ]
+        }
+      ]
+    },
+    "1-0-048": {
+      "card_name": "ギガマムート",
+      "abilities": [
+        {
+          "ability_key": "1-0-048:a1",
+          "ability_name": "不屈",
+          "source_text": "",
+          "status": "deferred",
+          "timing": "SELF_TURN_END",
+          "optional": false,
+          "priority": {
+            "band": "unit",
+            "order": "source_only"
+          },
+          "condition": null,
+          "cost_steps": [],
+          "selector": null,
+          "effect_steps": [
+            {
+              "effect": "recover_action",
+              "target": "source"
+            }
+          ]
+        }
+      ]
+    }
+  }
+}
