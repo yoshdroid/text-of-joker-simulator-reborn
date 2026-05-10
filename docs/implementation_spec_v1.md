@@ -552,12 +552,113 @@ v1 は、次を満たした時点で完了とする。
 
 今後の残タスク:
 
-- replay の完全な再実行。
-- action/choice の合法手生成。
-- 子プログラム通信用 protocol / match runner。
-- trigger / intercept の割り込み window。
-- OC の実ゲーム相当のカード統合処理。
-- 追加カードを使った仕様テスト拡充。
+- replay の完全な再実行。最小実装済み。
+- action/choice の合法手生成。最小実装済み。
+- 子プログラム通信用 protocol / match runner。最小実装済み。
+- trigger / intercept の割り込み window。候補列挙のみ最小実装済み。
+- OC の実ゲーム相当のカード統合処理。unit stack として最小実装済み。
+- 追加カードを使った仕様テスト拡充。継続。
+
+## v1 追加実装仕様
+
+### replay の完全な再実行
+
+replay record は次を持つ。
+
+- `initial_state`
+- `intents`
+- `events`
+- `final_state`
+- `seed`
+
+再実行時は `initial_state` から `GameState` を復元し、`intents` を順に適用する。その結果の `events` と `final_state` が replay record と一致しなければ replay failure とする。
+
+現在 replay 可能な intent:
+
+- `start_turn`
+- `end_turn`
+- `drive_unit`
+- `set_trigger`
+- `overclock_unit`
+- `attack_player`
+- `attack_unit`
+- `pass`
+
+### action/choice の合法手生成
+
+`list_legal_actions(state, player_id)` は、現在のターンプレイヤーに対して次を返す。
+
+- `drive_unit`
+- `set_trigger`
+- `overclock_unit`
+- `attack_player`
+- `attack_unit`
+- `pass`
+
+非ターンプレイヤーには現時点では `pass` のみ返す。割り込み window での発動候補は `list_trigger_intercept_window` で別管理する。
+
+### protocol / match runner
+
+通信層の初期実装は JSON Lines の message encode/decode とする。
+
+現在の message type:
+
+- `hello`
+- `state_update`
+- `request_action`
+- `action_selected`
+- `choice_request`
+- `choice_selected`
+- `game_over`
+
+`public_state_message` は、相手の hand / deck / trigger_zone を枚数のみ公開する。
+
+`MatchRunner` は、同じ action payload を使って player object から action を受け取り、合法手でなければ `invalid_response` を記録して先頭合法手にフォールバックする。
+
+### trigger / intercept window
+
+`list_trigger_intercept_window` は、指定 player の trigger_zone にある trigger / intercept の公開候補を返す。
+
+現在は候補列挙のみで、実際の発動、コスト支払い、発動権移動、連続パス終了は未実装。
+
+### OC のカード統合
+
+overclock は、手札の同名 card instance を `unit_stack` に移動したものとして扱う。素材カードは discard pile に置かず、`UnitState.stacked_card_instance_ids` に保持する。
+
+現在の OC 処理:
+
+1. 手札から同名カードを選ぶ。
+2. 対象 unit の `stacked_card_instance_ids` に追加する。
+3. unit level を最大3まで +1 する。
+4. `unit_level_changed` を記録する。
+5. `unit_overclocked` を記録する。
+6. `SELF_OC` を解決する。
+
+## 追加で確認したい仕様
+
+次に実装を深める前に、以下を決めたい。
+
+1. trigger / intercept の発動 window
+   - どのイベント後に window を開くか。
+   - 先に発動権を得るプレイヤー。
+   - 両者連続パスで閉じる単位。
+
+2. block の扱い
+   - 現在は `attack_unit` が「ブロック済み戦闘」を直接表す。
+   - 実際には attack 宣言後に defender が block / no block を選ぶ形へ分離するか。
+
+3. overclock の素材カード
+   - 素材カードは unit stack に置く方針でよいか。
+   - unit 破壊時に stack の全 card instance を discard pile に置くか。
+   - discard pile の順序は上から素材、新しいカード、元カードのどれにするか。
+
+4. legal action の粒度
+   - 子プログラムに `attack_unit` を直接渡してよいか。
+   - それとも `attack` と `block` を別 request に分けるか。
+
+5. public state
+   - 相手 trigger_zone は枚数と色を公開する方針だったが、現在の protocol では枚数のみ隠蔽している。
+   - 色一覧を公開 payload に含めるか。
 
 ## 現在の検証状況
 
@@ -565,6 +666,6 @@ v1 は、次を満たした時点で完了とする。
 
 ```text
 python -m unittest -v
-Ran 27 tests
+Ran 33 tests
 OK
 ```

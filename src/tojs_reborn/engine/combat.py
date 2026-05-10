@@ -83,7 +83,7 @@ def _declare_attack(state: GameState, player_id: str, attacker: UnitState):
         turn_no=state.turn_no,
         actor_player_id=player_id,
         source=_unit_source(attacker),
-        payload={"action": "attack"},
+        payload={"action": "attack", "attacker_unit_id": attacker.unit_id},
     )
     attacker.exhausted = True
     state.event_store.append(

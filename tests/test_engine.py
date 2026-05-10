@@ -12,10 +12,17 @@ from tojs_reborn.cardpool.normalizer import normalize_cardpool
 from tojs_reborn.engine.actions import draw_cards, drive_unit, overclock_unit, set_trigger
 from tojs_reborn.engine.combat import attack_player, attack_unit, destroy_lethal_units
 from tojs_reborn.engine.events import EventStore
-from tojs_reborn.engine.replay import build_replay_record, verify_replay_record
+from tojs_reborn.engine.legal_actions import list_legal_actions
+from tojs_reborn.engine.replay import (
+    build_replay_record,
+    replay_record,
+    snapshot_initial_state,
+    verify_replay_record,
+)
 from tojs_reborn.engine.rules import get_unit_bp
 from tojs_reborn.engine.state import AbilityDefinition, CardDefinition, create_game_state
 from tojs_reborn.engine.turn import end_turn, start_turn
+from tojs_reborn.engine.windows import list_trigger_intercept_window
 
 
 EXCEL_PATH = ROOT / "carddata" / "text-of-joker.cardpool.xlsx"
@@ -387,6 +394,26 @@ class EngineTest(unittest.TestCase):
         replay_record["events"][0]["type"] = "changed"
         self.assertFalse(verify_replay_record(state, replay_record))
 
+    def test_replay_record_reexecutes_intents_and_matches_events(self) -> None:
+        state = create_game_state(self.catalog, seed=9)
+        happaloid = state.create_card_instance("1-0-040", "P1")
+        draw_target = state.create_card_instance("1-0-001", "P1")
+        state.players["P1"].hand.add(happaloid.instance_id)
+        state.players["P1"].deck.cards.append(draw_target.instance_id)
+        state.players["P1"].current_cp = 1
+        initial_state = snapshot_initial_state(state)
+        intents = [{"type": "drive_unit", "player_id": "P1", "card_instance_id": happaloid.instance_id}]
+
+        for intent in intents:
+            from tojs_reborn.engine.replay import apply_intent
+
+            apply_intent(state, intent)
+        record = build_replay_record(state, initial_state=initial_state, intents=intents)
+        replayed = replay_record(self.catalog, record)
+
+        self.assertEqual(replayed.event_store.to_list(), state.event_store.to_list())
+        self.assertEqual(replayed.players["P1"].hand.cards, [draw_target.instance_id])
+
     def test_seeded_random_discard_records_replayable_choice(self) -> None:
         state = create_game_state(self.catalog, seed=3)
         state.turn_player_id = "P1"
@@ -470,6 +497,16 @@ class EngineTest(unittest.TestCase):
         self.assertIn(trigger_card.instance_id, state.players["P2"].discard_pile.cards)
         self.assertIn("random_resolved", [event.type for event in state.event_store.events])
 
+    def test_trigger_intercept_window_lists_public_candidates(self) -> None:
+        state = create_game_state(self.catalog)
+        trigger_card = state.create_card_instance("1-0-065", "P1")
+        state.players["P1"].trigger_zone.add(trigger_card.instance_id)
+
+        window = list_trigger_intercept_window(state, "P1", window="attack", cause_event_no=1)
+
+        self.assertEqual(window["pass_action"], {"type": "pass_window", "window": "attack"})
+        self.assertEqual(window["candidates"][0]["card_instance_id"], trigger_card.instance_id)
+
     def test_block_declared_resolves_block_bp_modifier_and_expires_at_turn_end(self) -> None:
         state = create_game_state(self.catalog)
         state.turn_player_id = "P1"
@@ -520,8 +557,30 @@ class EngineTest(unittest.TestCase):
         overclock_unit(state, "P1", material.instance_id, unit.unit_id)
 
         self.assertEqual(unit.level, 2)
+        self.assertEqual(unit.stacked_card_instance_ids, [base.instance_id, material.instance_id])
+        self.assertNotIn(material.instance_id, state.players["P1"].discard_pile.cards)
         self.assertEqual(state.players["P2"].life, 6)
         self.assertIn("unit_overclocked", [event.type for event in state.event_store.events])
+
+    def test_legal_actions_include_drive_attack_set_trigger_and_overclock(self) -> None:
+        state = create_game_state(self.catalog)
+        state.turn_player_id = "P1"
+        state.players["P1"].current_cp = 10
+        unit_card = state.create_card_instance("1-0-001", "P1")
+        same_card = state.create_card_instance("1-0-001", "P1")
+        trigger_card = state.create_card_instance("1-0-065", "P1")
+        unit = state.create_unit(unit_card.instance_id)
+        state.players["P1"].battlefield.add(unit.unit_id)
+        state.players["P1"].hand.add(same_card.instance_id)
+        state.players["P1"].hand.add(trigger_card.instance_id)
+
+        action_types = {action["type"] for action in list_legal_actions(state, "P1")}
+
+        self.assertIn("drive_unit", action_types)
+        self.assertIn("attack_player", action_types)
+        self.assertIn("set_trigger", action_types)
+        self.assertIn("overclock_unit", action_types)
+        self.assertIn("pass", action_types)
 
 
 if __name__ == "__main__":

@@ -50,6 +50,7 @@ class UnitState:
     exhausted: bool = False
     current_damage: int = 0
     bp_modifiers: list[dict[str, Any]] = field(default_factory=list)
+    stacked_card_instance_ids: list[str] = field(default_factory=list)
 
 
 @dataclass
@@ -98,6 +99,7 @@ class GameState:
             card_no=instance.card_no,
             owner_player_id=instance.owner_player_id,
             level=instance.level,
+            stacked_card_instance_ids=[card_instance_id],
         )
         self.next_unit_no += 1
         self.units[unit.unit_id] = unit

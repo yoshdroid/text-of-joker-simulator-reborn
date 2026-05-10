@@ -86,7 +86,7 @@ def drive_unit(state: GameState, player_id: str, card_instance_id: str) -> UnitS
         turn_no=state.turn_no,
         actor_player_id=player_id,
         source=EventSource(card_no=instance.card_no, card_instance_id=card_instance_id),
-        payload={"action": "drive_unit"},
+        payload={"action": "drive_unit", "card_instance_id": card_instance_id},
     )
     if cost > 0:
         before_cp = player.current_cp
@@ -151,7 +151,7 @@ def set_trigger(state: GameState, player_id: str, card_instance_id: str) -> None
         turn_no=state.turn_no,
         actor_player_id=player_id,
         source=EventSource(card_no=instance.card_no, card_instance_id=card_instance_id),
-        payload={"action": "set_trigger"},
+        payload={"action": "set_trigger", "card_instance_id": card_instance_id},
     )
     player.hand.remove(card_instance_id)
     player.trigger_zone.add(card_instance_id)
@@ -190,7 +190,7 @@ def overclock_unit(state: GameState, player_id: str, card_instance_id: str, targ
         payload={"action": "overclock_unit", "target_unit_id": target_unit_id},
     )
     player.hand.remove(card_instance_id)
-    player.discard_pile.add(card_instance_id)
+    unit.stacked_card_instance_ids.append(card_instance_id)
     state.event_store.append(
         "card_moved",
         round_no=state.round_no,
@@ -198,7 +198,12 @@ def overclock_unit(state: GameState, player_id: str, card_instance_id: str, targ
         actor_player_id=player_id,
         cause_event_no=action_event.event_no,
         source=EventSource(card_no=instance.card_no, card_instance_id=card_instance_id),
-        payload={"from_zone": "hand", "to_zone": "discard_pile", "owner_player_id": player_id},
+        payload={
+            "from_zone": "hand",
+            "to_zone": "unit_stack",
+            "owner_player_id": player_id,
+            "unit_id": unit.unit_id,
+        },
     )
     before_level = unit.level
     unit.level = min(3, unit.level + 1)
@@ -209,7 +214,11 @@ def overclock_unit(state: GameState, player_id: str, card_instance_id: str, targ
         actor_player_id=player_id,
         cause_event_no=action_event.event_no,
         source=EventSource(card_no=unit.card_no, card_instance_id=unit.card_instance_id, unit_id=unit.unit_id),
-        payload={"before_level": before_level, "after_level": unit.level},
+        payload={
+            "before_level": before_level,
+            "after_level": unit.level,
+            "stacked_card_instance_ids": list(unit.stacked_card_instance_ids),
+        },
     )
     oc_event = state.event_store.append(
         "unit_overclocked",
