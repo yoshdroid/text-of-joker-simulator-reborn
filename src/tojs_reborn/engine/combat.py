@@ -45,7 +45,8 @@ def attack_unit(state: GameState, player_id: str, attacker_unit_id: str, blocker
     )
     _deal_battle_damage(state, attacker, blocker, battle_event.event_no)
     _deal_battle_damage(state, blocker, attacker, battle_event.event_no)
-    _destroy_lethal_units(state, [attacker, blocker], battle_event.event_no)
+    _emit_battle_result(state, attacker, blocker, battle_event.event_no)
+    destroy_lethal_units(state, [attacker, blocker], battle_event.event_no)
 
 
 def _declare_attack(state: GameState, player_id: str, attacker: UnitState):
@@ -92,13 +93,19 @@ def _deal_battle_damage(state: GameState, source: UnitState, target: UnitState, 
     )
 
 
-def _destroy_lethal_units(state: GameState, units: list[UnitState], cause_event_no: int) -> None:
+def destroy_lethal_units(state: GameState, units: list[UnitState], cause_event_no: int) -> None:
     destroyed_units = [
         unit
         for unit in units
         if unit.unit_id in state.units and unit.current_damage >= get_unit_bp(state, unit)
     ]
-    destroyed_units.sort(key=lambda unit: 0 if unit.owner_player_id == state.turn_player_id else 1)
+    battlefield_order = _battlefield_order(state)
+    destroyed_units.sort(
+        key=lambda unit: (
+            0 if unit.owner_player_id == state.turn_player_id else 1,
+            battlefield_order.get(unit.unit_id, 9999),
+        )
+    )
     for unit in destroyed_units:
         _destroy_unit(state, unit, cause_event_no)
 
@@ -131,6 +138,41 @@ def _destroy_unit(state: GameState, unit: UnitState, cause_event_no: int) -> Non
     )
     resolve_unit_destroyed(state, unit, destroyed_event, get_effect_handlers())
     del state.units[unit.unit_id]
+
+
+def _emit_battle_result(state: GameState, attacker: UnitState, blocker: UnitState, cause_event_no: int) -> None:
+    attacker_lethal = attacker.current_damage >= get_unit_bp(state, attacker)
+    blocker_lethal = blocker.current_damage >= get_unit_bp(state, blocker)
+    if attacker_lethal and blocker_lethal:
+        result_type = "battle_draw"
+    elif blocker_lethal:
+        result_type = "battle_won"
+    elif attacker_lethal:
+        result_type = "battle_lost"
+    else:
+        result_type = "battle_unresolved"
+    state.event_store.append(
+        result_type,
+        round_no=state.round_no,
+        turn_no=state.turn_no,
+        actor_player_id=attacker.owner_player_id,
+        cause_event_no=cause_event_no,
+        source=_unit_source(attacker),
+        payload={
+            "attacker_unit_id": attacker.unit_id,
+            "blocker_unit_id": blocker.unit_id,
+            "attacker_lethal": attacker_lethal,
+            "blocker_lethal": blocker_lethal,
+        },
+    )
+
+
+def _battlefield_order(state: GameState) -> dict[str, int]:
+    order: dict[str, int] = {}
+    for player in state.players.values():
+        for index, unit_id in enumerate(player.battlefield.units):
+            order[unit_id] = index
+    return order
 
 
 def _get_owned_unit(state: GameState, player_id: str, unit_id: str) -> UnitState:

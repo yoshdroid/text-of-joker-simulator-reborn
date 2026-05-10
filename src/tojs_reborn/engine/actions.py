@@ -68,6 +68,11 @@ def drive_unit(state: GameState, player_id: str, card_instance_id: str) -> UnitS
     card = state.card_catalog[instance.card_no]
     if card.category != "unit":
         raise ValueError(f"cannot drive non-unit card: {instance.card_no}")
+    if state.turn_player_id != player_id:
+        raise ValueError(f"not turn player: {player_id}")
+    cost = card.cp or 0
+    if player.current_cp < cost:
+        raise ValueError(f"not enough CP: required={cost} current={player.current_cp}")
 
     action_event = state.event_store.append(
         "action_declared",
@@ -77,6 +82,23 @@ def drive_unit(state: GameState, player_id: str, card_instance_id: str) -> UnitS
         source=EventSource(card_no=instance.card_no, card_instance_id=card_instance_id),
         payload={"action": "drive_unit"},
     )
+    if cost > 0:
+        before_cp = player.current_cp
+        player.current_cp -= cost
+        state.event_store.append(
+            "cp_changed",
+            round_no=state.round_no,
+            turn_no=state.turn_no,
+            actor_player_id=player_id,
+            cause_event_no=action_event.event_no,
+            source=EventSource(card_no=instance.card_no, card_instance_id=card_instance_id),
+            payload={
+                "before_cp": before_cp,
+                "after_cp": player.current_cp,
+                "amount": -cost,
+                "reason": "drive_unit",
+            },
+        )
     player.hand.remove(card_instance_id)
     unit = state.create_unit(card_instance_id)
     player.battlefield.add(unit.unit_id)
@@ -141,7 +163,8 @@ def _handle_discard_from_hand(
     target_player = state.players[target_player_id]
     if not target_player.hand.cards:
         return
-    # The first implementation is deterministic. With one legal hand card this is also the random result.
+    candidates = list(target_player.hand.cards)
+    # Deterministic for now, but the event contains all candidates for replay and later RNG replacement.
     chosen_index = 0
     chosen_card_instance_id = target_player.hand.cards.pop(chosen_index)
     chosen_instance = state.card_instances[chosen_card_instance_id]
@@ -155,6 +178,7 @@ def _handle_discard_from_hand(
         payload={
             "kind": "hand_card",
             "player_id": target_player_id,
+            "candidate_card_instance_ids": candidates,
             "chosen_index": chosen_index,
             "chosen_card_instance_id": chosen_card_instance_id,
         },

@@ -16,6 +16,19 @@ def start_turn(state: GameState, player_id: str, *, draw_count: int = 1, cp: int
         payload={"draw_count": draw_count, "cp": cp},
     )
     player = state.players[player_id]
+    for unit_id in player.battlefield.units:
+        unit = state.units[unit_id]
+        if not unit.exhausted:
+            continue
+        unit.exhausted = False
+        state.event_store.append(
+            "unit_action_recovered",
+            round_no=state.round_no,
+            turn_no=state.turn_no,
+            actor_player_id=player_id,
+            cause_event_no=turn_event.event_no,
+            payload={"unit_id": unit_id, "reason": "turn_start"},
+        )
     before_cp = player.current_cp
     player.current_cp = cp
     state.event_store.append(
@@ -48,4 +61,3 @@ def end_turn(state: GameState, player_id: str) -> None:
         state.round_no += 1
     state.turn_no += 1
     state.turn_player_id = opponent_id(player_id)
-

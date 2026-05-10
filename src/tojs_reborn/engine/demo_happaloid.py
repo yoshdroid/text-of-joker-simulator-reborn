@@ -17,6 +17,7 @@ def build_demo_state():
     draw_target = state.create_card_instance("1-0-001", "P1")
     state.players["P1"].hand.add(happaloid.instance_id)
     state.players["P1"].deck.cards.append(draw_target.instance_id)
+    state.players["P1"].current_cp = 1
     return state, happaloid.instance_id
 
 
@@ -28,4 +29,3 @@ def main() -> None:
 
 if __name__ == "__main__":
     main()
-
