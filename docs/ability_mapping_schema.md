@@ -91,9 +91,9 @@ carddata/
 ## `status`
 
 ```text
-supported   実装対象であり、変換後 JSON に有効な能力として出力する
-unsupported 未対応。レポートに警告として出す
-deferred    今回対象外。レポートには出すがエラー扱いしない
+supported   エンジン実装済みであり、変換後 JSON に有効な能力として出力する
+unsupported 構造化できない、または仕様未確定
+deferred    構造化済みだが、エンジン未実装または今回対象外
 ```
 
 初期 M1-M3 では、対象 unit 9 枚以外を `deferred` として扱ってよい。
@@ -427,7 +427,7 @@ battle     戦闘終了まで
       "ability_key": "1-0-004:a1",
       "ability_name": "ダメージブレイク",
       "source_text": "このユニットがアタックした時、対戦相手のユニットを1体選び、3000ダメージを与える。",
-      "status": "supported",
+      "status": "deferred",
       "timing": "SELF_ATK",
       "optional": false,
       "priority": {
