@@ -1,4 +1,6 @@
 import sys
+import os
+import subprocess
 import unittest
 from pathlib import Path
 
@@ -11,7 +13,7 @@ if SRC_PATH.exists():
 from tests.test_engine import build_catalog, draw_window_card
 from tojs_reborn.engine.state import create_game_state
 from tojs_reborn.io.match_runner import FirstLegalPlayer, MatchRunner, replay_match_record, snapshot_match_initial_state
-from tojs_reborn.io.player_runner import JsonLinePlayer, encode_action_response
+from tojs_reborn.io.player_runner import JsonLinePlayer, TextIOJsonLineTransport, encode_action_response
 from tojs_reborn.io.protocol import (
     action_selected_message,
     decode_message,
@@ -261,6 +263,43 @@ class ProtocolTest(unittest.TestCase):
                 selected = player.choose_action("P1", legal_actions)
 
                 self.assertEqual(selected, legal_actions[0])
+
+    def test_sample_child_programs_can_choose_actions_over_json_lines(self) -> None:
+        legal_actions = [{"type": "pass"}, {"type": "drive_unit", "card_instance_id": "c0001"}]
+        env = dict(os.environ)
+        env["PYTHONPATH"] = str(SRC_PATH)
+        first_process = subprocess.Popen(
+            [sys.executable, "-m", "tojs_reborn.io.sample_player", "--mode", "first"],
+            stdin=subprocess.PIPE,
+            stdout=subprocess.PIPE,
+            stderr=subprocess.PIPE,
+            text=True,
+            env=env,
+        )
+        pass_process = subprocess.Popen(
+            [sys.executable, "-m", "tojs_reborn.io.sample_player", "--mode", "pass"],
+            stdin=subprocess.PIPE,
+            stdout=subprocess.PIPE,
+            stderr=subprocess.PIPE,
+            text=True,
+            env=env,
+        )
+        try:
+            first_player = JsonLinePlayer(TextIOJsonLineTransport(first_process.stdout, first_process.stdin))
+            pass_player = JsonLinePlayer(TextIOJsonLineTransport(pass_process.stdout, pass_process.stdin))
+
+            self.assertEqual(first_player.choose_action("P1", legal_actions), legal_actions[1])
+            self.assertEqual(pass_player.choose_action("P1", legal_actions), legal_actions[0])
+        finally:
+            for process in (first_process, pass_process):
+                process.kill()
+                process.wait(timeout=5)
+                if process.stdin is not None:
+                    process.stdin.close()
+                if process.stdout is not None:
+                    process.stdout.close()
+                if process.stderr is not None:
+                    process.stderr.close()
 
 
 if __name__ == "__main__":

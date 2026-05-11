@@ -362,6 +362,8 @@ v1 で合成カードとして確認した window / selector / effect を実カ�
 - response timeout は既定 1.0 秒とする。
 - timeout / invalid JSON / illegal action は合法手先頭へ fallback する。
 - `action_selected` message helper と round-trip test を追加する。
+- `sample_player.py` を追加し、`first` / `pass` の2モードで JSON Lines response を返す。
+- サンプル子プログラム2つを subprocess として起動し、action を選べることをテストする。
 
 ### V2-E: window の実カード統合
 
