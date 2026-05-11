@@ -16,6 +16,7 @@ if SRC_PATH.exists():
 from tests.test_engine import build_catalog, draw_window_card
 from tojs_reborn.engine.state import create_game_state
 from tojs_reborn.io.decklist import parse_decklist
+from tojs_reborn.io.gui_view_model import build_gui_view_model, find_card_image
 from tojs_reborn.io.match_runner import FirstLegalPlayer, MatchRunner, replay_match_record, snapshot_match_initial_state
 from tojs_reborn.io.match_cli import run_match_cli
 from tojs_reborn.io.match_setup import MatchSetupConfig, setup_match_state
@@ -159,6 +160,38 @@ class ProtocolTest(unittest.TestCase):
         self.assertEqual(private_view["hand"][0]["category"], "unit")
         self.assertEqual(private_view["hand"][0]["cp"], 1)
         self.assertEqual(private_view["trigger_zone"][0]["card_no"], "1-0-097")
+
+    def test_gui_view_model_contains_visible_zones_and_card_images(self) -> None:
+        state = create_game_state(self.catalog)
+        hand_card = state.create_card_instance("1-0-040", "P1")
+        trigger_card = state.create_card_instance("1-0-097", "P1")
+        own_unit_card = state.create_card_instance("1-0-001", "P1")
+        opponent_unit_card = state.create_card_instance("1-0-004", "P2")
+        own_unit = state.create_unit(own_unit_card.instance_id)
+        opponent_unit = state.create_unit(opponent_unit_card.instance_id)
+        state.players["P1"].hand.add(hand_card.instance_id)
+        state.players["P1"].trigger_zone.add(trigger_card.instance_id)
+        state.players["P1"].battlefield.add(own_unit.unit_id)
+        state.players["P2"].battlefield.add(opponent_unit.unit_id)
+        image_dir = ROOT / "test_output" / "gui_images"
+        image_dir.mkdir(parents=True, exist_ok=True)
+        image_path = image_dir / "1-0-040_sample.jpg"
+        image_path.write_bytes(b"fake image")
+
+        model = build_gui_view_model(
+            build_public_state(state, "P1"),
+            build_private_view(state, "P1"),
+            images_dir=image_dir,
+        )
+
+        self.assertEqual(model["player_id"], "P1")
+        self.assertEqual(model["opponent"]["player_id"], "P2")
+        self.assertEqual(model["own"]["hand"][0]["card_no"], "1-0-040")
+        self.assertEqual(model["own"]["hand"][0]["image_path"], str(image_path))
+        self.assertEqual(model["own"]["trigger_zone"][0]["card_no"], "1-0-097")
+        self.assertEqual(model["own"]["battlefield"][0]["unit_id"], own_unit.unit_id)
+        self.assertEqual(model["opponent"]["battlefield"][0]["unit_id"], opponent_unit.unit_id)
+        self.assertEqual(find_card_image(image_dir, "NO-SUCH-CARD"), None)
 
     def test_state_update_and_mulligan_messages_round_trip(self) -> None:
         state = create_game_state(self.catalog)
