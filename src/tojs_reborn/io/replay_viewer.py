@@ -3,6 +3,7 @@ from __future__ import annotations
 import argparse
 import json
 import sys
+from dataclasses import dataclass, field
 from pathlib import Path
 from typing import Any, Sequence
 
@@ -37,15 +38,21 @@ def format_replay_events(
     if not isinstance(events, list):
         raise ValueError("replay record must contain an events list")
     instance_card_nos = _collect_card_instances(replay_record)
-    return [
-        format_event_line(
+    viewer_state = ReplayViewerState.from_replay_record(replay_record)
+    lines: list[str] = []
+    for event in events:
+        viewer_state.apply_event(event)
+        lines.append(
+            format_event_line(
             event,
             card_catalog=card_catalog or {},
             instance_card_nos=instance_card_nos,
             include_payload=include_payload,
+            )
         )
-        for event in events
-    ]
+        if event.get("type") in {"turn_ended", "match_ended"}:
+            lines.extend(viewer_state.format_state_lines(card_catalog=card_catalog or {}, instance_card_nos=instance_card_nos))
+    return lines
 
 
 def format_event_line(
@@ -84,6 +91,188 @@ def _load_optional_card_catalog(path: str) -> dict[str, CardDefinition]:
     if not card_path.exists():
         return {}
     return load_card_catalog(card_path)
+
+
+@dataclass
+class ReplayViewerPlayerState:
+    life: int = 0
+    current_cp: int = 0
+    deck: list[str] = field(default_factory=list)
+    hand: list[str] = field(default_factory=list)
+    battlefield: list[str] = field(default_factory=list)
+    trigger_zone: list[str] = field(default_factory=list)
+    discard_pile: list[str] = field(default_factory=list)
+
+
+@dataclass
+class ReplayViewerState:
+    players: dict[str, ReplayViewerPlayerState]
+    unit_card_instance_ids: dict[str, str] = field(default_factory=dict)
+    unit_levels: dict[str, int] = field(default_factory=dict)
+
+    @classmethod
+    def from_replay_record(cls, replay_record: dict[str, Any]) -> "ReplayViewerState":
+        initial_state = replay_record.get("initial_state")
+        if not isinstance(initial_state, dict):
+            return cls(players={})
+        players: dict[str, ReplayViewerPlayerState] = {}
+        for player_id, item in (initial_state.get("players") or {}).items():
+            if not isinstance(item, dict):
+                continue
+            players[player_id] = ReplayViewerPlayerState(
+                life=int(item.get("life", 0)),
+                current_cp=int(item.get("current_cp", 0)),
+                deck=list(item.get("deck") or []),
+                hand=list(item.get("hand") or []),
+                battlefield=list(item.get("battlefield") or []),
+                trigger_zone=list(item.get("trigger_zone") or []),
+                discard_pile=list(item.get("discard_pile") or []),
+            )
+        unit_card_instance_ids: dict[str, str] = {}
+        unit_levels: dict[str, int] = {}
+        for unit_id, item in (initial_state.get("units") or {}).items():
+            if not isinstance(item, dict):
+                continue
+            card_instance_id = item.get("card_instance_id")
+            if isinstance(card_instance_id, str):
+                unit_card_instance_ids[unit_id] = card_instance_id
+            unit_levels[unit_id] = int(item.get("level", 1))
+        return cls(players=players, unit_card_instance_ids=unit_card_instance_ids, unit_levels=unit_levels)
+
+    def apply_event(self, event: dict[str, Any]) -> None:
+        payload = event.get("payload") or {}
+        event_type = event.get("type")
+        actor = event.get("actor_player_id")
+        if event_type == "cp_set" and isinstance(actor, str):
+            self._player(actor).current_cp = int(payload.get("after_cp", self._player(actor).current_cp))
+        elif event_type == "cp_changed" and isinstance(actor, str):
+            self._player(actor).current_cp = int(payload.get("after_cp", self._player(actor).current_cp))
+        elif event_type == "life_changed":
+            player_id = payload.get("player_id")
+            if isinstance(player_id, str):
+                self._player(player_id).life = int(payload.get("after_life", self._player(player_id).life))
+        elif event_type == "card_moved":
+            self._apply_card_moved(event)
+        elif event_type == "unit_level_changed":
+            unit_id = (event.get("source") or {}).get("unit_id")
+            if isinstance(unit_id, str):
+                self.unit_levels[unit_id] = int(payload.get("after_level", self.unit_levels.get(unit_id, 1)))
+
+    def format_state_lines(
+        self,
+        *,
+        card_catalog: dict[str, CardDefinition],
+        instance_card_nos: dict[str, str],
+    ) -> list[str]:
+        lines = ["     state:"]
+        for player_id in sorted(self.players):
+            player = self.players[player_id]
+            battlefield = [
+                self._format_unit(unit_id, card_catalog=card_catalog, instance_card_nos=instance_card_nos)
+                for unit_id in player.battlefield
+            ]
+            trigger_zone = [
+                self._format_card_instance(card_instance_id, card_catalog=card_catalog, instance_card_nos=instance_card_nos)
+                for card_instance_id in player.trigger_zone
+            ]
+            lines.append(
+                "     "
+                f"{player_id} life={player.life} cp={player.current_cp} "
+                f"hand={len(player.hand)} deck={len(player.deck)} discard={len(player.discard_pile)} "
+                f"battlefield=[{', '.join(battlefield)}] "
+                f"trigger=[{', '.join(trigger_zone)}]"
+            )
+        return lines
+
+    def _apply_card_moved(self, event: dict[str, Any]) -> None:
+        payload = event.get("payload") or {}
+        source = event.get("source") or {}
+        owner = payload.get("owner_player_id") or event.get("actor_player_id")
+        card_instance_id = source.get("card_instance_id")
+        if not isinstance(owner, str) or not isinstance(card_instance_id, str):
+            return
+        player = self._player(owner)
+        from_zone = payload.get("from_zone")
+        to_zone = payload.get("to_zone")
+        unit_id = source.get("unit_id")
+        if isinstance(unit_id, str):
+            self.unit_card_instance_ids.setdefault(unit_id, card_instance_id)
+        self._remove_from_zone(player, from_zone, card_instance_id, unit_id)
+        self._add_to_zone(player, to_zone, card_instance_id, unit_id)
+
+    def _remove_from_zone(
+        self,
+        player: ReplayViewerPlayerState,
+        zone: Any,
+        card_instance_id: str,
+        unit_id: Any,
+    ) -> None:
+        if zone == "deck":
+            _remove_if_present(player.deck, card_instance_id)
+        elif zone == "hand":
+            _remove_if_present(player.hand, card_instance_id)
+        elif zone == "battlefield" and isinstance(unit_id, str):
+            _remove_if_present(player.battlefield, unit_id)
+        elif zone == "trigger_zone":
+            _remove_if_present(player.trigger_zone, card_instance_id)
+        elif zone == "discard_pile":
+            _remove_if_present(player.discard_pile, card_instance_id)
+
+    def _add_to_zone(
+        self,
+        player: ReplayViewerPlayerState,
+        zone: Any,
+        card_instance_id: str,
+        unit_id: Any,
+    ) -> None:
+        if zone == "deck":
+            player.deck.append(card_instance_id)
+        elif zone == "hand":
+            player.hand.append(card_instance_id)
+        elif zone == "battlefield" and isinstance(unit_id, str):
+            player.battlefield.append(unit_id)
+        elif zone == "trigger_zone":
+            player.trigger_zone.append(card_instance_id)
+        elif zone == "discard_pile":
+            player.discard_pile.insert(0, card_instance_id)
+
+    def _format_unit(
+        self,
+        unit_id: str,
+        *,
+        card_catalog: dict[str, CardDefinition],
+        instance_card_nos: dict[str, str],
+    ) -> str:
+        card_instance_id = self.unit_card_instance_ids.get(unit_id)
+        if card_instance_id is None:
+            return unit_id
+        card = self._format_card_instance(card_instance_id, card_catalog=card_catalog, instance_card_nos=instance_card_nos)
+        level = self.unit_levels.get(unit_id, 1)
+        return f"{unit_id}:{card}:LV{level}"
+
+    def _format_card_instance(
+        self,
+        card_instance_id: str,
+        *,
+        card_catalog: dict[str, CardDefinition],
+        instance_card_nos: dict[str, str],
+    ) -> str:
+        card_no = instance_card_nos.get(card_instance_id)
+        if card_no is None:
+            return card_instance_id
+        return f"{card_instance_id}:{_format_card(card_no, card_catalog)}"
+
+    def _player(self, player_id: str) -> ReplayViewerPlayerState:
+        if player_id not in self.players:
+            self.players[player_id] = ReplayViewerPlayerState()
+        return self.players[player_id]
+
+
+def _remove_if_present(items: list[str], item: str) -> None:
+    try:
+        items.remove(item)
+    except ValueError:
+        pass
 
 
 def _collect_card_instances(replay_record: dict[str, Any]) -> dict[str, str]:

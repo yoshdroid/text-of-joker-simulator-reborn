@@ -434,7 +434,19 @@ class ProtocolTest(unittest.TestCase):
             "initial_state": {
                 "card_instances": {
                     "c0001": {"card_no": "1-0-040", "owner_player_id": "P1", "level": 1}
-                }
+                },
+                "players": {
+                    "P1": {
+                        "life": 7,
+                        "current_cp": 0,
+                        "deck": [],
+                        "hand": ["c0001"],
+                        "battlefield": [],
+                        "trigger_zone": [],
+                        "discard_pile": [],
+                    }
+                },
+                "units": {},
             },
             "events": [
                 {
@@ -446,16 +458,39 @@ class ProtocolTest(unittest.TestCase):
                     "cause_event_no": None,
                     "source": {"card_no": "1-0-040", "card_instance_id": "c0001", "unit_id": None, "ability_id": None},
                     "payload": {"action": "drive_unit", "card_instance_id": "c0001"},
+                },
+                {
+                    "event_no": 2,
+                    "type": "card_moved",
+                    "round_no": 1,
+                    "turn_no": 1,
+                    "actor_player_id": "P1",
+                    "cause_event_no": 1,
+                    "source": {"card_no": "1-0-040", "card_instance_id": "c0001", "unit_id": "u0001", "ability_id": None},
+                    "payload": {"from_zone": "hand", "to_zone": "battlefield", "owner_player_id": "P1"},
+                },
+                {
+                    "event_no": 3,
+                    "type": "turn_ended",
+                    "round_no": 1,
+                    "turn_no": 1,
+                    "actor_player_id": "P1",
+                    "cause_event_no": None,
+                    "source": {"card_no": None, "card_instance_id": None, "unit_id": None, "ability_id": None},
+                    "payload": {},
                 }
             ],
         }
 
         lines = format_replay_events(replay_record, card_catalog=self.catalog)
 
-        self.assertEqual(len(lines), 1)
+        self.assertEqual(len(lines), 5)
         self.assertIn("0001 R1 T1 actor=P1 cause=- action_declared", lines[0])
         self.assertIn(self.catalog["1-0-040"].name, lines[0])
         self.assertIn('"card_instance_id_card"', lines[0])
+        self.assertEqual(lines[3], "     state:")
+        self.assertIn("P1 life=7 cp=0 hand=0 deck=0 discard=0", lines[4])
+        self.assertIn("u0001:", lines[4])
 
     def test_replay_viewer_cli_prints_match_cli_replay(self) -> None:
         output_dir = ROOT / "test_output" / "replay_viewer"
@@ -520,6 +555,8 @@ class ProtocolTest(unittest.TestCase):
         lines = output.getvalue().splitlines()
         self.assertGreater(len(lines), 1)
         self.assertTrue(lines[0].startswith("0001 R1 T1 actor=- cause=- match_started"))
+        self.assertTrue(any(line == "     state:" for line in lines))
+        self.assertTrue(any("battlefield=[" in line for line in lines))
 
     def test_json_line_player_uses_valid_action_response(self) -> None:
         legal_actions = [{"type": "pass"}, {"type": "drive_unit", "card_instance_id": "c0001"}]
