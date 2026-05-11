@@ -551,15 +551,17 @@ class EngineTest(unittest.TestCase):
 
     def test_fox_commando_oc_cost_discards_two_and_draws_two(self) -> None:
         state = create_game_state(self.catalog)
-        base_card = state.create_card_instance("1-0-041", "P1", level=2)
-        material_card = state.create_card_instance("1-0-041", "P1")
+        target_card = state.create_card_instance("1-0-041", "P1")
+        first_material = state.create_card_instance("1-0-041", "P1")
+        second_material = state.create_card_instance("1-0-041", "P1")
         first_cost = state.create_card_instance("1-0-040", "P1")
         second_cost = state.create_card_instance("1-0-001", "P1")
         draw_one = state.create_card_instance("1-0-004", "P1")
         draw_two = state.create_card_instance("1-0-005", "P1")
-        unit = state.create_unit(base_card.instance_id)
-        state.players["P1"].battlefield.add(unit.unit_id)
-        state.players["P1"].hand.add(material_card.instance_id)
+        state.players["P1"].current_cp = 10
+        state.players["P1"].hand.add(target_card.instance_id)
+        state.players["P1"].hand.add(first_material.instance_id)
+        state.players["P1"].hand.add(second_material.instance_id)
         state.players["P1"].hand.add(first_cost.instance_id)
         state.players["P1"].hand.add(second_cost.instance_id)
         state.players["P1"].deck.cards.extend([draw_one.instance_id, draw_two.instance_id])
@@ -567,31 +569,40 @@ class EngineTest(unittest.TestCase):
         def choose_cost(_state, _source_unit, _ability, _request_event, _step, _legal_choices):
             return {"card_instance_ids": [first_cost.instance_id, second_cost.instance_id]}
 
-        overclock_unit(state, "P1", material_card.instance_id, unit.unit_id, ability_cost_choice=choose_cost)
+        override_card(state, "P1", target_card.instance_id, first_material.instance_id)
+        override_card(state, "P1", target_card.instance_id, second_material.instance_id)
+        drive_unit(state, "P1", target_card.instance_id, ability_cost_choice=choose_cost)
 
-        self.assertEqual(set(state.players["P1"].discard_pile.cards), {first_cost.instance_id, second_cost.instance_id})
+        self.assertEqual(
+            set(state.players["P1"].discard_pile.cards),
+            {first_material.instance_id, second_material.instance_id, first_cost.instance_id, second_cost.instance_id},
+        )
         self.assertEqual(state.players["P1"].hand.cards, [draw_one.instance_id, draw_two.instance_id])
         self.assertIn("ability_cost_paid", [event.type for event in state.event_store.events])
         self.assertIn("cards_drawn", [event.type for event in state.event_store.events])
 
     def test_bakudalman_oc_deals_damage_to_all_rival_units(self) -> None:
         state = create_game_state(self.catalog)
-        base_card = state.create_card_instance("1-0-003", "P1", level=2)
-        material_card = state.create_card_instance("1-0-003", "P1")
+        target_card = state.create_card_instance("1-0-003", "P1")
+        first_material = state.create_card_instance("1-0-003", "P1")
+        second_material = state.create_card_instance("1-0-003", "P1")
         first_target_card = state.create_card_instance("1-0-048", "P2")
         second_target_card = state.create_card_instance("1-0-048", "P2")
         own_unit_card = state.create_card_instance("1-0-048", "P1")
-        source_unit = state.create_unit(base_card.instance_id)
         first_target = state.create_unit(first_target_card.instance_id)
         second_target = state.create_unit(second_target_card.instance_id)
         own_unit = state.create_unit(own_unit_card.instance_id)
-        state.players["P1"].battlefield.add(source_unit.unit_id)
+        state.players["P1"].current_cp = 10
+        state.players["P1"].hand.add(target_card.instance_id)
+        state.players["P1"].hand.add(first_material.instance_id)
+        state.players["P1"].hand.add(second_material.instance_id)
         state.players["P1"].battlefield.add(own_unit.unit_id)
-        state.players["P1"].hand.add(material_card.instance_id)
         state.players["P2"].battlefield.add(first_target.unit_id)
         state.players["P2"].battlefield.add(second_target.unit_id)
 
-        overclock_unit(state, "P1", material_card.instance_id, source_unit.unit_id)
+        override_card(state, "P1", target_card.instance_id, first_material.instance_id)
+        override_card(state, "P1", target_card.instance_id, second_material.instance_id)
+        drive_unit(state, "P1", target_card.instance_id)
 
         damage_events = [event for event in state.event_store.events if event.type == "damage_dealt"]
         self.assertEqual(
@@ -602,13 +613,17 @@ class EngineTest(unittest.TestCase):
 
     def test_bakudalman_oc_resolves_and_fizzles_when_no_rival_units(self) -> None:
         state = create_game_state(self.catalog)
-        base_card = state.create_card_instance("1-0-003", "P1", level=2)
-        material_card = state.create_card_instance("1-0-003", "P1")
-        source_unit = state.create_unit(base_card.instance_id)
-        state.players["P1"].battlefield.add(source_unit.unit_id)
-        state.players["P1"].hand.add(material_card.instance_id)
+        target_card = state.create_card_instance("1-0-003", "P1")
+        first_material = state.create_card_instance("1-0-003", "P1")
+        second_material = state.create_card_instance("1-0-003", "P1")
+        state.players["P1"].current_cp = 10
+        state.players["P1"].hand.add(target_card.instance_id)
+        state.players["P1"].hand.add(first_material.instance_id)
+        state.players["P1"].hand.add(second_material.instance_id)
 
-        overclock_unit(state, "P1", material_card.instance_id, source_unit.unit_id)
+        override_card(state, "P1", target_card.instance_id, first_material.instance_id)
+        override_card(state, "P1", target_card.instance_id, second_material.instance_id)
+        drive_unit(state, "P1", target_card.instance_id)
 
         self.assertIn("ability_resolved", [event.type for event in state.event_store.events])
         self.assertIn("effect_fizzled", [event.type for event in state.event_store.events])
@@ -616,19 +631,23 @@ class EngineTest(unittest.TestCase):
 
     def test_don_pelotzanno_oc_destroys_level_two_or_higher_rival_unit(self) -> None:
         state = create_game_state(self.catalog)
-        base_card = state.create_card_instance("1-0-030", "P1", level=2)
-        material_card = state.create_card_instance("1-0-030", "P1")
+        target_card = state.create_card_instance("1-0-030", "P1")
+        first_material = state.create_card_instance("1-0-030", "P1")
+        second_material = state.create_card_instance("1-0-030", "P1")
         level_one_card = state.create_card_instance("1-0-040", "P2", level=1)
         level_two_card = state.create_card_instance("1-0-048", "P2", level=2)
-        source_unit = state.create_unit(base_card.instance_id)
         level_one = state.create_unit(level_one_card.instance_id)
         level_two = state.create_unit(level_two_card.instance_id)
-        state.players["P1"].battlefield.add(source_unit.unit_id)
-        state.players["P1"].hand.add(material_card.instance_id)
+        state.players["P1"].current_cp = 10
+        state.players["P1"].hand.add(target_card.instance_id)
+        state.players["P1"].hand.add(first_material.instance_id)
+        state.players["P1"].hand.add(second_material.instance_id)
         state.players["P2"].battlefield.add(level_one.unit_id)
         state.players["P2"].battlefield.add(level_two.unit_id)
 
-        overclock_unit(state, "P1", material_card.instance_id, source_unit.unit_id)
+        override_card(state, "P1", target_card.instance_id, first_material.instance_id)
+        override_card(state, "P1", target_card.instance_id, second_material.instance_id)
+        drive_unit(state, "P1", target_card.instance_id)
 
         self.assertIn(level_one.unit_id, state.units)
         self.assertNotIn(level_two.unit_id, state.units)
@@ -638,16 +657,20 @@ class EngineTest(unittest.TestCase):
 
     def test_don_pelotzanno_oc_resolves_and_fizzles_without_level_two_target(self) -> None:
         state = create_game_state(self.catalog)
-        base_card = state.create_card_instance("1-0-030", "P1", level=2)
-        material_card = state.create_card_instance("1-0-030", "P1")
+        target_card = state.create_card_instance("1-0-030", "P1")
+        first_material = state.create_card_instance("1-0-030", "P1")
+        second_material = state.create_card_instance("1-0-030", "P1")
         level_one_card = state.create_card_instance("1-0-040", "P2", level=1)
-        source_unit = state.create_unit(base_card.instance_id)
         level_one = state.create_unit(level_one_card.instance_id)
-        state.players["P1"].battlefield.add(source_unit.unit_id)
-        state.players["P1"].hand.add(material_card.instance_id)
+        state.players["P1"].current_cp = 10
+        state.players["P1"].hand.add(target_card.instance_id)
+        state.players["P1"].hand.add(first_material.instance_id)
+        state.players["P1"].hand.add(second_material.instance_id)
         state.players["P2"].battlefield.add(level_one.unit_id)
 
-        overclock_unit(state, "P1", material_card.instance_id, source_unit.unit_id)
+        override_card(state, "P1", target_card.instance_id, first_material.instance_id)
+        override_card(state, "P1", target_card.instance_id, second_material.instance_id)
+        drive_unit(state, "P1", target_card.instance_id)
 
         self.assertIn(level_one.unit_id, state.units)
         self.assertIn("ability_resolved", [event.type for event in state.event_store.events])
@@ -656,39 +679,42 @@ class EngineTest(unittest.TestCase):
 
     def test_kerol_kid_oc_reduces_rival_unit_base_bp_permanently(self) -> None:
         state = create_game_state(self.catalog)
-        base_card = state.create_card_instance("1-0-042", "P1", level=2)
-        material_card = state.create_card_instance("1-0-042", "P1")
+        source_card = state.create_card_instance("1-0-042", "P1")
+        first_material = state.create_card_instance("1-0-042", "P1")
+        second_material = state.create_card_instance("1-0-042", "P1")
         target_card = state.create_card_instance("1-0-048", "P2")
-        source_unit = state.create_unit(base_card.instance_id)
-        target = state.create_unit(target_card.instance_id)
-        state.players["P1"].battlefield.add(source_unit.unit_id)
-        state.players["P1"].hand.add(material_card.instance_id)
-        state.players["P2"].battlefield.add(target.unit_id)
-        before_base_bp = get_unit_base_bp(state, target)
+        rival_target = state.create_unit(target_card.instance_id)
+        state.players["P1"].current_cp = 10
+        state.players["P1"].hand.add(source_card.instance_id)
+        state.players["P1"].hand.add(first_material.instance_id)
+        state.players["P1"].hand.add(second_material.instance_id)
+        state.players["P2"].battlefield.add(rival_target.unit_id)
+        before_base_bp = get_unit_base_bp(state, rival_target)
 
-        overclock_unit(state, "P1", material_card.instance_id, source_unit.unit_id)
+        override_card(state, "P1", source_card.instance_id, first_material.instance_id)
+        override_card(state, "P1", source_card.instance_id, second_material.instance_id)
+        drive_unit(state, "P1", source_card.instance_id)
         end_turn(state, "P1")
 
-        self.assertEqual(get_unit_base_bp(state, target), before_base_bp - 3)
-        self.assertEqual(get_unit_bp(state, target), before_base_bp - 3)
-        self.assertEqual(target.base_bp_modifiers[-1]["duration"], "permanent")
+        self.assertEqual(get_unit_base_bp(state, rival_target), before_base_bp - 3)
+        self.assertEqual(get_unit_bp(state, rival_target), before_base_bp - 3)
+        self.assertEqual(rival_target.base_bp_modifiers[-1]["duration"], "permanent")
         self.assertIn("base_bp_modified", [event.type for event in state.event_store.events])
 
-    def test_overclock_clears_existing_damage_but_keeps_base_bp_modifier(self) -> None:
+    def test_battlefield_unit_override_is_rejected(self) -> None:
         state = create_game_state(self.catalog)
-        base_card = state.create_card_instance("1-0-048", "P1", level=2)
+        base_card = state.create_card_instance("1-0-048", "P1")
         material_card = state.create_card_instance("1-0-048", "P1")
         unit = state.create_unit(base_card.instance_id)
-        unit.current_damage = 2000
-        unit.base_bp_modifiers.append({"amount": -1, "duration": "permanent", "source_event_no": 0})
         state.players["P1"].battlefield.add(unit.unit_id)
         state.players["P1"].hand.add(material_card.instance_id)
 
-        overclock_unit(state, "P1", material_card.instance_id, unit.unit_id)
+        with self.assertRaisesRegex(ValueError, "battlefield unit override"):
+            overclock_unit(state, "P1", material_card.instance_id, unit.unit_id)
 
-        self.assertEqual(unit.current_damage, 0)
-        self.assertEqual(unit.base_bp_modifiers, [{"amount": -1, "duration": "permanent", "source_event_no": 0}])
-        self.assertIn("unit_damage_cleared", [event.type for event in state.event_store.events])
+        self.assertEqual(state.players["P1"].hand.cards, [material_card.instance_id])
+        self.assertEqual(state.players["P1"].battlefield.units, [unit.unit_id])
+        self.assertEqual(state.event_store.events, ())
 
     def test_viper_cip_returns_random_unit_from_discard_to_hand_preserving_instance(self) -> None:
         state = create_game_state(self.catalog)
@@ -1162,6 +1188,7 @@ class EngineTest(unittest.TestCase):
         self.assertIn("attack", action_types)
         self.assertIn("set_trigger", action_types)
         self.assertIn("override_card", action_types)
+        self.assertNotIn("overclock_unit", action_types)
         self.assertIn("pass", action_types)
 
     def test_first_player_cannot_attack_on_first_turn(self) -> None:

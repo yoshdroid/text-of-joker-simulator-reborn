@@ -2,7 +2,7 @@ from __future__ import annotations
 
 from typing import Any
 
-from .actions import drive_unit, overclock_unit, override_card, set_trigger
+from .actions import drive_unit, override_card, set_trigger
 from .combat import attack_player, attack_unit
 from .state import CardDefinition, GameState, create_game_state
 from .turn import end_turn, start_turn
@@ -61,7 +61,7 @@ def apply_intent(state: GameState, intent: dict[str, Any]) -> None:
     elif intent_type == "override_card":
         override_card(state, player_id, intent["target_card_instance_id"], intent["material_card_instance_id"])
     elif intent_type == "overclock_unit":
-        overclock_unit(state, player_id, intent["card_instance_id"], intent["target_unit_id"])
+        raise ValueError("overclock_unit intent is deprecated; use override_card in hand and drive_unit")
     elif intent_type == "attack_player":
         attack_player(state, player_id, intent["attacker_unit_id"])
     elif intent_type == "attack_unit":

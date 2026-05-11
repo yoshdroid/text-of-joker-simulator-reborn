@@ -292,68 +292,9 @@ def overclock_unit(
     optional_ability_choice: OptionalAbilityChoice | None = None,
     ability_cost_choice: AbilityCostChoice | None = None,
 ) -> UnitState:
-    player = state.players[player_id]
-    unit = state.units[target_unit_id]
-    instance = state.card_instances[card_instance_id]
-    if unit.owner_player_id != player_id:
-        raise ValueError(f"unit {target_unit_id} is not controlled by {player_id}")
-    if unit.card_no != instance.card_no:
-        raise ValueError("overclock requires the same card number")
-    if card_instance_id not in player.hand.cards:
-        raise ValueError(f"card is not in hand: {card_instance_id}")
-    action_event = state.event_store.append(
-        "action_declared",
-        round_no=state.round_no,
-        turn_no=state.turn_no,
-        actor_player_id=player_id,
-        source=EventSource(card_no=instance.card_no, card_instance_id=card_instance_id, unit_id=unit.unit_id),
-        payload={"action": "overclock_unit", "target_unit_id": target_unit_id},
+    raise ValueError(
+        "battlefield unit override is not supported; use override_card on cards in hand, then drive a level 3 card"
     )
-    player.hand.remove(card_instance_id)
-    unit.stacked_card_instance_ids.append(card_instance_id)
-    state.event_store.append(
-        "card_moved",
-        round_no=state.round_no,
-        turn_no=state.turn_no,
-        actor_player_id=player_id,
-        cause_event_no=action_event.event_no,
-        source=EventSource(card_no=instance.card_no, card_instance_id=card_instance_id),
-        payload={
-            "from_zone": "hand",
-            "to_zone": "unit_stack",
-            "owner_player_id": player_id,
-            "unit_id": unit.unit_id,
-        },
-    )
-    before_level = unit.level
-    unit.level = min(3, unit.level + 1)
-    _clear_unit_damage(state, unit, action_event.event_no, reason="level_changed")
-    level_event = state.event_store.append(
-        "unit_level_changed",
-        round_no=state.round_no,
-        turn_no=state.turn_no,
-        actor_player_id=player_id,
-        cause_event_no=action_event.event_no,
-        source=EventSource(card_no=unit.card_no, card_instance_id=unit.card_instance_id, unit_id=unit.unit_id),
-        payload={
-            "before_level": before_level,
-            "after_level": unit.level,
-            "stacked_card_instance_ids": list(unit.stacked_card_instance_ids),
-        },
-    )
-    oc_event = state.event_store.append(
-        "unit_overclocked",
-        round_no=state.round_no,
-        turn_no=state.turn_no,
-        actor_player_id=player_id,
-        cause_event_no=level_event.event_no,
-        source=EventSource(card_no=unit.card_no, card_instance_id=unit.card_instance_id, unit_id=unit.unit_id),
-        payload={"before_level": before_level, "after_level": unit.level},
-    )
-    from .resolver import resolve_unit_overclocked
-
-    resolve_unit_overclocked(state, unit, oc_event, get_effect_handlers(), optional_ability_choice, ability_cost_choice)
-    return unit
 
 
 def _resolve_drive_overclock(
@@ -869,28 +810,6 @@ def _handle_return_unit_to_hand(
             "after_level": target_instance.level,
         },
     )
-
-    for stacked_card_instance_id in list(target.stacked_card_instance_ids):
-        if stacked_card_instance_id == target.card_instance_id:
-            continue
-        stacked_instance = state.card_instances[stacked_card_instance_id]
-        stacked_instance.level = 1
-        target_player.discard_pile.add(stacked_card_instance_id)
-        state.event_store.append(
-            "card_moved",
-            round_no=state.round_no,
-            turn_no=state.turn_no,
-            actor_player_id=target.owner_player_id,
-            cause_event_no=ability_event.event_no,
-            source=EventSource(card_no=stacked_instance.card_no, card_instance_id=stacked_card_instance_id),
-            payload={
-                "from_zone": "unit_stack",
-                "to_zone": "discard_pile",
-                "owner_player_id": target.owner_player_id,
-                "unit_id": target.unit_id,
-                "reason": "returned_unit_stack_cleared",
-            },
-        )
 
     state.event_store.append(
         "unit_returned_to_hand",

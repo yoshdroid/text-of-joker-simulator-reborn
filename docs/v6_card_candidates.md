@@ -67,7 +67,7 @@ selector が 1 つだけの前提を崩し、子プログラムに十分な対�
 - 戻された card instance の level は 1 に初期化する。
 - 戻される側の手札が 7 枚未満なら hand に移動する。
 - 戻される側の手札が 7 枚以上なら hand ではなく discard pile に移動する。
-- ユニットに重なっていた素材カードは discard pile に移動し、unit stack を残さない。
+- 同名カード同士を重ねて clock up できるのは hand 内だけであり、battlefield unit に素材カードは重ねない。
 
 ### 3.3 discard pile / deck search / reveal
 

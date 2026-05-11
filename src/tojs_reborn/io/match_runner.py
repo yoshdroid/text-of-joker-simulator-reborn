@@ -4,7 +4,7 @@ import inspect
 from dataclasses import dataclass, field
 from typing import Protocol
 
-from tojs_reborn.engine.actions import drive_unit, overclock_unit, override_card, set_trigger
+from tojs_reborn.engine.actions import drive_unit, override_card, set_trigger
 from tojs_reborn.engine.combat import declare_attack, declare_block, resolve_unblocked_attack
 from tojs_reborn.engine.legal_actions import list_block_actions, list_legal_actions
 from tojs_reborn.engine.replay import build_replay_record, snapshot_initial_state, state_from_snapshot
@@ -214,16 +214,6 @@ class MatchRunner:
             self._process_windows_from(first_event_no)
         elif action_type == "override_card":
             override_card(self.state, player_id, action["target_card_instance_id"], action["material_card_instance_id"])
-            self._process_windows_from(first_event_no)
-        elif action_type == "overclock_unit":
-            overclock_unit(
-                self.state,
-                player_id,
-                action["card_instance_id"],
-                action["target_unit_id"],
-                self._choose_optional_ability,
-                self._choose_ability_cost,
-            )
             self._process_windows_from(first_event_no)
         elif action_type == "attack":
             attack_event = declare_attack(
