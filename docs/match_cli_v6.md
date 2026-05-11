@@ -17,6 +17,7 @@ python -m tojs_reborn.io.replay_viewer --cards carddata/generated/cards.normaliz
 - `1-0-042` ケロール・キッド: OC 時の永続基本BP低下。
 - `1-0-041` フォクスコマンドー: OC 時の強制 cost choice。
 - `1-0-010` 不知火伍式: attack 時の強制 cost choice。
+- `1-0-047` ダルタニャン: CIP で CP+2、attack 時に 1 draw。
 - `1-0-003` バク・ダルマン: 相手全ユニット対象。
 - `1-0-005` ヘルハウンド: 相手 trigger zone のランダム破壊。
 - `1-0-033` ヴァイパー: 捨札のユニットをランダムに手札へ戻す。

@@ -783,6 +783,55 @@
         }
       ]
     },
+    "1-0-047": {
+      "card_name": "ダルタニャン",
+      "abilities": [
+        {
+          "ability_key": "1-0-047:a1",
+          "ability_name": "チャージ",
+          "source_text": "このユニットがフィールドに出た時、あなたのＣＰを＋２する。",
+          "status": "supported",
+          "timing": "SELF_CIP",
+          "optional": false,
+          "priority": {
+            "band": "unit",
+            "order": "source_only"
+          },
+          "condition": null,
+          "cost_steps": [],
+          "selector": null,
+          "effect_steps": [
+            {
+              "effect": "change_cp",
+              "player": "owner",
+              "amount": 2
+            }
+          ]
+        },
+        {
+          "ability_key": "1-0-047:a2",
+          "ability_name": "ドロー",
+          "source_text": "このユニットがアタックした時、あなたはカードを１枚引く。",
+          "status": "supported",
+          "timing": "SELF_ATK",
+          "optional": false,
+          "priority": {
+            "band": "unit",
+            "order": "source_only"
+          },
+          "condition": null,
+          "cost_steps": [],
+          "selector": null,
+          "effect_steps": [
+            {
+              "effect": "draw_cards",
+              "player": "owner",
+              "count": 1
+            }
+          ]
+        }
+      ]
+    },
     "1-0-048": {
       "card_name": "ギガマムート",
       "abilities": [

@@ -1015,6 +1015,28 @@ class EngineTest(unittest.TestCase):
             ["1-0-043:a1"],
         )
 
+    def test_dartagnan_cip_changes_cp_and_attack_draws_card(self) -> None:
+        state = create_game_state(self.catalog)
+        state.turn_no = 3
+        state.turn_player_id = "P1"
+        dartagnan = state.create_card_instance("1-0-047", "P1")
+        draw_target = state.create_card_instance("1-0-001", "P1")
+        state.players["P1"].hand.add(dartagnan.instance_id)
+        state.players["P1"].deck.cards.append(draw_target.instance_id)
+        state.players["P1"].current_cp = 10
+
+        unit = drive_unit(state, "P1", dartagnan.instance_id)
+
+        self.assertEqual(state.players["P1"].current_cp, 10 - (self.catalog["1-0-047"].cp or 0) + 2)
+
+        declare_attack(state, "P1", unit.unit_id)
+
+        self.assertEqual(state.players["P1"].hand.cards, [draw_target.instance_id])
+        self.assertEqual(
+            [event.source.ability_id for event in state.event_store.events if event.type == "ability_resolved"],
+            ["1-0-047:a1", "1-0-047:a2"],
+        )
+
     def test_trigger_zone_card_can_be_set_and_destroyed_randomly(self) -> None:
         state = create_game_state(self.catalog, seed=1)
         trigger_card = state.create_card_instance("1-0-065", "P2")
