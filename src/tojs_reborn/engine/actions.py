@@ -1,7 +1,7 @@
 from __future__ import annotations
 
 from .events import EventSource, FactEvent
-from .rules import get_unit_base_bp, get_unit_bp, opponent_id
+from .rules import MAX_HAND_SIZE, get_unit_base_bp, get_unit_bp, opponent_id
 from .resolver import AbilityCostChoice, OptionalAbilityChoice, resolve_unit_entered, resolve_unit_overclocked
 from .state import AbilityDefinition, GameState, UnitState
 
@@ -21,6 +21,7 @@ def get_effect_handlers():
         "modify_bp": _handle_modify_bp,
         "move_random_discard_to_hand": _handle_move_random_discard_to_hand,
         "recover_action": _handle_recover_action,
+        "return_unit_to_hand": _handle_return_unit_to_hand,
     }
 
 
@@ -823,6 +824,89 @@ def _handle_destroy_unit(
     from .combat import destroy_unit
 
     destroy_unit(state, target, ability_event.event_no, reason="effect")
+
+
+def _handle_return_unit_to_hand(
+    state: GameState,
+    unit: UnitState,
+    ability: AbilityDefinition,
+    ability_event: FactEvent,
+    step: dict,
+) -> None:
+    target = _resolve_unit_target_for_effect(state, unit, ability, ability_event, step.get("target"))
+    if target is None:
+        _append_effect_fizzled(state, unit.owner_player_id, ability_event, step, "no_valid_target")
+        return
+    target_player = state.players[target.owner_player_id]
+    if target.unit_id not in state.units:
+        _append_effect_fizzled(state, unit.owner_player_id, ability_event, step, "target_not_on_battlefield")
+        return
+
+    target_player.battlefield.remove(target.unit_id)
+    target_instance = state.card_instances[target.card_instance_id]
+    before_level = target_instance.level
+    target_instance.level = 1
+    to_zone = "hand" if len(target_player.hand.cards) < MAX_HAND_SIZE else "discard_pile"
+    if to_zone == "hand":
+        target_player.hand.add(target.card_instance_id)
+    else:
+        target_player.discard_pile.add(target.card_instance_id)
+    state.event_store.append(
+        "card_moved",
+        round_no=state.round_no,
+        turn_no=state.turn_no,
+        actor_player_id=target.owner_player_id,
+        cause_event_no=ability_event.event_no,
+        source=EventSource(card_no=target.card_no, card_instance_id=target.card_instance_id, unit_id=target.unit_id),
+        payload={
+            "from_zone": "battlefield",
+            "to_zone": to_zone,
+            "owner_player_id": target.owner_player_id,
+            "reason": "return_unit",
+            "hand_limit": MAX_HAND_SIZE,
+            "hand_limit_exceeded": to_zone == "discard_pile",
+            "before_level": before_level,
+            "after_level": target_instance.level,
+        },
+    )
+
+    for stacked_card_instance_id in list(target.stacked_card_instance_ids):
+        if stacked_card_instance_id == target.card_instance_id:
+            continue
+        stacked_instance = state.card_instances[stacked_card_instance_id]
+        stacked_instance.level = 1
+        target_player.discard_pile.add(stacked_card_instance_id)
+        state.event_store.append(
+            "card_moved",
+            round_no=state.round_no,
+            turn_no=state.turn_no,
+            actor_player_id=target.owner_player_id,
+            cause_event_no=ability_event.event_no,
+            source=EventSource(card_no=stacked_instance.card_no, card_instance_id=stacked_card_instance_id),
+            payload={
+                "from_zone": "unit_stack",
+                "to_zone": "discard_pile",
+                "owner_player_id": target.owner_player_id,
+                "unit_id": target.unit_id,
+                "reason": "returned_unit_stack_cleared",
+            },
+        )
+
+    state.event_store.append(
+        "unit_returned_to_hand",
+        round_no=state.round_no,
+        turn_no=state.turn_no,
+        actor_player_id=unit.owner_player_id,
+        cause_event_no=ability_event.event_no,
+        source=ability_event.source,
+        payload={
+            "target_unit_id": target.unit_id,
+            "target_card_instance_id": target.card_instance_id,
+            "owner_player_id": target.owner_player_id,
+            "to_zone": to_zone,
+        },
+    )
+    del state.units[target.unit_id]
 
 
 def _resolve_unit_target(

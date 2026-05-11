@@ -232,6 +232,38 @@
         }
       ]
     },
+    "1-0-019": {
+      "card_name": "ジャンプー",
+      "abilities": [
+        {
+          "ability_key": "1-0-019:a1",
+          "ability_name": "ジャンプーダンス",
+          "source_text": "このユニットがフィールドに出た時、対戦相手のユニットを１体選ぶ。それを対戦相手の手札に戻す。",
+          "status": "supported",
+          "timing": "SELF_CIP",
+          "optional": false,
+          "priority": {
+            "band": "unit",
+            "order": "source_only"
+          },
+          "condition": null,
+          "cost_steps": [],
+          "selector": {
+            "id": "target",
+            "type": "unit",
+            "controller": "rival",
+            "count": 1,
+            "required": true
+          },
+          "effect_steps": [
+            {
+              "effect": "return_unit_to_hand",
+              "target": "target"
+            }
+          ]
+        }
+      ]
+    },
     "1-0-020": {
       "card_name": "カイム",
       "abilities": [

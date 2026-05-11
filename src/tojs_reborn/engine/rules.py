@@ -3,6 +3,9 @@ from __future__ import annotations
 from .state import GameState, UnitState
 
 
+MAX_HAND_SIZE = 7
+
+
 def opponent_id(player_id: str) -> str:
     return "P2" if player_id == "P1" else "P1"
 

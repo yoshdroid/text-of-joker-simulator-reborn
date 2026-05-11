@@ -334,6 +334,48 @@ class EngineTest(unittest.TestCase):
         draw_events = [event for event in state.event_store.events if event.type == "cards_drawn"]
         self.assertEqual(draw_events[-1].payload["count"], 0)
 
+    def test_jumpoo_cip_returns_rival_unit_to_hand_and_resets_level_to_one(self) -> None:
+        state = create_game_state(self.catalog)
+        jumpoo = state.create_card_instance("1-0-019", "P1")
+        target_card = state.create_card_instance("1-0-001", "P2", level=2)
+        target = state.create_unit(target_card.instance_id)
+        state.players["P1"].current_cp = 10
+        state.players["P1"].hand.add(jumpoo.instance_id)
+        state.players["P2"].battlefield.add(target.unit_id)
+
+        drive_unit(state, "P1", jumpoo.instance_id)
+
+        self.assertNotIn(target.unit_id, state.units)
+        self.assertEqual(state.players["P2"].battlefield.units, [])
+        self.assertEqual(state.players["P2"].hand.cards, [target_card.instance_id])
+        self.assertEqual(state.card_instances[target_card.instance_id].level, 1)
+        self.assertIn("unit_returned_to_hand", [event.type for event in state.event_store.events])
+
+    def test_jumpoo_cip_sends_returned_unit_to_discard_when_rival_hand_is_full(self) -> None:
+        state = create_game_state(self.catalog)
+        jumpoo = state.create_card_instance("1-0-019", "P1")
+        target_card = state.create_card_instance("1-0-001", "P2", level=3)
+        target = state.create_unit(target_card.instance_id)
+        state.players["P1"].current_cp = 10
+        state.players["P1"].hand.add(jumpoo.instance_id)
+        state.players["P2"].battlefield.add(target.unit_id)
+        for _ in range(7):
+            hand_card = state.create_card_instance("1-0-004", "P2")
+            state.players["P2"].hand.add(hand_card.instance_id)
+
+        drive_unit(state, "P1", jumpoo.instance_id)
+
+        self.assertNotIn(target.unit_id, state.units)
+        self.assertNotIn(target_card.instance_id, state.players["P2"].hand.cards)
+        self.assertIn(target_card.instance_id, state.players["P2"].discard_pile.cards)
+        self.assertEqual(state.card_instances[target_card.instance_id].level, 1)
+        move_events = [
+            event for event in state.event_store.events
+            if event.type == "card_moved" and event.payload.get("reason") == "return_unit"
+        ]
+        self.assertEqual(move_events[-1].payload["to_zone"], "discard_pile")
+        self.assertTrue(move_events[-1].payload["hand_limit_exceeded"])
+
     def test_rival_cip_existing_opponent_unit_triggers_but_opponent_happaloid_self_cip_does_not(self) -> None:
         catalog = dict(self.catalog)
         catalog["T-0-002"] = draw_watcher_card("T-0-002", "Rival CIP Watcher", "RIVAL_CIP")

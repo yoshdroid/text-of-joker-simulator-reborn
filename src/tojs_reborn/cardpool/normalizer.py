@@ -47,6 +47,7 @@ KNOWN_EFFECTS = {
     "move_random_discard_to_hand",
     "move_card",
     "recover_action",
+    "return_unit_to_hand",
 }
 
 ENGINE_SUPPORTED_EFFECTS = {
@@ -63,6 +64,7 @@ ENGINE_SUPPORTED_EFFECTS = {
     "modify_base_bp",
     "move_random_discard_to_hand",
     "recover_action",
+    "return_unit_to_hand",
 }
 
 
