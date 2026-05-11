@@ -258,6 +258,47 @@ class EngineTest(unittest.TestCase):
         self.assertIn("effect_fizzled", [event.type for event in state.event_store.events])
         self.assertNotIn("damage_dealt", [event.type for event in state.event_store.events])
 
+    def test_raguel_cip_deals_damage_to_all_exhausted_rival_units_only(self) -> None:
+        state = create_game_state(self.catalog)
+        ready_card = state.create_card_instance("1-0-048", "P2")
+        first_exhausted_card = state.create_card_instance("1-0-048", "P2")
+        second_exhausted_card = state.create_card_instance("1-0-048", "P2")
+        ready_unit = state.create_unit(ready_card.instance_id)
+        first_exhausted = state.create_unit(first_exhausted_card.instance_id)
+        second_exhausted = state.create_unit(second_exhausted_card.instance_id)
+        first_exhausted.exhausted = True
+        second_exhausted.exhausted = True
+        state.players["P2"].battlefield.add(ready_unit.unit_id)
+        state.players["P2"].battlefield.add(first_exhausted.unit_id)
+        state.players["P2"].battlefield.add(second_exhausted.unit_id)
+        entering_card = state.create_card_instance("1-0-023", "P1")
+        state.players["P1"].hand.add(entering_card.instance_id)
+        state.players["P1"].current_cp = 10
+
+        drive_unit(state, "P1", entering_card.instance_id)
+
+        damage_events = [event for event in state.event_store.events if event.type == "damage_dealt"]
+        self.assertEqual(
+            [event.payload["target_unit_id"] for event in damage_events],
+            [first_exhausted.unit_id, second_exhausted.unit_id],
+        )
+        self.assertEqual(ready_unit.current_damage, 0)
+
+    def test_raguel_cip_resolves_and_fizzles_when_no_exhausted_rival_units(self) -> None:
+        state = create_game_state(self.catalog)
+        ready_card = state.create_card_instance("1-0-048", "P2")
+        ready_unit = state.create_unit(ready_card.instance_id)
+        state.players["P2"].battlefield.add(ready_unit.unit_id)
+        entering_card = state.create_card_instance("1-0-023", "P1")
+        state.players["P1"].hand.add(entering_card.instance_id)
+        state.players["P1"].current_cp = 10
+
+        drive_unit(state, "P1", entering_card.instance_id)
+
+        self.assertIn("ability_resolved", [event.type for event in state.event_store.events])
+        self.assertIn("effect_fizzled", [event.type for event in state.event_store.events])
+        self.assertNotIn("damage_dealt", [event.type for event in state.event_store.events])
+
     def test_rival_cip_existing_opponent_unit_triggers_but_opponent_happaloid_self_cip_does_not(self) -> None:
         catalog = dict(self.catalog)
         catalog["T-0-002"] = draw_watcher_card("T-0-002", "Rival CIP Watcher", "RIVAL_CIP")

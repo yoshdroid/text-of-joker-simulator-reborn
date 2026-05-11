@@ -232,6 +232,40 @@
         }
       ]
     },
+    "1-0-023": {
+      "card_name": "ラグエル",
+      "abilities": [
+        {
+          "ability_key": "1-0-023:a1",
+          "ability_name": "ハードマシンガン",
+          "source_text": "このユニットがフィールドに出た時、対戦相手の全ての行動済ユニットに３０００ダメージを与える。",
+          "status": "supported",
+          "timing": "SELF_CIP",
+          "optional": false,
+          "priority": {
+            "band": "unit",
+            "order": "source_only"
+          },
+          "condition": null,
+          "cost_steps": [],
+          "selector": {
+            "id": "targets",
+            "type": "unit",
+            "controller": "rival",
+            "count": "all",
+            "required": false,
+            "exhausted": true
+          },
+          "effect_steps": [
+            {
+              "effect": "deal_damage_to_units",
+              "target": "targets",
+              "amount": 3000
+            }
+          ]
+        }
+      ]
+    },
     "1-0-061": {
       "card_name": "新品の鎧",
       "abilities": [
