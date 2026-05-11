@@ -52,7 +52,21 @@ python -m tojs_reborn.io.replay_cli --cards carddata/generated/cards.normalized.
 
 event log が一致すれば終了コード 0 を返す。
 
-## 5. 現時点の未実装
+## 5. replay viewer
+
+保存した replay の event log を 1 event 1 行で表示できる。
+
+```powershell
+python -m tojs_reborn.io.replay_viewer --cards carddata/generated/cards.normalized.json --replay test_output/replay.json
+```
+
+payload を省略して流れだけ確認したい場合:
+
+```powershell
+python -m tojs_reborn.io.replay_viewer --cards carddata/generated/cards.normalized.json --replay test_output/replay.json --no-payload
+```
+
+## 6. 現時点の未実装
 
 - mulligan。
 - `state_update` / `private_view.hand` の本格送信。

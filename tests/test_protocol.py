@@ -27,6 +27,7 @@ from tojs_reborn.io.player_runner import (
 )
 from tojs_reborn.io.process_player import start_process_player
 from tojs_reborn.io.replay_cli import run_replay_cli
+from tojs_reborn.io.replay_viewer import format_replay_events, run_replay_viewer_cli
 from tojs_reborn.io.protocol import (
     action_selected_message,
     choice_request_message,
@@ -427,6 +428,98 @@ class ProtocolTest(unittest.TestCase):
             exit_code = run_replay_cli(["--cards", str(cards_path), "--replay", str(replay_path)])
 
         self.assertEqual(exit_code, 0)
+
+    def test_replay_viewer_formats_events_as_one_line_logs(self) -> None:
+        replay_record = {
+            "initial_state": {
+                "card_instances": {
+                    "c0001": {"card_no": "1-0-040", "owner_player_id": "P1", "level": 1}
+                }
+            },
+            "events": [
+                {
+                    "event_no": 1,
+                    "type": "action_declared",
+                    "round_no": 1,
+                    "turn_no": 1,
+                    "actor_player_id": "P1",
+                    "cause_event_no": None,
+                    "source": {"card_no": "1-0-040", "card_instance_id": "c0001", "unit_id": None, "ability_id": None},
+                    "payload": {"action": "drive_unit", "card_instance_id": "c0001"},
+                }
+            ],
+        }
+
+        lines = format_replay_events(replay_record, card_catalog=self.catalog)
+
+        self.assertEqual(len(lines), 1)
+        self.assertIn("0001 R1 T1 actor=P1 cause=- action_declared", lines[0])
+        self.assertIn(self.catalog["1-0-040"].name, lines[0])
+        self.assertIn('"card_instance_id_card"', lines[0])
+
+    def test_replay_viewer_cli_prints_match_cli_replay(self) -> None:
+        output_dir = ROOT / "test_output" / "replay_viewer"
+        output_dir.mkdir(parents=True, exist_ok=True)
+        cards_path = output_dir / "cards.normalized.json"
+        deck1_path = output_dir / "deck1.json"
+        deck2_path = output_dir / "deck2.json"
+        replay_path = output_dir / "replay.json"
+        cards_path.write_text(
+            json.dumps(
+                {
+                    "cards": [
+                        {
+                            "card_no": "1-0-040",
+                            "category": "unit",
+                            "color": "green",
+                            "name": "Happaloid",
+                            "cp": 1,
+                            "bp_by_level": [1000, 1000, 1000],
+                            "abilities": [],
+                        },
+                        {
+                            "card_no": "1-0-001",
+                            "category": "unit",
+                            "color": "red",
+                            "name": "Bloodhound",
+                            "cp": 1,
+                            "bp_by_level": [1000, 1000, 1000],
+                            "abilities": [],
+                        },
+                    ]
+                },
+                ensure_ascii=False,
+            ),
+            encoding="utf-8",
+        )
+        deck1_path.write_text('{"cards":[{"card_name":"Happaloid","count":4}]}', encoding="utf-8")
+        deck2_path.write_text('{"cards":[{"card_name":"Bloodhound","count":4}]}', encoding="utf-8")
+        with redirect_stdout(StringIO()):
+            self.assertEqual(
+                run_match_cli(
+                    [
+                        "--cards",
+                        str(cards_path),
+                        "--deck1",
+                        str(deck1_path),
+                        "--deck2",
+                        str(deck2_path),
+                        "--max-turns",
+                        "1",
+                        "--replay",
+                        str(replay_path),
+                    ]
+                ),
+                0,
+            )
+        output = StringIO()
+        with redirect_stdout(output):
+            exit_code = run_replay_viewer_cli(["--cards", str(cards_path), "--replay", str(replay_path)])
+
+        self.assertEqual(exit_code, 0)
+        lines = output.getvalue().splitlines()
+        self.assertGreater(len(lines), 1)
+        self.assertTrue(lines[0].startswith("0001 R1 T1 actor=- cause=- match_started"))
 
     def test_json_line_player_uses_valid_action_response(self) -> None:
         legal_actions = [{"type": "pass"}, {"type": "drive_unit", "card_instance_id": "c0001"}]
