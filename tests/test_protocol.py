@@ -1,7 +1,10 @@
 import sys
 import os
+import json
 import subprocess
 import unittest
+from contextlib import redirect_stdout
+from io import StringIO
 from pathlib import Path
 
 
@@ -14,6 +17,7 @@ from tests.test_engine import build_catalog, draw_window_card
 from tojs_reborn.engine.state import create_game_state
 from tojs_reborn.io.decklist import parse_decklist
 from tojs_reborn.io.match_runner import FirstLegalPlayer, MatchRunner, replay_match_record, snapshot_match_initial_state
+from tojs_reborn.io.match_cli import run_match_cli
 from tojs_reborn.io.match_setup import MatchSetupConfig, setup_match_state
 from tojs_reborn.io.player_runner import (
     JsonLinePlayer,
@@ -294,6 +298,72 @@ class ProtocolTest(unittest.TestCase):
         self.assertEqual(replayed.event_store.to_list(), state.event_store.to_list())
         self.assertEqual(record["intents"][0]["type"], "match_started")
         self.assertEqual(record["intents"][-1]["type"], "match_ended")
+
+    def test_match_cli_runs_sample_match_and_writes_replay(self) -> None:
+        output_dir = ROOT / "test_output" / "match_cli"
+        output_dir.mkdir(parents=True, exist_ok=True)
+        cards_path = output_dir / "cards.normalized.json"
+        deck1_path = output_dir / "deck1.json"
+        deck2_path = output_dir / "deck2.json"
+        replay_path = output_dir / "replay.json"
+        cards_path.write_text(
+            json.dumps(
+                {
+                    "cards": [
+                        {
+                            "card_no": "1-0-040",
+                            "category": "unit",
+                            "color": "green",
+                            "name": "Happaloid",
+                            "cp": 1,
+                            "bp_by_level": [1000, 1000, 1000],
+                            "abilities": [],
+                        },
+                        {
+                            "card_no": "1-0-001",
+                            "category": "unit",
+                            "color": "red",
+                            "name": "Bloodhound",
+                            "cp": 1,
+                            "bp_by_level": [1000, 1000, 1000],
+                            "abilities": [],
+                        },
+                    ]
+                },
+                ensure_ascii=False,
+            ),
+            encoding="utf-8",
+        )
+        deck1_path.write_text('{"cards":[{"card_no":"1-0-040","count":4}]}', encoding="utf-8")
+        deck2_path.write_text('{"cards":[{"card_no":"1-0-001","count":4}]}', encoding="utf-8")
+
+        with redirect_stdout(StringIO()):
+            exit_code = run_match_cli(
+                [
+                    "--cards",
+                    str(cards_path),
+                    "--deck1",
+                    str(deck1_path),
+                    "--deck2",
+                    str(deck2_path),
+                    "--p1",
+                    "sample:first",
+                    "--p2",
+                    "sample:pass",
+                    "--seed",
+                    "5",
+                    "--max-turns",
+                    "2",
+                    "--replay",
+                    str(replay_path),
+                    "--verify-replay",
+                ]
+            )
+
+        self.assertEqual(exit_code, 0)
+        replay = json.loads(replay_path.read_text(encoding="utf-8"))
+        self.assertEqual(replay["match_result"]["reason"], "max_turns")
+        self.assertEqual(replay["intents"][0]["type"], "match_started")
 
     def test_json_line_player_uses_valid_action_response(self) -> None:
         legal_actions = [{"type": "pass"}, {"type": "drive_unit", "card_instance_id": "c0001"}]
