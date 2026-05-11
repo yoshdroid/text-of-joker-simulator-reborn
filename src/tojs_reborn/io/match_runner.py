@@ -169,7 +169,11 @@ class MatchRunner:
 
     def _choose_action(self, player_id: str, legal_actions: list[dict], *, role: str) -> dict:
         player = self.players[player_id]
-        response = player.choose_action(player_id, legal_actions)
+        choose_with_state = getattr(player, "choose_action_with_state", None)
+        if callable(choose_with_state):
+            response = choose_with_state(player_id, legal_actions, state=self.state)
+        else:
+            response = player.choose_action(player_id, legal_actions)
         fallback_reason = getattr(player, "last_fallback_reason", None)
         if fallback_reason is not None:
             self.state.event_store.append(

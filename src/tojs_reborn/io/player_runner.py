@@ -5,7 +5,17 @@ import threading
 from dataclasses import dataclass
 from typing import Protocol, TextIO
 
-from .protocol import action_selected_message, choice_request_message, choice_selected_message, decode_message, encode_message
+from tojs_reborn.engine.state import GameState
+
+from .protocol import (
+    action_selected_message,
+    choice_request_message,
+    choice_selected_message,
+    decode_message,
+    encode_message,
+    request_action_message,
+    state_update_message,
+)
 
 
 DEFAULT_RESPONSE_TIMEOUT_SECONDS = 0.5
@@ -49,17 +59,32 @@ class JsonLinePlayer:
     last_fallback_reason: str | None = None
 
     def choose_action(self, player_id: str, legal_actions: list[dict]) -> dict:
+        return self.choose_action_with_state(player_id, legal_actions, state=None)
+
+    def choose_action_with_state(self, player_id: str, legal_actions: list[dict], *, state: GameState | None) -> dict:
         self.last_fallback_reason = None
         request_id = f"{player_id}:action"
-        self.transport.write_line(
-            encode_message(
-                {
-                    "type": "request_action",
-                    "request_id": request_id,
-                    "player_id": player_id,
-                    "legal_actions": legal_actions,
-                }
+        if state is not None:
+            self.transport.write_line(
+                encode_message(
+                    state_update_message(
+                        state,
+                        player_id,
+                        request_id=f"{player_id}:state:{len(state.event_store.events)}",
+                    )
+                )
             )
+            request = request_action_message(state, player_id, request_id=request_id)
+            request["legal_actions"] = legal_actions
+        else:
+            request = {
+                "type": "request_action",
+                "request_id": request_id,
+                "player_id": player_id,
+                "legal_actions": legal_actions,
+            }
+        self.transport.write_line(
+            encode_message(request)
         )
         line = self.transport.read_line(self.timeout_seconds)
         if line is None:
@@ -90,7 +115,34 @@ class JsonLinePlayer:
         choice: dict,
         legal_choices: list[dict],
     ) -> dict:
+        return self.choose_choice_with_state(
+            player_id,
+            request_id=request_id,
+            choice=choice,
+            legal_choices=legal_choices,
+            state=None,
+        )
+
+    def choose_choice_with_state(
+        self,
+        player_id: str,
+        *,
+        request_id: str,
+        choice: dict,
+        legal_choices: list[dict],
+        state: GameState | None,
+    ) -> dict:
         self.last_fallback_reason = None
+        if state is not None:
+            self.transport.write_line(
+                encode_message(
+                    state_update_message(
+                        state,
+                        player_id,
+                        request_id=f"{player_id}:state:{len(state.event_store.events)}",
+                    )
+                )
+            )
         self.transport.write_line(
             encode_message(
                 choice_request_message(
@@ -98,6 +150,7 @@ class JsonLinePlayer:
                     player_id=player_id,
                     choice=choice,
                     legal_choices=legal_choices,
+                    state=state,
                 )
             )
         )

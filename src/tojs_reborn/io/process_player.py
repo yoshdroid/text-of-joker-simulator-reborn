@@ -22,6 +22,9 @@ class ProcessJsonLinePlayer:
     def choose_action(self, player_id: str, legal_actions: list[dict]) -> dict:
         return self.player.choose_action(player_id, legal_actions)
 
+    def choose_action_with_state(self, player_id: str, legal_actions: list[dict], *, state) -> dict:
+        return self.player.choose_action_with_state(player_id, legal_actions, state=state)
+
     def choose_choice(
         self,
         player_id: str,
@@ -35,6 +38,23 @@ class ProcessJsonLinePlayer:
             request_id=request_id,
             choice=choice,
             legal_choices=legal_choices,
+        )
+
+    def choose_choice_with_state(
+        self,
+        player_id: str,
+        *,
+        request_id: str,
+        choice: dict,
+        legal_choices: list[dict],
+        state,
+    ) -> dict:
+        return self.player.choose_choice_with_state(
+            player_id,
+            request_id=request_id,
+            choice=choice,
+            legal_choices=legal_choices,
+            state=state,
         )
 
     def close(self) -> None:

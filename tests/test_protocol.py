@@ -612,6 +612,26 @@ class ProtocolTest(unittest.TestCase):
         self.assertEqual(request["type"], "request_action")
         self.assertEqual(request["request_id"], "P1:action")
 
+    def test_json_line_player_sends_state_update_before_stateful_action_request(self) -> None:
+        state = create_game_state(self.catalog)
+        card = state.create_card_instance("1-0-040", "P1")
+        state.players["P1"].hand.add(card.instance_id)
+        legal_actions = [{"type": "pass"}]
+        response = encode_action_response(legal_actions[0], request_id="P1:action", player_id="P1")
+        transport = MemoryTransport([response])
+        player = JsonLinePlayer(transport)
+
+        selected = player.choose_action_with_state("P1", legal_actions, state=state)
+
+        self.assertEqual(selected, legal_actions[0])
+        self.assertEqual(len(transport.written), 2)
+        state_update = decode_message(transport.written[0])
+        request = decode_message(transport.written[1])
+        self.assertEqual(state_update["type"], "state_update")
+        self.assertEqual(request["type"], "request_action")
+        self.assertIn("private_view", request)
+        self.assertEqual(request["private_view"]["hand"][0]["card_no"], "1-0-040")
+
     def test_json_line_player_falls_back_on_timeout_invalid_json_and_illegal_action(self) -> None:
         legal_actions = [{"type": "pass"}]
         cases = [
@@ -638,6 +658,18 @@ class ProtocolTest(unittest.TestCase):
         fallback_events = [event for event in state.event_store.events if event.type == "player_response_fallback"]
         self.assertEqual(len(fallback_events), 1)
         self.assertEqual(fallback_events[0].payload["reason"], "timeout")
+
+    def test_match_runner_passes_state_to_json_line_player(self) -> None:
+        legal_actions = [{"type": "pass"}]
+        response = encode_action_response(legal_actions[0], request_id="P1:action", player_id="P1")
+        transport = MemoryTransport([response])
+        state = create_game_state(self.catalog)
+        runner = MatchRunner(state, players={"P1": JsonLinePlayer(transport), "P2": FirstLegalPlayer()})
+
+        runner.run_turn_action("P1")
+
+        self.assertEqual(decode_message(transport.written[0])["type"], "state_update")
+        self.assertEqual(decode_message(transport.written[1])["type"], "request_action")
 
     def test_json_line_player_uses_same_transport_for_choice_request(self) -> None:
         legal_choices = [{"unit_id": "u0001"}, {"unit_id": "u0002"}]
