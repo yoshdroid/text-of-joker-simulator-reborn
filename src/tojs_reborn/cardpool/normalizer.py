@@ -260,7 +260,7 @@ def _validate_supported_ability(
     selector = ability.get("selector")
     if isinstance(selector, dict):
         selector_id = selector.get("id")
-    for step in effect_steps:
+    for step in list(ability.get("cost_steps", [])) + effect_steps:
         if not isinstance(step, dict):
             continue
         effect = step.get("effect")
@@ -330,7 +330,7 @@ def _build_report(
             timing = ability.get("timing")
             if isinstance(timing, str) and timing:
                 timing_counts[timing] = timing_counts.get(timing, 0) + 1
-            for step in ability.get("effect_steps", []):
+            for step in list(ability.get("cost_steps", [])) + ability.get("effect_steps", []):
                 if isinstance(step, dict) and isinstance(step.get("effect"), str):
                     effect = step["effect"]
                     effect_counts[effect] = effect_counts.get(effect, 0) + 1

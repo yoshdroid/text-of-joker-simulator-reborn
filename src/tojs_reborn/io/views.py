@@ -90,6 +90,11 @@ def decorate_legal_choice(state: GameState, player_id: str, legal_choice: dict[s
         target = unit_choice_target_view(state, player_id, unit_id)
         decorated["target"] = target
         decorated["display"] = {"label": _unit_choice_label(target)}
+    card_instance_id = legal_choice.get("card_instance_id")
+    if isinstance(card_instance_id, str) and card_instance_id in state.card_instances:
+        target = card_choice_target_view(state, player_id, card_instance_id)
+        decorated["target"] = target
+        decorated["display"] = {"label": _card_choice_label(target)}
     return decorated
 
 
@@ -114,6 +119,23 @@ def unit_choice_target_view(state: GameState, player_id: str, unit_id: str) -> d
         "damage": unit.current_damage,
         "current_bp": get_unit_bp(state, unit),
         "exhausted": unit.exhausted,
+    }
+
+
+def card_choice_target_view(state: GameState, player_id: str, card_instance_id: str) -> dict[str, Any]:
+    instance = state.card_instances[card_instance_id]
+    card = state.card_catalog[instance.card_no]
+    return {
+        "type": "card",
+        "controller": instance.owner_player_id,
+        "is_owner": instance.owner_player_id == player_id,
+        "card_instance_id": card_instance_id,
+        "card_no": instance.card_no,
+        "card_name": card.name,
+        "category": card.category,
+        "color": card.color,
+        "cp": card.cp,
+        "level": instance.level,
     }
 
 
@@ -149,6 +171,9 @@ def _choice_display(choice: dict[str, Any]) -> dict[str, str]:
     if choice.get("type") == "unit":
         count = int(choice.get("count", 1))
         return {"label": f"対象ユニットを{count}体選択"}
+    if choice.get("type") == "cost_payment":
+        count = int(choice.get("count", 1))
+        return {"label": f"コストとして手札を{count}枚選択"}
     return {"label": "選択"}
 
 
@@ -159,6 +184,13 @@ def _unit_choice_label(target: dict[str, Any]) -> str:
     current_bp = target["current_bp"]
     damage = target["damage"]
     return f"{owner} {name} LV{level} BP{current_bp} DMG{damage}"
+
+
+def _card_choice_label(target: dict[str, Any]) -> str:
+    owner = target["controller"]
+    name = target["card_name"]
+    card_no = target["card_no"]
+    return f"{owner} {name} {card_no}"
 
 
 def _card_instance_view(state: GameState, card_instance_id: str) -> dict[str, Any]:

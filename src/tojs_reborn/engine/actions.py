@@ -2,7 +2,7 @@ from __future__ import annotations
 
 from .events import EventSource, FactEvent
 from .rules import get_unit_bp, opponent_id
-from .resolver import OptionalAbilityChoice, resolve_unit_entered, resolve_unit_overclocked
+from .resolver import AbilityCostChoice, OptionalAbilityChoice, resolve_unit_entered, resolve_unit_overclocked
 from .state import AbilityDefinition, GameState, UnitState
 
 
@@ -114,6 +114,7 @@ def drive_unit(
     player_id: str,
     card_instance_id: str,
     optional_ability_choice: OptionalAbilityChoice | None = None,
+    ability_cost_choice: AbilityCostChoice | None = None,
 ) -> UnitState:
     player = state.players[player_id]
     instance = state.card_instances[card_instance_id]
@@ -184,9 +185,9 @@ def drive_unit(
         ),
         payload={"owner_player_id": player_id},
     )
-    resolve_unit_entered(state, unit, enter_event, get_effect_handlers(), optional_ability_choice)
+    resolve_unit_entered(state, unit, enter_event, get_effect_handlers(), optional_ability_choice, ability_cost_choice)
     if unit.level >= 3:
-        _resolve_drive_overclock(state, unit, enter_event.event_no, optional_ability_choice)
+        _resolve_drive_overclock(state, unit, enter_event.event_no, optional_ability_choice, ability_cost_choice)
     return unit
 
 
@@ -284,6 +285,7 @@ def overclock_unit(
     card_instance_id: str,
     target_unit_id: str,
     optional_ability_choice: OptionalAbilityChoice | None = None,
+    ability_cost_choice: AbilityCostChoice | None = None,
 ) -> UnitState:
     player = state.players[player_id]
     unit = state.units[target_unit_id]
@@ -344,7 +346,7 @@ def overclock_unit(
     )
     from .resolver import resolve_unit_overclocked
 
-    resolve_unit_overclocked(state, unit, oc_event, get_effect_handlers(), optional_ability_choice)
+    resolve_unit_overclocked(state, unit, oc_event, get_effect_handlers(), optional_ability_choice, ability_cost_choice)
     return unit
 
 
@@ -353,6 +355,7 @@ def _resolve_drive_overclock(
     unit: UnitState,
     cause_event_no: int,
     optional_ability_choice: OptionalAbilityChoice | None = None,
+    ability_cost_choice: AbilityCostChoice | None = None,
 ) -> None:
     overclock_event = state.event_store.append(
         "unit_overclocked",
@@ -374,7 +377,7 @@ def _resolve_drive_overclock(
             source=EventSource(card_no=unit.card_no, card_instance_id=unit.card_instance_id, unit_id=unit.unit_id),
             payload={"unit_id": unit.unit_id, "reason": "overclock"},
         )
-    resolve_unit_overclocked(state, unit, overclock_event, get_effect_handlers(), optional_ability_choice)
+    resolve_unit_overclocked(state, unit, overclock_event, get_effect_handlers(), optional_ability_choice, ability_cost_choice)
 
 
 def deal_damage_to_unit(

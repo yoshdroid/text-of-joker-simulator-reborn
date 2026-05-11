@@ -207,7 +207,7 @@ class MatchRunner:
         first_event_no = len(self.state.event_store.events) + 1
         action_type = action["type"]
         if action_type == "drive_unit":
-            drive_unit(self.state, player_id, action["card_instance_id"], self._choose_optional_ability)
+            drive_unit(self.state, player_id, action["card_instance_id"], self._choose_optional_ability, self._choose_ability_cost)
             self._process_windows_from(first_event_no)
         elif action_type == "set_trigger":
             set_trigger(self.state, player_id, action["card_instance_id"])
@@ -222,10 +222,17 @@ class MatchRunner:
                 action["card_instance_id"],
                 action["target_unit_id"],
                 self._choose_optional_ability,
+                self._choose_ability_cost,
             )
             self._process_windows_from(first_event_no)
         elif action_type == "attack":
-            attack_event = declare_attack(self.state, player_id, action["attacker_unit_id"], self._choose_optional_ability)
+            attack_event = declare_attack(
+                self.state,
+                player_id,
+                action["attacker_unit_id"],
+                self._choose_optional_ability,
+                self._choose_ability_cost,
+            )
             self._process_windows_from(attack_event.event_no)
             defender_player_id = action["defender_player_id"]
             block_actions = list_block_actions(self.state, defender_player_id, action["attacker_unit_id"])
@@ -239,6 +246,7 @@ class MatchRunner:
                     selected_block["attacker_unit_id"],
                     attack_event.event_no,
                     self._choose_optional_ability,
+                    self._choose_ability_cost,
                 )
                 self._process_windows_from(block_first_event_no)
             else:
@@ -246,7 +254,7 @@ class MatchRunner:
                 resolve_unblocked_attack(self.state, attack_event.event_no)
                 self._process_windows_from(damage_first_event_no)
         elif action_type == "pass":
-            end_turn(self.state, player_id, self._choose_optional_ability)
+            end_turn(self.state, player_id, self._choose_optional_ability, self._choose_ability_cost)
             self._process_windows_from(first_event_no)
         else:
             raise ValueError(f"unknown action type: {action_type}")
@@ -281,6 +289,31 @@ class MatchRunner:
             role="optional_ability",
         )
         return selected["type"] == "use_ability"
+
+    def _choose_ability_cost(
+        self,
+        state: GameState,
+        source_unit: UnitState,
+        ability: AbilityDefinition,
+        request_event,
+        step: dict,
+        legal_choices: list[dict],
+    ) -> dict:
+        selected = self._choose_choice(
+            source_unit.owner_player_id,
+            request_id=f"cost:{request_event.event_no}:{ability.ability_id}",
+            choice={
+                "type": "cost_payment",
+                "effect": step.get("effect"),
+                "ability_id": ability.ability_id,
+                "source_unit_id": source_unit.unit_id or None,
+                "source_card_instance_id": source_unit.card_instance_id,
+                "count": int(step.get("count", 1)),
+            },
+            legal_choices=legal_choices,
+            role="cost_payment",
+        )
+        return selected
 
     def _choose_action(self, player_id: str, legal_actions: list[dict], *, role: str) -> dict:
         player = self.players[player_id]

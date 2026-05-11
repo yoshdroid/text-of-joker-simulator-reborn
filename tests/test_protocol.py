@@ -522,6 +522,53 @@ class ProtocolTest(unittest.TestCase):
             ["turn_action", "optional_ability"],
         )
 
+    def test_match_runner_optional_cost_choice_replays(self) -> None:
+        class AttackUseCostPlayer(FirstLegalPlayer):
+            def __init__(self, cost_card_instance_id: str) -> None:
+                self.cost_card_instance_id = cost_card_instance_id
+
+            def choose_action(self, player_id: str, legal_actions: list[dict]) -> dict:
+                for legal_action in legal_actions:
+                    if legal_action["type"] == "attack":
+                        return legal_action
+                return legal_actions[0]
+
+            def choose_choice(self, player_id: str, *, request_id: str, choice: dict, legal_choices: list[dict]) -> dict:
+                if choice["type"] == "optional_ability":
+                    for legal_choice in legal_choices:
+                        if legal_choice["type"] == "use_ability":
+                            return legal_choice
+                if choice["type"] == "cost_payment":
+                    return {"card_instance_id": self.cost_card_instance_id}
+                return legal_choices[0]
+
+        state = create_game_state(self.catalog, seed=12)
+        state.turn_no = 2
+        attacker_card = state.create_card_instance("1-0-010", "P1")
+        attacker = state.create_unit(attacker_card.instance_id)
+        first_cost = state.create_card_instance("1-0-040", "P1")
+        selected_cost = state.create_card_instance("1-0-001", "P1")
+        state.players["P1"].battlefield.add(attacker.unit_id)
+        state.players["P1"].hand.add(first_cost.instance_id)
+        state.players["P1"].hand.add(selected_cost.instance_id)
+        initial_state = snapshot_match_initial_state(state)
+        runner = MatchRunner(
+            state,
+            players={"P1": AttackUseCostPlayer(selected_cost.instance_id), "P2": FirstLegalPlayer()},
+        )
+
+        runner.run_turn_action("P1")
+        record = runner.build_replay_record(initial_state)
+        replayed = replay_match_record(self.catalog, record)
+
+        self.assertEqual(state.players["P1"].discard_pile.cards, [selected_cost.instance_id])
+        self.assertEqual(replayed.event_store.to_list(), state.event_store.to_list())
+        self.assertIn("ability_cost_paid", [event.type for event in state.event_store.events])
+        self.assertEqual(
+            [choice["role"] for choice in record["intents"][0]["choices"]],
+            ["turn_action", "optional_ability", "cost_payment", "block_action"],
+        )
+
     def test_match_cli_runs_sample_match_and_writes_replay(self) -> None:
         output_dir = ROOT / "test_output" / "match_cli"
         output_dir.mkdir(parents=True, exist_ok=True)

@@ -10,7 +10,7 @@ if SRC_PATH.exists():
 
 from tojs_reborn.cardpool.normalizer import normalize_cardpool
 from tojs_reborn.engine.actions import draw_cards, drive_unit, override_card, set_trigger
-from tojs_reborn.engine.combat import attack_player, attack_unit, destroy_lethal_units
+from tojs_reborn.engine.combat import attack_player, attack_unit, declare_attack, destroy_lethal_units
 from tojs_reborn.engine.events import EventStore
 from tojs_reborn.engine.legal_actions import list_block_actions, list_legal_actions
 from tojs_reborn.engine.replay import (
@@ -350,6 +350,51 @@ class EngineTest(unittest.TestCase):
         state.turn_player_id = "P2"
         with self.assertRaises(ValueError):
             drive_unit(state, "P1", happaloid.instance_id)
+
+    def test_shiranui_optional_attack_cost_discards_selected_hand_card_and_modifies_bp(self) -> None:
+        state = create_game_state(self.catalog)
+        attacker_card = state.create_card_instance("1-0-010", "P1")
+        first_cost_card = state.create_card_instance("1-0-040", "P1")
+        selected_cost_card = state.create_card_instance("1-0-001", "P1")
+        state.players["P1"].hand.add(attacker_card.instance_id)
+        state.players["P1"].hand.add(first_cost_card.instance_id)
+        state.players["P1"].hand.add(selected_cost_card.instance_id)
+        state.players["P1"].current_cp = 10
+        attacker = drive_unit(state, "P1", attacker_card.instance_id)
+
+        def choose_cost(_state, _source_unit, _ability, _request_event, _step, legal_choices):
+            self.assertEqual(
+                [choice["card_instance_id"] for choice in legal_choices],
+                [first_cost_card.instance_id, selected_cost_card.instance_id],
+            )
+            return {"card_instance_id": selected_cost_card.instance_id}
+
+        before_bp = get_unit_bp(state, attacker)
+        declare_attack(state, "P1", attacker.unit_id, lambda *_args: True, choose_cost)
+
+        self.assertEqual(state.players["P1"].hand.cards, [first_cost_card.instance_id])
+        self.assertEqual(state.players["P1"].discard_pile.cards, [selected_cost_card.instance_id])
+        self.assertEqual(get_unit_bp(state, attacker), before_bp + 4000)
+        event_types = [event.type for event in state.event_store.events]
+        self.assertIn("ability_cost_paid", event_types)
+        self.assertIn("ability_resolved", event_types)
+
+    def test_shiranui_optional_attack_can_pass_without_cost_or_bp_modifier(self) -> None:
+        state = create_game_state(self.catalog)
+        attacker_card = state.create_card_instance("1-0-010", "P1")
+        cost_card = state.create_card_instance("1-0-040", "P1")
+        state.players["P1"].hand.add(attacker_card.instance_id)
+        state.players["P1"].hand.add(cost_card.instance_id)
+        state.players["P1"].current_cp = 10
+        attacker = drive_unit(state, "P1", attacker_card.instance_id)
+
+        before_bp = get_unit_bp(state, attacker)
+        declare_attack(state, "P1", attacker.unit_id, lambda *_args: False)
+
+        self.assertEqual(state.players["P1"].hand.cards, [cost_card.instance_id])
+        self.assertEqual(state.players["P1"].discard_pile.cards, [])
+        self.assertEqual(get_unit_bp(state, attacker), before_bp)
+        self.assertNotIn("ability_cost_paid", [event.type for event in state.event_store.events])
 
     def test_simultaneous_destroyed_self_pig_resolves_turn_player_first(self) -> None:
         state = create_game_state(self.catalog)

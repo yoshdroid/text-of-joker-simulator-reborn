@@ -128,6 +128,43 @@
         }
       ]
     },
+    "1-0-010": {
+      "card_name": "不知火伍式",
+      "abilities": [
+        {
+          "ability_key": "1-0-010:a1",
+          "ability_name": "地獄剣",
+          "source_text": "このユニットがアタックした時、あなたは手札を１枚選んで捨てる。そうした場合、ターン終了時までこのユニットのＢＰを＋４０００する。",
+          "status": "supported",
+          "timing": "SELF_ATK",
+          "optional": true,
+          "priority": {
+            "band": "unit",
+            "order": "source_only"
+          },
+          "condition": null,
+          "cost_steps": [
+            {
+              "effect": "discard_from_hand",
+              "player": "owner",
+              "count": 1,
+              "selector": {
+                "type": "owner_hand"
+              }
+            }
+          ],
+          "selector": null,
+          "effect_steps": [
+            {
+              "effect": "modify_bp",
+              "target": "source",
+              "amount": 4000,
+              "duration": "turn"
+            }
+          ]
+        }
+      ]
+    },
     "1-0-061": {
       "card_name": "新品の鎧",
       "abilities": [

@@ -3,7 +3,7 @@ from __future__ import annotations
 from .actions import get_effect_handlers
 from .events import EventSource
 from .rules import get_unit_bp, opponent_id
-from .resolver import OptionalAbilityChoice, resolve_unit_attacked, resolve_unit_blocked, resolve_unit_destroyed
+from .resolver import AbilityCostChoice, OptionalAbilityChoice, resolve_unit_attacked, resolve_unit_blocked, resolve_unit_destroyed
 from .state import GameState, UnitState
 
 
@@ -17,10 +17,11 @@ def declare_attack(
     player_id: str,
     attacker_unit_id: str,
     optional_ability_choice: OptionalAbilityChoice | None = None,
+    ability_cost_choice: AbilityCostChoice | None = None,
 ):
     attacker = _get_owned_unit(state, player_id, attacker_unit_id)
     action_event = _declare_attack(state, player_id, attacker)
-    resolve_unit_attacked(state, attacker, action_event, get_effect_handlers(), optional_ability_choice)
+    resolve_unit_attacked(state, attacker, action_event, get_effect_handlers(), optional_ability_choice, ability_cost_choice)
     return action_event
 
 
@@ -107,6 +108,7 @@ def declare_block(
     attacker_unit_id: str,
     cause_event_no: int,
     optional_ability_choice: OptionalAbilityChoice | None = None,
+    ability_cost_choice: AbilityCostChoice | None = None,
 ):
     blocker = _get_owned_unit(state, player_id, blocker_unit_id)
     block_event = state.event_store.append(
@@ -118,7 +120,7 @@ def declare_block(
         source=_unit_source(blocker),
         payload={"blocker_unit_id": blocker_unit_id, "attacker_unit_id": attacker_unit_id},
     )
-    resolve_unit_blocked(state, blocker, block_event, get_effect_handlers(), optional_ability_choice)
+    resolve_unit_blocked(state, blocker, block_event, get_effect_handlers(), optional_ability_choice, ability_cost_choice)
     resolve_blocked_battle(state, block_event.event_no)
     return block_event
 
