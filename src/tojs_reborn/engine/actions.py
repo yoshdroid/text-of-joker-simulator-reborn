@@ -517,6 +517,7 @@ def _handle_deal_damage_to_unit(
 ) -> None:
     target = _resolve_unit_target_for_effect(state, unit, ability, ability_event, step.get("target"))
     if target is None:
+        _append_effect_fizzled(state, unit.owner_player_id, ability_event, step, "no_valid_target")
         return
     deal_damage_to_unit(
         state,
@@ -582,6 +583,7 @@ def _handle_modify_bp(
 ) -> None:
     target = _resolve_unit_target_for_effect(state, unit, ability, ability_event, step.get("target"))
     if target is None:
+        _append_effect_fizzled(state, unit.owner_player_id, ability_event, step, "no_valid_target")
         return
     amount = int(step.get("amount", 0))
     before_bp = get_unit_bp(state, target)
@@ -617,7 +619,11 @@ def _handle_recover_action(
     step: dict,
 ) -> None:
     target = _resolve_unit_target_for_effect(state, unit, ability, ability_event, step.get("target"))
-    if target is None or not target.exhausted:
+    if target is None:
+        _append_effect_fizzled(state, unit.owner_player_id, ability_event, step, "no_valid_target")
+        return
+    if not target.exhausted:
+        _append_effect_fizzled(state, unit.owner_player_id, ability_event, step, "target_not_exhausted")
         return
     target.exhausted = False
     state.event_store.append(
@@ -699,7 +705,7 @@ def _resolve_unit_target(
         player_id = source_unit.owner_player_id
     else:
         player_id = source_unit.owner_player_id
-    candidates = [state.units[unit_id] for unit_id in state.players[player_id].battlefield.units if unit_id in state.units]
+    candidates = _unit_candidates_for_selector(state, player_id, selector)
     return candidates[0] if candidates else None
 
 
@@ -722,7 +728,7 @@ def _resolve_unit_target_for_effect(
         player_id = source_unit.owner_player_id
     else:
         player_id = source_unit.owner_player_id
-    candidates = [unit_id for unit_id in state.players[player_id].battlefield.units if unit_id in state.units]
+    candidates = [unit.unit_id for unit in _unit_candidates_for_selector(state, player_id, selector)]
     if not candidates:
         return None
     request_event = state.event_store.append(
@@ -754,6 +760,38 @@ def _resolve_unit_target_for_effect(
         },
     )
     return state.units[chosen_unit_id]
+
+
+def _unit_candidates_for_selector(state: GameState, player_id: str, selector: dict) -> list[UnitState]:
+    candidates = [state.units[unit_id] for unit_id in state.players[player_id].battlefield.units if unit_id in state.units]
+    if "exhausted" in selector:
+        expected = bool(selector["exhausted"])
+        candidates = [unit for unit in candidates if unit.exhausted == expected]
+    if "min_level" in selector:
+        min_level = int(selector["min_level"])
+        candidates = [unit for unit in candidates if unit.level >= min_level]
+    if "max_level" in selector:
+        max_level = int(selector["max_level"])
+        candidates = [unit for unit in candidates if unit.level <= max_level]
+    return candidates
+
+
+def _append_effect_fizzled(
+    state: GameState,
+    actor_player_id: str,
+    ability_event: FactEvent,
+    step: dict,
+    reason: str,
+) -> None:
+    state.event_store.append(
+        "effect_fizzled",
+        round_no=state.round_no,
+        turn_no=state.turn_no,
+        actor_player_id=actor_player_id,
+        cause_event_no=ability_event.event_no,
+        source=ability_event.source,
+        payload={"effect": step.get("effect"), "reason": reason},
+    )
 
 
 def _resolve_player_id(owner_player_id: str, player_ref) -> str:

@@ -165,6 +165,40 @@
         }
       ]
     },
+    "1-0-018": {
+      "card_name": "ヤシオノトクリ",
+      "abilities": [
+        {
+          "ability_key": "1-0-018:a1",
+          "ability_name": "ダメージブレイク",
+          "source_text": "このユニットがフィールドに出た時、対戦相手の行動済ユニットを１体選ぶ。それに４０００ダメージを与える。",
+          "status": "supported",
+          "timing": "SELF_CIP",
+          "optional": false,
+          "priority": {
+            "band": "unit",
+            "order": "source_only"
+          },
+          "condition": null,
+          "cost_steps": [],
+          "selector": {
+            "id": "target",
+            "type": "unit",
+            "controller": "rival",
+            "count": 1,
+            "required": true,
+            "exhausted": true
+          },
+          "effect_steps": [
+            {
+              "effect": "deal_damage_to_unit",
+              "target": "target",
+              "amount": 4000
+            }
+          ]
+        }
+      ]
+    },
     "1-0-061": {
       "card_name": "新品の鎧",
       "abilities": [

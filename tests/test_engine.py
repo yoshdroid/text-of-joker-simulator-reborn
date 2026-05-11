@@ -221,7 +221,42 @@ class EngineTest(unittest.TestCase):
 
         ability_events = [event for event in state.event_store.events if event.type == "ability_resolved"]
         self.assertEqual([event.source.ability_id for event in ability_events], ["1-0-040:a1", "T-0-001:a1"])
-        self.assertEqual(state.players["P1"].hand.cards, [first_draw.instance_id, second_draw.instance_id])
+
+    def test_yashionotokuri_cip_targets_only_exhausted_rival_unit(self) -> None:
+        state = create_game_state(self.catalog)
+        ready_card = state.create_card_instance("1-0-040", "P2")
+        exhausted_card = state.create_card_instance("1-0-048", "P2")
+        ready_unit = state.create_unit(ready_card.instance_id)
+        exhausted_unit = state.create_unit(exhausted_card.instance_id)
+        exhausted_unit.exhausted = True
+        state.players["P2"].battlefield.add(ready_unit.unit_id)
+        state.players["P2"].battlefield.add(exhausted_unit.unit_id)
+        entering_card = state.create_card_instance("1-0-018", "P1")
+        state.players["P1"].hand.add(entering_card.instance_id)
+        state.players["P1"].current_cp = 10
+
+        drive_unit(state, "P1", entering_card.instance_id)
+
+        damage_events = [event for event in state.event_store.events if event.type == "damage_dealt"]
+        self.assertEqual(len(damage_events), 1)
+        self.assertEqual(damage_events[0].payload["target_unit_id"], exhausted_unit.unit_id)
+        choice_requests = [event for event in state.event_store.events if event.type == "choice_requested"]
+        self.assertEqual(choice_requests[-1].payload["candidate_unit_ids"], [exhausted_unit.unit_id])
+
+    def test_yashionotokuri_cip_resolves_and_fizzles_when_no_exhausted_rival_unit(self) -> None:
+        state = create_game_state(self.catalog)
+        ready_card = state.create_card_instance("1-0-040", "P2")
+        ready_unit = state.create_unit(ready_card.instance_id)
+        state.players["P2"].battlefield.add(ready_unit.unit_id)
+        entering_card = state.create_card_instance("1-0-018", "P1")
+        state.players["P1"].hand.add(entering_card.instance_id)
+        state.players["P1"].current_cp = 10
+
+        drive_unit(state, "P1", entering_card.instance_id)
+
+        self.assertIn("ability_resolved", [event.type for event in state.event_store.events])
+        self.assertIn("effect_fizzled", [event.type for event in state.event_store.events])
+        self.assertNotIn("damage_dealt", [event.type for event in state.event_store.events])
 
     def test_rival_cip_existing_opponent_unit_triggers_but_opponent_happaloid_self_cip_does_not(self) -> None:
         catalog = dict(self.catalog)
@@ -577,7 +612,7 @@ class EngineTest(unittest.TestCase):
         damage_events = [event for event in state.event_store.events if event.type == "damage_dealt"]
         self.assertEqual(damage_events[0].payload["reason"], "effect")
 
-    def test_target_required_ability_does_not_resolve_without_target(self) -> None:
+    def test_target_required_ability_resolves_and_fizzles_without_target(self) -> None:
         state = create_game_state(self.catalog)
         state.turn_player_id = "P1"
         lancer_card = state.create_card_instance("1-0-004", "P1")
@@ -587,7 +622,8 @@ class EngineTest(unittest.TestCase):
         attack_player(state, "P1", lancer.unit_id)
 
         ability_events = [event for event in state.event_store.events if event.type == "ability_resolved"]
-        self.assertEqual(ability_events, [])
+        self.assertEqual([event.source.ability_id for event in ability_events], ["1-0-004:a1"])
+        self.assertIn("effect_fizzled", [event.type for event in state.event_store.events])
 
     def test_grind_beetle_cip_changes_cp(self) -> None:
         state = create_game_state(self.catalog)

@@ -178,10 +178,6 @@ def _resolve_supported_abilities(
             continue
         if not _condition_matches(state, ability_source_unit, ability):
             continue
-        selector = ability.raw.get("selector")
-        if isinstance(selector, dict) and selector.get("type") == "unit":
-            if not _has_unit_target(state, ability_source_unit, selector):
-                continue
         if ability.optional and not _choose_optional_ability(
             state,
             ability_source_unit,
@@ -445,17 +441,6 @@ def _condition_matches(state: GameState, ability_source_unit: UnitState, ability
         if (card.cp or 0) >= min_cp and (color is None or card.color == color):
             return True
     return False
-
-
-def _has_unit_target(state: GameState, source_unit: UnitState, selector: dict) -> bool:
-    controller = selector.get("controller")
-    if controller == "rival":
-        player_id = _opponent_id(source_unit.owner_player_id)
-    elif controller == "owner":
-        player_id = source_unit.owner_player_id
-    else:
-        player_id = source_unit.owner_player_id
-    return any(unit_id in state.units for unit_id in state.players[player_id].battlefield.units)
 
 
 def _opponent_id(player_id: str) -> str:
