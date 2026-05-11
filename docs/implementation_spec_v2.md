@@ -364,6 +364,9 @@ v1 で合成カードとして確認した window / selector / effect を実カ�
 - `action_selected` message helper と round-trip test を追加する。
 - `sample_player.py` を追加し、`first` / `pass` の2モードで JSON Lines response を返す。
 - サンプル子プログラム2つを subprocess として起動し、action を選べることをテストする。
+- `choice_request` / `choice_selected` message helper を追加する。
+- `JsonLinePlayer` は action と choice を同じ transport で送受信できる。
+- `sample_player.py` は choice request に対して先頭合法候補を返す。
 
 ### V2-E: window の実カード統合
 
@@ -388,6 +391,7 @@ trigger / intercept の実カードを追加し、発動順と pass 処理を固
 - trigger は `何でも屋の陳列台` と `新品の鎧` で確認済み。
 - intercept は `追い風` と `ハウリング` で確認済み。
 - `unit_entered` 後の intercept window を match runner から開く。
+- `choice_request` と intercept activation は `JsonLinePlayer` の同じ JSON Lines transport で扱える。
 
 ## v2 で追加したいテスト観点
 

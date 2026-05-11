@@ -68,6 +68,31 @@ def action_selected_message(action: dict[str, Any], *, request_id: str, player_i
     }
 
 
+def choice_request_message(
+    *,
+    request_id: str,
+    player_id: str,
+    choice: dict[str, Any],
+    legal_choices: list[dict[str, Any]],
+) -> dict[str, Any]:
+    return {
+        "type": "choice_request",
+        "request_id": request_id,
+        "player_id": player_id,
+        "choice": choice,
+        "legal_choices": legal_choices,
+    }
+
+
+def choice_selected_message(choice: dict[str, Any], *, request_id: str, player_id: str) -> dict[str, Any]:
+    return {
+        "type": "choice_selected",
+        "request_id": request_id,
+        "player_id": player_id,
+        "choice": choice,
+    }
+
+
 def game_over_message(winner_player_id: str | None, *, request_id: str) -> dict[str, Any]:
     return {
         "type": "game_over",

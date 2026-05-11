@@ -3,7 +3,7 @@ from __future__ import annotations
 import argparse
 import sys
 
-from .protocol import action_selected_message, decode_message, encode_message
+from .protocol import action_selected_message, choice_selected_message, decode_message, encode_message
 
 
 def choose_action(legal_actions: list[dict], mode: str) -> dict:
@@ -29,16 +29,26 @@ def main() -> None:
         except ValueError:
             continue
         if message.get("type") != "request_action":
-            continue
-        legal_actions = message.get("legal_actions", [])
-        if not isinstance(legal_actions, list) or not legal_actions:
-            continue
-        action = choose_action(legal_actions, args.mode)
-        response = action_selected_message(
-            action,
-            request_id=message["request_id"],
-            player_id=message["player_id"],
-        )
+            if message.get("type") != "choice_request":
+                continue
+            legal_choices = message.get("legal_choices", [])
+            if not isinstance(legal_choices, list) or not legal_choices:
+                continue
+            response = choice_selected_message(
+                legal_choices[0],
+                request_id=message["request_id"],
+                player_id=message["player_id"],
+            )
+        else:
+            legal_actions = message.get("legal_actions", [])
+            if not isinstance(legal_actions, list) or not legal_actions:
+                continue
+            action = choose_action(legal_actions, args.mode)
+            response = action_selected_message(
+                action,
+                request_id=message["request_id"],
+                player_id=message["player_id"],
+            )
         sys.stdout.write(encode_message(response))
         sys.stdout.flush()
 

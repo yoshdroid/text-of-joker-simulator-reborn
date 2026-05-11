@@ -5,7 +5,7 @@ import threading
 from dataclasses import dataclass
 from typing import Protocol, TextIO
 
-from .protocol import action_selected_message, decode_message, encode_message
+from .protocol import action_selected_message, choice_request_message, choice_selected_message, decode_message, encode_message
 
 
 DEFAULT_RESPONSE_TIMEOUT_SECONDS = 1.0
@@ -75,6 +75,44 @@ class JsonLinePlayer:
             return legal_actions[0]
         return action
 
+    def choose_choice(
+        self,
+        player_id: str,
+        *,
+        request_id: str,
+        choice: dict,
+        legal_choices: list[dict],
+    ) -> dict:
+        self.transport.write_line(
+            encode_message(
+                choice_request_message(
+                    request_id=request_id,
+                    player_id=player_id,
+                    choice=choice,
+                    legal_choices=legal_choices,
+                )
+            )
+        )
+        line = self.transport.read_line(self.timeout_seconds)
+        if line is None:
+            return legal_choices[0]
+        try:
+            message = decode_message(line)
+        except (ValueError, TypeError):
+            return legal_choices[0]
+        if message.get("type") != "choice_selected":
+            return legal_choices[0]
+        if message.get("request_id") != request_id:
+            return legal_choices[0]
+        selected_choice = message.get("choice")
+        if not isinstance(selected_choice, dict) or selected_choice not in legal_choices:
+            return legal_choices[0]
+        return selected_choice
+
 
 def encode_action_response(action: dict, *, request_id: str, player_id: str) -> str:
     return encode_message(action_selected_message(action, request_id=request_id, player_id=player_id))
+
+
+def encode_choice_response(choice: dict, *, request_id: str, player_id: str) -> str:
+    return encode_message(choice_selected_message(choice, request_id=request_id, player_id=player_id))

@@ -13,9 +13,16 @@ if SRC_PATH.exists():
 from tests.test_engine import build_catalog, draw_window_card
 from tojs_reborn.engine.state import create_game_state
 from tojs_reborn.io.match_runner import FirstLegalPlayer, MatchRunner, replay_match_record, snapshot_match_initial_state
-from tojs_reborn.io.player_runner import JsonLinePlayer, TextIOJsonLineTransport, encode_action_response
+from tojs_reborn.io.player_runner import (
+    JsonLinePlayer,
+    TextIOJsonLineTransport,
+    encode_action_response,
+    encode_choice_response,
+)
 from tojs_reborn.io.protocol import (
     action_selected_message,
+    choice_request_message,
+    choice_selected_message,
     decode_message,
     encode_message,
     public_state_message,
@@ -58,6 +65,18 @@ class ProtocolTest(unittest.TestCase):
 
         self.assertEqual(decoded["type"], "action_selected")
         self.assertEqual(decoded["action"], {"type": "pass"})
+
+    def test_json_lines_protocol_round_trips_choice_messages(self) -> None:
+        request = choice_request_message(
+            request_id="c1",
+            player_id="P1",
+            choice={"type": "unit", "choice_id": "target"},
+            legal_choices=[{"unit_id": "u0001"}],
+        )
+        selected = choice_selected_message({"unit_id": "u0001"}, request_id="c1", player_id="P1")
+
+        self.assertEqual(decode_message(encode_message(request))["type"], "choice_request")
+        self.assertEqual(decode_message(encode_message(selected))["type"], "choice_selected")
 
     def test_public_state_hides_opponent_private_zones(self) -> None:
         state = create_game_state(self.catalog)
@@ -264,6 +283,36 @@ class ProtocolTest(unittest.TestCase):
 
                 self.assertEqual(selected, legal_actions[0])
 
+    def test_json_line_player_uses_same_transport_for_choice_request(self) -> None:
+        legal_choices = [{"unit_id": "u0001"}, {"unit_id": "u0002"}]
+        response = encode_choice_response(legal_choices[1], request_id="choice-1", player_id="P1")
+        transport = MemoryTransport([response])
+        player = JsonLinePlayer(transport)
+
+        selected = player.choose_choice(
+            "P1",
+            request_id="choice-1",
+            choice={"type": "unit", "choice_id": "target"},
+            legal_choices=legal_choices,
+        )
+
+        self.assertEqual(selected, legal_choices[1])
+        request = decode_message(transport.written[0])
+        self.assertEqual(request["type"], "choice_request")
+
+    def test_json_line_player_falls_back_on_invalid_choice_response(self) -> None:
+        legal_choices = [{"unit_id": "u0001"}]
+        player = JsonLinePlayer(MemoryTransport([encode_choice_response({"unit_id": "bad"}, request_id="c1", player_id="P1")]))
+
+        selected = player.choose_choice(
+            "P1",
+            request_id="c1",
+            choice={"type": "unit", "choice_id": "target"},
+            legal_choices=legal_choices,
+        )
+
+        self.assertEqual(selected, legal_choices[0])
+
     def test_sample_child_programs_can_choose_actions_over_json_lines(self) -> None:
         legal_actions = [{"type": "pass"}, {"type": "drive_unit", "card_instance_id": "c0001"}]
         env = dict(os.environ)
@@ -290,6 +339,15 @@ class ProtocolTest(unittest.TestCase):
 
             self.assertEqual(first_player.choose_action("P1", legal_actions), legal_actions[1])
             self.assertEqual(pass_player.choose_action("P1", legal_actions), legal_actions[0])
+            self.assertEqual(
+                first_player.choose_choice(
+                    "P1",
+                    request_id="choice-1",
+                    choice={"type": "unit", "choice_id": "target"},
+                    legal_choices=[{"unit_id": "u0001"}],
+                ),
+                {"unit_id": "u0001"},
+            )
         finally:
             for process in (first_process, pass_process):
                 process.kill()
