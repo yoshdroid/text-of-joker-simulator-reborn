@@ -56,6 +56,7 @@ def unit_public_view(state: GameState, unit_id: str) -> dict[str, Any]:
         "base_bp": base_bp,
         "modified_bp": modified_bp,
         "current_bp": current_bp,
+        "base_bp_modifiers": list(unit.base_bp_modifiers),
         "bp_modifiers": list(unit.bp_modifiers),
     }
 

@@ -19,7 +19,7 @@ from tojs_reborn.engine.replay import (
     snapshot_initial_state,
     verify_replay_record,
 )
-from tojs_reborn.engine.rules import get_unit_bp
+from tojs_reborn.engine.rules import get_unit_base_bp, get_unit_bp
 from tojs_reborn.engine.state import AbilityDefinition, CardDefinition, create_game_state
 from tojs_reborn.engine.turn import end_turn, start_turn
 from tojs_reborn.engine.windows import list_trigger_intercept_window, process_intercept_window, process_trigger_window
@@ -576,6 +576,42 @@ class EngineTest(unittest.TestCase):
         self.assertIn("ability_resolved", [event.type for event in state.event_store.events])
         self.assertIn("effect_fizzled", [event.type for event in state.event_store.events])
         self.assertNotIn("unit_destroyed", [event.type for event in state.event_store.events])
+
+    def test_kerol_kid_oc_reduces_rival_unit_base_bp_permanently(self) -> None:
+        state = create_game_state(self.catalog)
+        base_card = state.create_card_instance("1-0-042", "P1", level=2)
+        material_card = state.create_card_instance("1-0-042", "P1")
+        target_card = state.create_card_instance("1-0-048", "P2")
+        source_unit = state.create_unit(base_card.instance_id)
+        target = state.create_unit(target_card.instance_id)
+        state.players["P1"].battlefield.add(source_unit.unit_id)
+        state.players["P1"].hand.add(material_card.instance_id)
+        state.players["P2"].battlefield.add(target.unit_id)
+        before_base_bp = get_unit_base_bp(state, target)
+
+        overclock_unit(state, "P1", material_card.instance_id, source_unit.unit_id)
+        end_turn(state, "P1")
+
+        self.assertEqual(get_unit_base_bp(state, target), before_base_bp - 3)
+        self.assertEqual(get_unit_bp(state, target), before_base_bp - 3)
+        self.assertEqual(target.base_bp_modifiers[-1]["duration"], "permanent")
+        self.assertIn("base_bp_modified", [event.type for event in state.event_store.events])
+
+    def test_overclock_clears_existing_damage_but_keeps_base_bp_modifier(self) -> None:
+        state = create_game_state(self.catalog)
+        base_card = state.create_card_instance("1-0-048", "P1", level=2)
+        material_card = state.create_card_instance("1-0-048", "P1")
+        unit = state.create_unit(base_card.instance_id)
+        unit.current_damage = 2000
+        unit.base_bp_modifiers.append({"amount": -1, "duration": "permanent", "source_event_no": 0})
+        state.players["P1"].battlefield.add(unit.unit_id)
+        state.players["P1"].hand.add(material_card.instance_id)
+
+        overclock_unit(state, "P1", material_card.instance_id, unit.unit_id)
+
+        self.assertEqual(unit.current_damage, 0)
+        self.assertEqual(unit.base_bp_modifiers, [{"amount": -1, "duration": "permanent", "source_event_no": 0}])
+        self.assertIn("unit_damage_cleared", [event.type for event in state.event_store.events])
 
     def test_simultaneous_destroyed_self_pig_resolves_turn_player_first(self) -> None:
         state = create_game_state(self.catalog)

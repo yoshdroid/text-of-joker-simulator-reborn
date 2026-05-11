@@ -108,6 +108,7 @@ def snapshot_initial_state(state: GameState) -> dict[str, Any]:
                 "level": unit.level,
                 "exhausted": unit.exhausted,
                 "current_damage": unit.current_damage,
+                "base_bp_modifiers": list(unit.base_bp_modifiers),
                 "bp_modifiers": list(unit.bp_modifiers),
                 "stacked_card_instance_ids": list(unit.stacked_card_instance_ids),
             }
@@ -155,6 +156,7 @@ def state_from_snapshot(
         unit.level = int(item["level"])
         unit.exhausted = bool(item["exhausted"])
         unit.current_damage = int(item["current_damage"])
+        unit.base_bp_modifiers = list(item.get("base_bp_modifiers", []))
         unit.bp_modifiers = list(item.get("bp_modifiers", []))
         unit.stacked_card_instance_ids = list(item.get("stacked_card_instance_ids", [item["card_instance_id"]]))
         state.units[unit_id] = unit
@@ -183,6 +185,7 @@ def state_digest(state: GameState) -> dict[str, Any]:
             "level": unit.level,
             "exhausted": unit.exhausted,
             "current_damage": unit.current_damage,
+            "base_bp_modifiers": list(unit.base_bp_modifiers),
             "bp_modifiers": list(unit.bp_modifiers),
             "stacked_card_instance_ids": list(unit.stacked_card_instance_ids),
         }

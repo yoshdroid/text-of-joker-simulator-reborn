@@ -478,6 +478,40 @@
         }
       ]
     },
+    "1-0-042": {
+      "card_name": "ケロール・キッド",
+      "abilities": [
+        {
+          "ability_key": "1-0-042:a1",
+          "ability_name": "ウィークネス",
+          "source_text": "このユニットがオーバークロックした時、対戦相手のユニットを１体選ぶ。それの基本ＢＰを－３０００する。",
+          "status": "supported",
+          "timing": "SELF_OC",
+          "optional": false,
+          "priority": {
+            "band": "unit",
+            "order": "source_only"
+          },
+          "condition": null,
+          "cost_steps": [],
+          "selector": {
+            "id": "target",
+            "type": "unit",
+            "controller": "rival",
+            "count": 1,
+            "required": true
+          },
+          "effect_steps": [
+            {
+              "effect": "modify_base_bp",
+              "target": "target",
+              "amount": -3,
+              "duration": "permanent"
+            }
+          ]
+        }
+      ]
+    },
     "1-0-043": {
       "card_name": "グラインドビートル",
       "abilities": [

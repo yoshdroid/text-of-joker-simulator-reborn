@@ -49,6 +49,7 @@ class UnitState:
     level: int = 1
     exhausted: bool = False
     current_damage: int = 0
+    base_bp_modifiers: list[dict[str, Any]] = field(default_factory=list)
     bp_modifiers: list[dict[str, Any]] = field(default_factory=list)
     stacked_card_instance_ids: list[str] = field(default_factory=list)
 

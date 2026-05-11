@@ -1,7 +1,7 @@
 from __future__ import annotations
 
 from .events import EventSource, FactEvent
-from .rules import get_unit_bp, opponent_id
+from .rules import get_unit_base_bp, get_unit_bp, opponent_id
 from .resolver import AbilityCostChoice, OptionalAbilityChoice, resolve_unit_entered, resolve_unit_overclocked
 from .state import AbilityDefinition, GameState, UnitState
 
@@ -17,6 +17,7 @@ def get_effect_handlers():
         "destroy_unit": _handle_destroy_unit,
         "draw_card_by_category": _handle_draw_card_by_category,
         "draw_cards": _handle_draw_cards,
+        "modify_base_bp": _handle_modify_base_bp,
         "modify_bp": _handle_modify_bp,
         "recover_action": _handle_recover_action,
     }
@@ -324,6 +325,7 @@ def overclock_unit(
     )
     before_level = unit.level
     unit.level = min(3, unit.level + 1)
+    _clear_unit_damage(state, unit, action_event.event_no, reason="level_changed")
     level_event = state.event_store.append(
         "unit_level_changed",
         round_no=state.round_no,
@@ -637,6 +639,43 @@ def _handle_modify_bp(
     )
 
 
+def _handle_modify_base_bp(
+    state: GameState,
+    unit: UnitState,
+    ability: AbilityDefinition,
+    ability_event: FactEvent,
+    step: dict,
+) -> None:
+    target = _resolve_unit_target_for_effect(state, unit, ability, ability_event, step.get("target"))
+    if target is None:
+        _append_effect_fizzled(state, unit.owner_player_id, ability_event, step, "no_valid_target")
+        return
+    amount = int(step.get("amount", 0))
+    before_bp = get_unit_base_bp(state, target)
+    target.base_bp_modifiers.append(
+        {
+            "amount": amount,
+            "duration": step.get("duration", "permanent"),
+            "source_event_no": ability_event.event_no,
+        }
+    )
+    state.event_store.append(
+        "base_bp_modified",
+        round_no=state.round_no,
+        turn_no=state.turn_no,
+        actor_player_id=unit.owner_player_id,
+        cause_event_no=ability_event.event_no,
+        source=ability_event.source,
+        payload={
+            "target_unit_id": target.unit_id,
+            "before_base_bp": before_bp,
+            "after_base_bp": get_unit_base_bp(state, target),
+            "amount": amount,
+            "duration": step.get("duration", "permanent"),
+        },
+    )
+
+
 def _handle_recover_action(
     state: GameState,
     unit: UnitState,
@@ -868,6 +907,22 @@ def _resolve_player_id(owner_player_id: str, player_ref) -> str:
     if player_ref == "rival":
         return opponent_id(owner_player_id)
     return owner_player_id
+
+
+def _clear_unit_damage(state: GameState, unit: UnitState, cause_event_no: int, *, reason: str) -> None:
+    if unit.current_damage == 0:
+        return
+    before_damage = unit.current_damage
+    unit.current_damage = 0
+    state.event_store.append(
+        "unit_damage_cleared",
+        round_no=state.round_no,
+        turn_no=state.turn_no,
+        actor_player_id=unit.owner_player_id,
+        cause_event_no=cause_event_no,
+        source=EventSource(card_no=unit.card_no, card_instance_id=unit.card_instance_id, unit_id=unit.unit_id),
+        payload={"unit_id": unit.unit_id, "before_damage": before_damage, "after_damage": 0, "reason": reason},
+    )
 
 def _handle_draw_card_by_category(
     state: GameState,
