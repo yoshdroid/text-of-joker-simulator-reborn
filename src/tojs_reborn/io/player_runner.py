@@ -13,7 +13,9 @@ from .protocol import (
     choice_selected_message,
     decode_message,
     encode_message,
+    request_mulligan_message,
     request_action_message,
+    mulligan_selected_message,
     state_update_message,
 )
 
@@ -175,6 +177,38 @@ class JsonLinePlayer:
             return legal_choices[0]
         return selected_choice
 
+    def choose_mulligan(self, player_id: str) -> bool:
+        return self.choose_mulligan_with_state(player_id, state=None)
+
+    def choose_mulligan_with_state(self, player_id: str, *, state: GameState | None) -> bool:
+        self.last_fallback_reason = None
+        request_id = f"{player_id}:mulligan"
+        if state is None:
+            request = {
+                "type": "request_mulligan",
+                "request_id": request_id,
+                "player_id": player_id,
+            }
+        else:
+            request = request_mulligan_message(state, player_id, request_id=request_id)
+        self.transport.write_line(encode_message(request))
+        line = self.transport.read_line(self.timeout_seconds)
+        if line is None:
+            self.last_fallback_reason = "timeout"
+            return False
+        try:
+            message = decode_message(line)
+        except (ValueError, TypeError):
+            self.last_fallback_reason = "invalid_json"
+            return False
+        if message.get("type") != "mulligan_selected":
+            self.last_fallback_reason = "unexpected_message_type"
+            return False
+        if message.get("request_id") != request_id:
+            self.last_fallback_reason = "request_id_mismatch"
+            return False
+        return bool(message.get("do_mulligan", False))
+
 
 def encode_action_response(action: dict, *, request_id: str, player_id: str) -> str:
     return encode_message(action_selected_message(action, request_id=request_id, player_id=player_id))
@@ -182,3 +216,7 @@ def encode_action_response(action: dict, *, request_id: str, player_id: str) -> 
 
 def encode_choice_response(choice: dict, *, request_id: str, player_id: str) -> str:
     return encode_message(choice_selected_message(choice, request_id=request_id, player_id=player_id))
+
+
+def encode_mulligan_response(do_mulligan: bool, *, request_id: str, player_id: str) -> str:
+    return encode_message(mulligan_selected_message(request_id=request_id, player_id=player_id, do_mulligan=do_mulligan))

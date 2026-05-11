@@ -24,7 +24,7 @@ class FirstLegalPlayer:
         for action in legal_actions:
             if action["type"] != "pass":
                 return action
-        return {"type": "pass"}
+        return legal_actions[0]
 
 
 @dataclass(frozen=True)
@@ -42,13 +42,24 @@ class MatchRunner:
     intents: list[dict] = field(default_factory=list)
     _active_intent: dict | None = field(default=None, init=False, repr=False)
 
-    def run_match(self, *, max_turns: int = 20, max_actions_per_turn: int = 20) -> MatchResult:
+    def run_match(
+        self,
+        *,
+        max_turns: int = 20,
+        max_actions_per_turn: int = 20,
+        max_mulligans: int = 5,
+    ) -> MatchResult:
         self.state.event_store.append(
             "match_started",
             round_no=self.state.round_no,
             turn_no=self.state.turn_no,
             actor_player_id=None,
-            payload={"seed": self.state.seed, "max_turns": max_turns, "max_actions_per_turn": max_actions_per_turn},
+            payload={
+                "seed": self.state.seed,
+                "max_turns": max_turns,
+                "max_actions_per_turn": max_actions_per_turn,
+                "max_mulligans": max_mulligans,
+            },
         )
         if self.record_intents:
             self.intents.append(
@@ -57,8 +68,10 @@ class MatchRunner:
                     "seed": self.state.seed,
                     "max_turns": max_turns,
                     "max_actions_per_turn": max_actions_per_turn,
+                    "max_mulligans": max_mulligans,
                 }
             )
+        self.run_mulligan_phase(max_mulligans=max_mulligans)
 
         player_turn_counts = {player_id: 0 for player_id in self.state.players}
         turns_started = 0
@@ -119,6 +132,62 @@ class MatchRunner:
             if self.record_intents and self._active_intent is not None:
                 self.intents.append(self._active_intent)
                 self._active_intent = None
+
+    def run_mulligan_phase(self, *, max_mulligans: int = 5) -> None:
+        for player_id in ("P1", "P2"):
+            for attempt in range(1, max_mulligans + 1):
+                do_mulligan = self._choose_mulligan(player_id, attempt)
+                if not do_mulligan:
+                    break
+                payload = _perform_mulligan_on_state(self.state, player_id, attempt)
+                if self.record_intents and self.intents and self.intents[-1].get("type") == "mulligan":
+                    self.intents[-1]["result"] = payload
+
+    def _choose_mulligan(self, player_id: str, attempt: int) -> bool:
+        player = self.players[player_id]
+        self.state.event_store.append(
+            "mulligan_requested",
+            round_no=self.state.round_no,
+            turn_no=self.state.turn_no,
+            actor_player_id=player_id,
+            payload={"attempt": attempt},
+        )
+        choose_with_state = getattr(player, "choose_mulligan_with_state", None)
+        if callable(choose_with_state):
+            do_mulligan = bool(choose_with_state(player_id, state=self.state))
+        else:
+            choose = getattr(player, "choose_mulligan", None)
+            do_mulligan = bool(choose(player_id)) if callable(choose) else False
+        fallback_reason = getattr(player, "last_fallback_reason", None)
+        if fallback_reason is not None:
+            self.state.event_store.append(
+                "player_response_fallback",
+                round_no=self.state.round_no,
+                turn_no=self.state.turn_no,
+                actor_player_id=player_id,
+                payload={"role": "mulligan", "reason": fallback_reason, "fallback": False},
+            )
+            try:
+                setattr(player, "last_fallback_reason", None)
+            except AttributeError:
+                pass
+        self.state.event_store.append(
+            "mulligan_selected",
+            round_no=self.state.round_no,
+            turn_no=self.state.turn_no,
+            actor_player_id=player_id,
+            payload={"attempt": attempt, "do_mulligan": do_mulligan},
+        )
+        if self.record_intents:
+            self.intents.append(
+                {
+                    "type": "mulligan",
+                    "player_id": player_id,
+                    "attempt": attempt,
+                    "do_mulligan": do_mulligan,
+                }
+            )
+        return do_mulligan
 
     def apply_action(self, player_id: str, action: dict) -> None:
         first_event_no = len(self.state.event_store.events) + 1
@@ -275,8 +344,26 @@ def replay_match_record(card_catalog, replay_record_data: dict) -> GameState:
                     "seed": intent.get("seed", state.seed),
                     "max_turns": intent.get("max_turns"),
                     "max_actions_per_turn": intent.get("max_actions_per_turn"),
+                    "max_mulligans": intent.get("max_mulligans"),
                 },
             )
+        elif intent["type"] == "mulligan":
+            state.event_store.append(
+                "mulligan_requested",
+                round_no=state.round_no,
+                turn_no=state.turn_no,
+                actor_player_id=intent["player_id"],
+                payload={"attempt": intent["attempt"]},
+            )
+            state.event_store.append(
+                "mulligan_selected",
+                round_no=state.round_no,
+                turn_no=state.turn_no,
+                actor_player_id=intent["player_id"],
+                payload={"attempt": intent["attempt"], "do_mulligan": bool(intent.get("do_mulligan", False))},
+            )
+            if intent.get("do_mulligan", False):
+                _apply_recorded_mulligan_result(state, intent["player_id"], intent["result"])
         elif intent["type"] == "start_turn":
             start_turn(
                 state,
@@ -328,6 +415,74 @@ def _turn_draw_count(player_id: str, player_turn_count: int) -> int:
     if player_id == "P1" and player_turn_count == 1:
         return 0
     return 2
+
+
+def _perform_mulligan_on_state(state: GameState, player_id: str, attempt: int) -> dict:
+    player = state.players[player_id]
+    hand_size = len(player.hand.cards)
+    returned_card_instance_ids = list(player.hand.cards)
+    player.hand.cards.clear()
+    player.deck.cards.extend(returned_card_instance_ids)
+    state.rng.shuffle(player.deck.cards)
+    deck_card_instance_ids_after_shuffle = list(player.deck.cards)
+    drawn_card_instance_ids = []
+    for _ in range(hand_size):
+        card_instance_id = player.deck.draw_top()
+        if card_instance_id is None:
+            break
+        player.hand.add(card_instance_id)
+        drawn_card_instance_ids.append(card_instance_id)
+    payload = {
+        "attempt": attempt,
+        "returned_card_instance_ids": returned_card_instance_ids,
+        "deck_card_instance_ids_after_shuffle": deck_card_instance_ids_after_shuffle,
+        "drawn_card_instance_ids": drawn_card_instance_ids,
+        "hand_card_instance_ids": list(player.hand.cards),
+        "deck_card_instance_ids": list(player.deck.cards),
+    }
+    state.event_store.append(
+        "deck_shuffled",
+        round_no=state.round_no,
+        turn_no=state.turn_no,
+        actor_player_id=player_id,
+        payload={
+            "reason": "mulligan",
+            "attempt": attempt,
+            "deck_card_instance_ids": deck_card_instance_ids_after_shuffle,
+        },
+    )
+    state.event_store.append(
+        "mulligan_performed",
+        round_no=state.round_no,
+        turn_no=state.turn_no,
+        actor_player_id=player_id,
+        payload=payload,
+    )
+    return payload
+
+
+def _apply_recorded_mulligan_result(state: GameState, player_id: str, payload: dict) -> None:
+    player = state.players[player_id]
+    player.hand.cards = list(payload["hand_card_instance_ids"])
+    player.deck.cards = list(payload["deck_card_instance_ids"])
+    state.event_store.append(
+        "deck_shuffled",
+        round_no=state.round_no,
+        turn_no=state.turn_no,
+        actor_player_id=player_id,
+        payload={
+            "reason": "mulligan",
+            "attempt": payload["attempt"],
+            "deck_card_instance_ids": list(payload["deck_card_instance_ids_after_shuffle"]),
+        },
+    )
+    state.event_store.append(
+        "mulligan_performed",
+        round_no=state.round_no,
+        turn_no=state.turn_no,
+        actor_player_id=player_id,
+        payload=dict(payload),
+    )
 
 
 def _winner_by_life(state: GameState) -> str | None:

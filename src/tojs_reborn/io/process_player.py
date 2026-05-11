@@ -57,6 +57,12 @@ class ProcessJsonLinePlayer:
             state=state,
         )
 
+    def choose_mulligan(self, player_id: str) -> bool:
+        return self.player.choose_mulligan(player_id)
+
+    def choose_mulligan_with_state(self, player_id: str, *, state) -> bool:
+        return self.player.choose_mulligan_with_state(player_id, state=state)
+
     def close(self) -> None:
         if self.process.poll() is None:
             self.process.terminate()

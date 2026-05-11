@@ -3,7 +3,7 @@ from __future__ import annotations
 import argparse
 import sys
 
-from .protocol import action_selected_message, choice_selected_message, decode_message, encode_message
+from .protocol import action_selected_message, choice_selected_message, decode_message, encode_message, mulligan_selected_message
 
 
 def choose_action(legal_actions: list[dict], mode: str) -> dict:
@@ -28,7 +28,13 @@ def main() -> None:
             message = decode_message(line)
         except ValueError:
             continue
-        if message.get("type") != "request_action":
+        if message.get("type") == "request_mulligan":
+            response = mulligan_selected_message(
+                request_id=message["request_id"],
+                player_id=message["player_id"],
+                do_mulligan=False,
+            )
+        elif message.get("type") != "request_action":
             if message.get("type") != "choice_request":
                 continue
             legal_choices = message.get("legal_choices", [])

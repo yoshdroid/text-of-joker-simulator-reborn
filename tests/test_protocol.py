@@ -24,6 +24,7 @@ from tojs_reborn.io.player_runner import (
     TextIOJsonLineTransport,
     encode_action_response,
     encode_choice_response,
+    encode_mulligan_response,
 )
 from tojs_reborn.io.process_player import start_process_player
 from tojs_reborn.io.replay_cli import run_replay_cli
@@ -346,6 +347,41 @@ class ProtocolTest(unittest.TestCase):
         self.assertEqual(record["intents"][0]["type"], "match_started")
         self.assertEqual(record["intents"][-1]["type"], "match_ended")
 
+    def test_match_runner_mulligan_phase_records_and_replays_result(self) -> None:
+        class MulliganOncePlayer:
+            def __init__(self) -> None:
+                self.count_by_player: dict[str, int] = {}
+
+            def choose_action(self, player_id: str, legal_actions: list[dict]) -> dict:
+                return legal_actions[0]
+
+            def choose_mulligan_with_state(self, player_id: str, *, state) -> bool:
+                count = self.count_by_player.get(player_id, 0)
+                self.count_by_player[player_id] = count + 1
+                return player_id == "P1" and count == 0
+
+        deck1 = parse_decklist({"cards": [{"card_no": "1-0-040", "count": 8}]}, self.catalog)
+        deck2 = parse_decklist({"cards": [{"card_no": "1-0-001", "count": 8}]}, self.catalog)
+        state = setup_match_state(
+            self.catalog,
+            {"P1": deck1, "P2": deck2},
+            config=MatchSetupConfig(seed=9),
+        )
+        initial_state = snapshot_match_initial_state(state)
+        initial_hand = list(state.players["P1"].hand.cards)
+        runner = MatchRunner(state, players={"P1": MulliganOncePlayer(), "P2": MulliganOncePlayer()})
+
+        result = runner.run_match(max_turns=1, max_actions_per_turn=1)
+        record = runner.build_replay_record(initial_state)
+        replayed = replay_match_record(self.catalog, record)
+
+        self.assertEqual(result.reason, "max_actions_per_turn")
+        self.assertNotEqual(state.players["P1"].hand.cards, initial_hand)
+        self.assertEqual(replayed.event_store.to_list(), state.event_store.to_list())
+        mulligan_intents = [intent for intent in record["intents"] if intent["type"] == "mulligan"]
+        self.assertEqual([intent["do_mulligan"] for intent in mulligan_intents], [True, False, False])
+        self.assertIn("mulligan_performed", [event.type for event in state.event_store.events])
+
     def test_match_cli_runs_sample_match_and_writes_replay(self) -> None:
         output_dir = ROOT / "test_output" / "match_cli"
         output_dir.mkdir(parents=True, exist_ok=True)
@@ -648,6 +684,34 @@ class ProtocolTest(unittest.TestCase):
         self.assertIn("private_view", request)
         self.assertEqual(request["private_view"]["hand"][0]["card_no"], "1-0-040")
 
+    def test_json_line_player_uses_valid_mulligan_response(self) -> None:
+        response = encode_mulligan_response(True, request_id="P1:mulligan", player_id="P1")
+        transport = MemoryTransport([response])
+        player = JsonLinePlayer(transport)
+
+        do_mulligan = player.choose_mulligan("P1")
+
+        self.assertTrue(do_mulligan)
+        request = decode_message(transport.written[0])
+        self.assertEqual(request["type"], "request_mulligan")
+        self.assertEqual(request["request_id"], "P1:mulligan")
+
+    def test_json_line_player_sends_stateful_mulligan_request(self) -> None:
+        state = create_game_state(self.catalog)
+        card = state.create_card_instance("1-0-040", "P1")
+        state.players["P1"].hand.add(card.instance_id)
+        response = encode_mulligan_response(False, request_id="P1:mulligan", player_id="P1")
+        transport = MemoryTransport([response])
+        player = JsonLinePlayer(transport)
+
+        do_mulligan = player.choose_mulligan_with_state("P1", state=state)
+
+        self.assertFalse(do_mulligan)
+        request = decode_message(transport.written[0])
+        self.assertEqual(request["type"], "request_mulligan")
+        self.assertIn("private_view", request)
+        self.assertEqual(request["private_view"]["hand"][0]["card_no"], "1-0-040")
+
     def test_json_line_player_falls_back_on_timeout_invalid_json_and_illegal_action(self) -> None:
         legal_actions = [{"type": "pass"}]
         cases = [
@@ -752,6 +816,7 @@ class ProtocolTest(unittest.TestCase):
                 ),
                 {"unit_id": "u0001"},
             )
+            self.assertFalse(first_player.choose_mulligan("P1"))
         finally:
             for process in (first_process, pass_process):
                 process.kill()
