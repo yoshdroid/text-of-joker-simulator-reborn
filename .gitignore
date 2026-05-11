@@ -1,4 +1,5 @@
 carddata/generated/
+carddata/images/
 test_output/
 tmp*/
 __pycache__/
