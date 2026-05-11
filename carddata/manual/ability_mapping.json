@@ -414,6 +414,41 @@
         }
       ]
     },
+    "1-0-028": {
+      "card_name": "スカルウォーカー",
+      "abilities": [
+        {
+          "ability_key": "1-0-028:a1",
+          "ability_name": "リバイブ",
+          "source_text": "このユニットが破壊された時、あなたの捨札にあるユニットカードを１枚ランダムで手札に加える。",
+          "status": "supported",
+          "timing": "SELF_PIG",
+          "optional": false,
+          "priority": {
+            "band": "unit",
+            "order": "source_only"
+          },
+          "condition": null,
+          "cost_steps": [],
+          "selector": {
+            "id": "target",
+            "type": "discard_pile_card",
+            "controller": "owner",
+            "category": "unit",
+            "count": 1,
+            "required": false,
+            "random": true
+          },
+          "effect_steps": [
+            {
+              "effect": "move_random_discard_to_hand",
+              "player": "owner",
+              "category": "unit"
+            }
+          ]
+        }
+      ]
+    },
     "1-0-029": {
       "card_name": "カラスマドウ",
       "abilities": [

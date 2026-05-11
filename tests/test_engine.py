@@ -749,6 +749,49 @@ class EngineTest(unittest.TestCase):
         self.assertEqual(state.players["P1"].discard_pile.cards, [discarded_trigger.instance_id])
         self.assertIn("effect_fizzled", [event.type for event in state.event_store.events])
 
+    def test_skull_walker_pig_returns_random_unit_from_discard_to_hand(self) -> None:
+        state = create_game_state(self.catalog)
+        skull_card = state.create_card_instance("1-0-028", "P1")
+        attacker_card = state.create_card_instance("1-0-001", "P2")
+        revive_target = state.create_card_instance("1-0-001", "P1")
+        non_unit = state.create_card_instance("1-0-061", "P1")
+        skull = state.create_unit(skull_card.instance_id)
+        attacker = state.create_unit(attacker_card.instance_id)
+        state.players["P1"].battlefield.add(skull.unit_id)
+        state.players["P2"].battlefield.add(attacker.unit_id)
+        state.players["P1"].discard_pile.add(non_unit.instance_id)
+        state.players["P1"].discard_pile.add(revive_target.instance_id)
+
+        from tojs_reborn.engine.combat import destroy_unit
+
+        destroy_unit(state, skull, cause_event_no=0, reason="test")
+
+        self.assertNotIn(skull.unit_id, state.units)
+        self.assertIn(revive_target.instance_id, state.players["P1"].hand.cards)
+        self.assertIn(non_unit.instance_id, state.players["P1"].discard_pile.cards)
+        random_events = [event for event in state.event_store.events if event.type == "random_resolved"]
+        self.assertEqual(random_events[-1].payload["kind"], "discard_pile_card")
+        self.assertEqual(
+            random_events[-1].payload["candidate_card_instance_ids"],
+            [skull_card.instance_id, revive_target.instance_id],
+        )
+
+    def test_skull_walker_pig_can_return_itself_when_no_other_unit_in_discard(self) -> None:
+        state = create_game_state(self.catalog)
+        skull_card = state.create_card_instance("1-0-028", "P1")
+        non_unit = state.create_card_instance("1-0-061", "P1")
+        skull = state.create_unit(skull_card.instance_id)
+        state.players["P1"].battlefield.add(skull.unit_id)
+        state.players["P1"].discard_pile.add(non_unit.instance_id)
+
+        from tojs_reborn.engine.combat import destroy_unit
+
+        destroy_unit(state, skull, cause_event_no=0, reason="test")
+
+        self.assertEqual(state.players["P1"].hand.cards, [skull_card.instance_id])
+        self.assertEqual(state.players["P1"].discard_pile.cards, [non_unit.instance_id])
+        self.assertNotIn("effect_fizzled", [event.type for event in state.event_store.events])
+
     def test_simultaneous_destroyed_self_pig_resolves_turn_player_first(self) -> None:
         state = create_game_state(self.catalog)
         state.turn_player_id = "P1"
