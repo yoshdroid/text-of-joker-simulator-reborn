@@ -725,6 +725,47 @@ class EngineTest(unittest.TestCase):
         event_types = [event.type for event in state.event_store.events]
         self.assertLess(event_types.index("unit_entered"), event_types.index("unit_overclocked"))
 
+    def test_bloodhound_level3_drive_resolves_self_oc_damage_to_rival_unit(self) -> None:
+        state = create_game_state(self.catalog)
+        state.turn_player_id = "P1"
+        target = state.create_card_instance("1-0-001", "P1")
+        first_material = state.create_card_instance("1-0-001", "P1")
+        second_material = state.create_card_instance("1-0-001", "P1")
+        rival_card = state.create_card_instance("1-0-004", "P2")
+        rival = state.create_unit(rival_card.instance_id)
+        state.players["P1"].hand.add(target.instance_id)
+        state.players["P1"].hand.add(first_material.instance_id)
+        state.players["P1"].hand.add(second_material.instance_id)
+        state.players["P2"].battlefield.add(rival.unit_id)
+        state.players["P1"].current_cp = 10
+
+        override_card(state, "P1", target.instance_id, first_material.instance_id)
+        override_card(state, "P1", target.instance_id, second_material.instance_id)
+        drive_unit(state, "P1", target.instance_id)
+
+        self.assertNotIn(rival.unit_id, state.units)
+        self.assertIn(rival_card.instance_id, state.players["P2"].discard_pile.cards)
+        ability_events = [event for event in state.event_store.events if event.type == "ability_resolved"]
+        self.assertEqual(ability_events[-1].source.ability_id, "1-0-001:a1")
+        damage_events = [event for event in state.event_store.events if event.type == "damage_dealt"]
+        self.assertEqual(damage_events[-1].payload["amount"], 4000)
+
+    def test_gigamamuto_turn_end_ability_recovers_exhausted_source_unit(self) -> None:
+        state = create_game_state(self.catalog)
+        state.turn_player_id = "P1"
+        mammoth_card = state.create_card_instance("1-0-048", "P1")
+        mammoth = state.create_unit(mammoth_card.instance_id)
+        mammoth.exhausted = True
+        state.players["P1"].battlefield.add(mammoth.unit_id)
+
+        end_turn(state, "P1")
+
+        self.assertFalse(mammoth.exhausted)
+        self.assertEqual(
+            [event.source.ability_id for event in state.event_store.events if event.type == "ability_resolved"],
+            ["1-0-048:a1"],
+        )
+
     def test_legal_actions_include_drive_attack_set_trigger_and_override(self) -> None:
         state = create_game_state(self.catalog)
         state.turn_player_id = "P1"

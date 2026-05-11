@@ -311,6 +311,9 @@ v1 で合成カードとして確認した window / selector / effect を実カ�
 - `追い風` を `INTERCEPT_UNIT_ENTERED` / `change_cp +4` として supported 化する。
 - `ハウリング` を `INTERCEPT_UNIT_ENTERED` / `draw_cards 2` として supported 化する。
 - unit_entered intercept は、カード所有者の unit enter のときだけ候補になることを確認する。
+- `ランサー` / `ブラッドハウンド` / `キャットムル` / `ギガマムート` は実カード名で仕様テストを補強する。
+- `ブラッドハウンド` は LV3 drive 後の `SELF_OC` で対戦相手ユニットに4000ダメージを与えることを確認する。
+- `ギガマムート` はターン終了時に行動権を回復することを確認する。
 
 ### V2-C: match runner replay
 
