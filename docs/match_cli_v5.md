@@ -238,8 +238,23 @@ GUI は JSON Lines 子プログラムの sample として実装する方針。
 python -m tojs_reborn.io.gui_player --images carddata/images
 ```
 
+Pillow がインストールされている場合は JPG / PNG のカード画像を表示する。
+Pillow がない場合も、同じ GUI 上に card_no / card_name のプレースホルダーを表示して継続する。
+
+GUI を開かず、JSON Lines 子プログラムとしての protocol 応答だけを確認する場合:
+
+```powershell
+python -m tojs_reborn.io.gui_player --no-window --mode pass --images carddata/images
+```
+
 match CLI から呼ぶ場合の想定:
 
 ```powershell
 python -m tojs_reborn.io.match_cli --cards carddata/generated/cards.normalized.json --deck1 decklists/sample_p1.json --deck2 decklists/sample_p2.json --p1 "cmd:python -m tojs_reborn.io.gui_player --images carddata/images" --p2 sample:pass --replay test_output/replay.json --verify-replay
+```
+
+自動テストや GUI を開けない環境では `--no-window` を使う:
+
+```powershell
+python -m tojs_reborn.io.match_cli --cards carddata/generated/cards.normalized.json --deck1 decklists/v6_p1.json --deck2 decklists/v6_p2.json --p1 "cmd:python -m tojs_reborn.io.gui_player --no-window --mode pass --images carddata/images" --p2 sample:first --seed 6 --max-turns 4 --replay test_output/gui_player_replay.json --verify-replay
 ```

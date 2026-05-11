@@ -414,6 +414,9 @@ v5 では、本体統合 UI は扱わない。
 - 自陣 battlefield / hand / trigger zone / 敵陣 battlefield を画像またはテキストで表示する。
 - `carddata/images/` 配下の画像は git 管理外とし、card_no prefix の jpg/png を探索して使う。
 - 画像がないカードは card_no / card_name のテキスト表示で代替する。
+- 初期 GUI は観戦・デバッグ用途とし、選択操作は `--mode first/pass` による自動応答にする。
+- JPG 表示には Pillow を使う。Pillow がない場合は画像枠に card_no / card_name を表示して継続する。
+- `--no-window` は GUI を開けない環境で protocol 応答だけを確認するためのモードとする。
 
 初期実装では、GUI 起動そのものを自動テスト対象にしない。
 代わりに、state JSON から GUI 表示用 view model を作る処理を分離し、unit test する。

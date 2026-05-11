@@ -16,6 +16,7 @@ if SRC_PATH.exists():
 from tests.test_engine import build_catalog, draw_window_card
 from tojs_reborn.engine.state import AbilityDefinition, CardDefinition, create_game_state
 from tojs_reborn.io.decklist import parse_decklist
+from tojs_reborn.io.gui_player import build_model_from_message, make_response
 from tojs_reborn.io.gui_view_model import build_gui_view_model, find_card_image
 from tojs_reborn.io.match_runner import FirstLegalPlayer, MatchRunner, replay_match_record, snapshot_match_initial_state
 from tojs_reborn.io.match_cli import run_match_cli
@@ -218,6 +219,46 @@ class ProtocolTest(unittest.TestCase):
         self.assertEqual(model["own"]["battlefield"][0]["unit_id"], own_unit.unit_id)
         self.assertEqual(model["opponent"]["battlefield"][0]["unit_id"], opponent_unit.unit_id)
         self.assertEqual(find_card_image(image_dir, "NO-SUCH-CARD"), None)
+
+    def test_gui_player_builds_model_and_auto_responses(self) -> None:
+        state = create_game_state(self.catalog)
+        hand_card = state.create_card_instance("1-0-001", "P1")
+        state.players["P1"].hand.add(hand_card.instance_id)
+        request = request_action_message(state, "P1", request_id="P1:action")
+
+        model = build_model_from_message(request, ROOT / "carddata" / "images")
+        response = make_response(request, mode="pass")
+
+        self.assertIsNotNone(model)
+        self.assertEqual(model["own"]["hand"][0]["card_no"], "1-0-001")
+        self.assertEqual(response["type"], "action_selected")
+        self.assertEqual(response["request_id"], "P1:action")
+        self.assertEqual(response["action"]["type"], "pass")
+
+    def test_gui_player_no_window_process_responds_to_protocol(self) -> None:
+        command = f"{sys.executable} -m tojs_reborn.io.gui_player --no-window --mode pass --images carddata/images"
+        player = start_process_player(command, timeout_seconds=2.0)
+        try:
+            action = player.choose_action(
+                "P1",
+                [
+                    {"type": "drive_unit", "card_instance_id": "c0001"},
+                    {"type": "pass"},
+                ],
+            )
+            choice = player.choose_choice(
+                "P1",
+                request_id="P1:choice",
+                choice={"type": "unit"},
+                legal_choices=[{"unit_id": "u0001"}],
+            )
+            do_mulligan = player.choose_mulligan("P1")
+        finally:
+            player.close()
+
+        self.assertEqual(action["type"], "pass")
+        self.assertEqual(choice, {"unit_id": "u0001"})
+        self.assertFalse(do_mulligan)
 
     def test_state_update_and_mulligan_messages_round_trip(self) -> None:
         state = create_game_state(self.catalog)
