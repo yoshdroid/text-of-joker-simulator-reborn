@@ -45,6 +45,18 @@ KNOWN_EFFECTS = {
     "recover_action",
 }
 
+ENGINE_SUPPORTED_EFFECTS = {
+    "change_cp",
+    "deal_damage_to_unit",
+    "deal_life_damage",
+    "discard_from_hand",
+    "destroy_trigger_zone_card",
+    "draw_card_by_category",
+    "draw_cards",
+    "modify_bp",
+    "recover_action",
+}
+
 
 def load_ability_mapping(path: str | Path) -> dict[str, Any]:
     with Path(path).open("r", encoding="utf-8") as handle:
@@ -262,6 +274,16 @@ def _validate_supported_ability(
                     ability_key=ability_key,
                 )
             )
+        elif effect not in ENGINE_SUPPORTED_EFFECTS:
+            issues.append(
+                NormalizationIssue(
+                    severity="warning",
+                    code="unsupported_engine_effect",
+                    message=f"effect is known in schema but not implemented by engine: {effect}",
+                    card_no=card_no,
+                    ability_key=ability_key,
+                )
+            )
         target = step.get("target")
         if isinstance(target, str) and target not in {"source"} and selector_id is not None and target != selector_id:
             issues.append(
@@ -292,6 +314,9 @@ def _build_report(
     supported: list[dict[str, str]] = []
     unsupported: list[dict[str, str]] = []
     deferred: list[dict[str, str]] = []
+    status_counts: dict[str, int] = {}
+    timing_counts: dict[str, int] = {}
+    effect_counts: dict[str, int] = {}
     for card in normalized_cards:
         for ability in card["abilities"]:
             item = {
@@ -300,6 +325,15 @@ def _build_report(
                 "ability_key": ability.get("ability_key", ""),
                 "ability_name": ability.get("ability_name", ""),
             }
+            status = str(ability.get("status"))
+            status_counts[status] = status_counts.get(status, 0) + 1
+            timing = ability.get("timing")
+            if isinstance(timing, str) and timing:
+                timing_counts[timing] = timing_counts.get(timing, 0) + 1
+            for step in ability.get("effect_steps", []):
+                if isinstance(step, dict) and isinstance(step.get("effect"), str):
+                    effect = step["effect"]
+                    effect_counts[effect] = effect_counts.get(effect, 0) + 1
             if ability.get("status") == "supported":
                 supported.append(item)
             elif ability.get("status") == "unsupported":
@@ -312,6 +346,9 @@ def _build_report(
         "ability_mapping": str(mapping_path).replace("\\", "/"),
         "card_count": len(normalized_cards),
         "supported_ability_count": len(supported),
+        "status_counts": dict(sorted(status_counts.items())),
+        "timing_counts": dict(sorted(timing_counts.items())),
+        "effect_counts": dict(sorted(effect_counts.items())),
         "supported_abilities": supported,
         "unsupported_abilities": unsupported,
         "deferred_abilities": deferred,
