@@ -215,10 +215,15 @@ v0 から残す候補:
 1. lethal unit を先に収集する。
 2. ターンプレイヤー側の destroyed unit を先に処理する。
 3. 同一プレイヤー内では battlefield 左から右に処理する。
-4. 各ユニットについて、battlefield から discard pile へ移動する。
-5. `unit_destroyed` を記録する。
-6. `SELF_PIG` を解決する。
+4. 各ユニットについて、`unit_destroyed` を記録する。
+5. 破壊されたユニット自身がまだ battlefield に残っている状態で `SELF_PIG` を解決する。
+6. `SELF_PIG` 解決後、battlefield から discard pile へ移動する。
 7. `state.units` から削除する。
+
+注意:
+
+- `SELF_PIG` の解決時点では、破壊されたユニットのカードはまだ discard pile にない。
+- そのため、スカルウォーカーのような「捨札からユニットを回収する」能力では、自身のカードは回収候補に含まれない。
 
 未実装:
 

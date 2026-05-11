@@ -484,10 +484,10 @@ class EngineTest(unittest.TestCase):
                 "damage_dealt",
                 "damage_dealt",
                 "battle_draw",
-                "card_moved",
                 "unit_destroyed",
                 "card_moved",
                 "unit_destroyed",
+                "card_moved",
             ],
         )
 
@@ -857,10 +857,10 @@ class EngineTest(unittest.TestCase):
         self.assertEqual(random_events[-1].payload["kind"], "discard_pile_card")
         self.assertEqual(
             random_events[-1].payload["candidate_card_instance_ids"],
-            [skull_card.instance_id, revive_target.instance_id],
+            [revive_target.instance_id],
         )
 
-    def test_skull_walker_pig_can_return_itself_when_no_other_unit_in_discard(self) -> None:
+    def test_skull_walker_pig_does_not_include_itself_as_revival_candidate(self) -> None:
         state = create_game_state(self.catalog)
         skull_card = state.create_card_instance("1-0-028", "P1")
         non_unit = state.create_card_instance("1-0-061", "P1")
@@ -872,9 +872,11 @@ class EngineTest(unittest.TestCase):
 
         destroy_unit(state, skull, cause_event_no=0, reason="test")
 
-        self.assertEqual(state.players["P1"].hand.cards, [skull_card.instance_id])
-        self.assertEqual(state.players["P1"].discard_pile.cards, [non_unit.instance_id])
-        self.assertNotIn("effect_fizzled", [event.type for event in state.event_store.events])
+        self.assertEqual(state.players["P1"].hand.cards, [])
+        self.assertEqual(state.players["P1"].discard_pile.cards, [skull_card.instance_id, non_unit.instance_id])
+        self.assertIn("effect_fizzled", [event.type for event in state.event_store.events])
+        event_types = [event.type for event in state.event_store.events]
+        self.assertLess(event_types.index("ability_resolved"), event_types.index("card_moved"))
 
     def test_lina_oc_chooses_card_from_discard_to_hand(self) -> None:
         state = create_game_state(self.catalog)

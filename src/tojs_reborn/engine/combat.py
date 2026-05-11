@@ -185,7 +185,8 @@ def destroy_lethal_units(state: GameState, units: list[UnitState], cause_event_n
         )
     )
     for unit in destroyed_units:
-        _destroy_unit(state, unit, cause_event_no)
+        if unit.unit_id in state.units:
+            _destroy_unit(state, unit, cause_event_no)
 
 
 def destroy_unit(state: GameState, unit: UnitState, cause_event_no: int, *, reason: str = "effect") -> None:
@@ -196,6 +197,17 @@ def destroy_unit(state: GameState, unit: UnitState, cause_event_no: int, *, reas
 
 def _destroy_unit(state: GameState, unit: UnitState, cause_event_no: int, *, reason: str = "battle") -> None:
     player = state.players[unit.owner_player_id]
+    destroyed_event = state.event_store.append(
+        "unit_destroyed",
+        round_no=state.round_no,
+        turn_no=state.turn_no,
+        actor_player_id=unit.owner_player_id,
+        cause_event_no=cause_event_no,
+        source=_unit_source(unit),
+        payload={"reason": reason},
+    )
+    resolve_unit_destroyed(state, unit, destroyed_event, get_effect_handlers())
+
     player.battlefield.remove(unit.unit_id)
     player.discard_pile.add(unit.card_instance_id)
     state.event_store.append(
@@ -211,16 +223,6 @@ def _destroy_unit(state: GameState, unit: UnitState, cause_event_no: int, *, rea
             "owner_player_id": unit.owner_player_id,
         },
     )
-    destroyed_event = state.event_store.append(
-        "unit_destroyed",
-        round_no=state.round_no,
-        turn_no=state.turn_no,
-        actor_player_id=unit.owner_player_id,
-        cause_event_no=cause_event_no,
-        source=_unit_source(unit),
-        payload={"reason": reason},
-    )
-    resolve_unit_destroyed(state, unit, destroyed_event, get_effect_handlers())
     del state.units[unit.unit_id]
 
 
