@@ -308,6 +308,42 @@
         }
       ]
     },
+    "1-0-041": {
+      "card_name": "フォクスコマンドー",
+      "abilities": [
+        {
+          "ability_key": "1-0-041:a1",
+          "ability_name": "チェンジ",
+          "source_text": "このユニットがオーバークロックした時、あなたは手札を２枚選んで捨てる。そうした場合、あなたはカードを２枚引く。",
+          "status": "supported",
+          "timing": "SELF_OC",
+          "optional": true,
+          "priority": {
+            "band": "unit",
+            "order": "source_only"
+          },
+          "condition": null,
+          "cost_steps": [
+            {
+              "effect": "discard_from_hand",
+              "player": "owner",
+              "count": 2,
+              "selector": {
+                "type": "owner_hand"
+              }
+            }
+          ],
+          "selector": null,
+          "effect_steps": [
+            {
+              "effect": "draw_cards",
+              "player": "owner",
+              "count": 2
+            }
+          ]
+        }
+      ]
+    },
     "1-0-043": {
       "card_name": "グラインドビートル",
       "abilities": [

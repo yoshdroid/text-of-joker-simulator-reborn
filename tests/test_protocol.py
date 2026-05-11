@@ -1098,6 +1098,30 @@ class ProtocolTest(unittest.TestCase):
 
         self.assertEqual(selected, {"unit_id": unit.unit_id})
 
+    def test_json_line_player_accepts_multi_card_cost_choice_response(self) -> None:
+        state = create_game_state(self.catalog)
+        first = state.create_card_instance("1-0-040", "P1")
+        second = state.create_card_instance("1-0-001", "P1")
+        state.players["P1"].hand.add(first.instance_id)
+        state.players["P1"].hand.add(second.instance_id)
+        selected_cost = {"card_instance_ids": [first.instance_id, second.instance_id]}
+        response = encode_choice_response(selected_cost, request_id="cost-1", player_id="P1")
+        transport = MemoryTransport([response])
+        player = JsonLinePlayer(transport)
+
+        selected = player.choose_choice_with_state(
+            "P1",
+            request_id="cost-1",
+            choice={"type": "cost_payment", "count": 2},
+            legal_choices=[
+                {"card_instance_id": first.instance_id},
+                {"card_instance_id": second.instance_id},
+            ],
+            state=state,
+        )
+
+        self.assertEqual(selected, selected_cost)
+
     def test_json_line_player_falls_back_on_invalid_choice_response(self) -> None:
         legal_choices = [{"unit_id": "u0001"}]
         player = JsonLinePlayer(MemoryTransport([encode_choice_response({"unit_id": "bad"}, request_id="c1", player_id="P1")]))

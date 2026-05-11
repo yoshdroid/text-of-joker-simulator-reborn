@@ -191,6 +191,8 @@ class JsonLinePlayer:
         stripped_choice = strip_choice_decoration(selected_choice)
         if stripped_choice in legal_choices:
             return stripped_choice
+        if choice.get("type") == "cost_payment" and _is_cost_payment_response_valid(stripped_choice, legal_choices):
+            return stripped_choice
         self.last_fallback_reason = "illegal_choice"
         return legal_choices[0]
 
@@ -237,3 +239,14 @@ def encode_choice_response(choice: dict, *, request_id: str, player_id: str) -> 
 
 def encode_mulligan_response(do_mulligan: bool, *, request_id: str, player_id: str) -> str:
     return encode_message(mulligan_selected_message(request_id=request_id, player_id=player_id, do_mulligan=do_mulligan))
+
+
+def _is_cost_payment_response_valid(response: dict, legal_choices: list[dict]) -> bool:
+    legal_ids = {choice.get("card_instance_id") for choice in legal_choices}
+    if isinstance(response.get("card_instance_id"), str):
+        selected_ids = [response["card_instance_id"]]
+    elif isinstance(response.get("card_instance_ids"), list):
+        selected_ids = [card_id for card_id in response["card_instance_ids"] if isinstance(card_id, str)]
+    else:
+        return False
+    return bool(selected_ids) and len(selected_ids) == len(set(selected_ids)) and all(card_id in legal_ids for card_id in selected_ids)

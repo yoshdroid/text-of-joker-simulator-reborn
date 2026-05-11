@@ -408,6 +408,8 @@ class MatchRunner:
                 }
             )
         if response not in legal_choices:
+            if choice.get("type") == "cost_payment" and _is_cost_payment_response_valid(response, legal_choices):
+                return response
             self.state.event_store.append(
                 "invalid_response",
                 round_no=self.state.round_no,
@@ -635,6 +637,17 @@ def _first_value(actions: list[dict], key: str):
         if key in action:
             return action[key]
     return None
+
+
+def _is_cost_payment_response_valid(response: dict, legal_choices: list[dict]) -> bool:
+    legal_ids = {choice.get("card_instance_id") for choice in legal_choices}
+    if isinstance(response.get("card_instance_id"), str):
+        selected_ids = [response["card_instance_id"]]
+    elif isinstance(response.get("card_instance_ids"), list):
+        selected_ids = [card_id for card_id in response["card_instance_ids"] if isinstance(card_id, str)]
+    else:
+        return False
+    return bool(selected_ids) and len(selected_ids) == len(set(selected_ids)) and all(card_id in legal_ids for card_id in selected_ids)
 
 
 def _perform_mulligan_on_state(state: GameState, player_id: str, attempt: int) -> dict:

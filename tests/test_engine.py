@@ -9,7 +9,7 @@ if SRC_PATH.exists():
     sys.path.insert(0, str(SRC_PATH))
 
 from tojs_reborn.cardpool.normalizer import normalize_cardpool
-from tojs_reborn.engine.actions import draw_cards, drive_unit, override_card, set_trigger
+from tojs_reborn.engine.actions import draw_cards, drive_unit, overclock_unit, override_card, set_trigger
 from tojs_reborn.engine.combat import attack_player, attack_unit, declare_attack, destroy_lethal_units
 from tojs_reborn.engine.events import EventStore
 from tojs_reborn.engine.legal_actions import list_block_actions, list_legal_actions
@@ -395,6 +395,31 @@ class EngineTest(unittest.TestCase):
         self.assertEqual(state.players["P1"].discard_pile.cards, [])
         self.assertEqual(get_unit_bp(state, attacker), before_bp)
         self.assertNotIn("ability_cost_paid", [event.type for event in state.event_store.events])
+
+    def test_fox_commando_optional_oc_cost_discards_two_and_draws_two(self) -> None:
+        state = create_game_state(self.catalog)
+        base_card = state.create_card_instance("1-0-041", "P1", level=2)
+        material_card = state.create_card_instance("1-0-041", "P1")
+        first_cost = state.create_card_instance("1-0-040", "P1")
+        second_cost = state.create_card_instance("1-0-001", "P1")
+        draw_one = state.create_card_instance("1-0-004", "P1")
+        draw_two = state.create_card_instance("1-0-005", "P1")
+        unit = state.create_unit(base_card.instance_id)
+        state.players["P1"].battlefield.add(unit.unit_id)
+        state.players["P1"].hand.add(material_card.instance_id)
+        state.players["P1"].hand.add(first_cost.instance_id)
+        state.players["P1"].hand.add(second_cost.instance_id)
+        state.players["P1"].deck.cards.extend([draw_one.instance_id, draw_two.instance_id])
+
+        def choose_cost(_state, _source_unit, _ability, _request_event, _step, _legal_choices):
+            return {"card_instance_ids": [first_cost.instance_id, second_cost.instance_id]}
+
+        overclock_unit(state, "P1", material_card.instance_id, unit.unit_id, lambda *_args: True, choose_cost)
+
+        self.assertEqual(set(state.players["P1"].discard_pile.cards), {first_cost.instance_id, second_cost.instance_id})
+        self.assertEqual(state.players["P1"].hand.cards, [draw_one.instance_id, draw_two.instance_id])
+        self.assertIn("ability_cost_paid", [event.type for event in state.event_store.events])
+        self.assertIn("cards_drawn", [event.type for event in state.event_store.events])
 
     def test_simultaneous_destroyed_self_pig_resolves_turn_player_first(self) -> None:
         state = create_game_state(self.catalog)
