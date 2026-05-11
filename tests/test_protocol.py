@@ -143,6 +143,7 @@ class ProtocolTest(unittest.TestCase):
             self.catalog["1-0-065"].color,
         )
         self.assertIsNone(message["public_state"]["players"]["P2"]["trigger_zone"]["items"][0]["revealed_card_no"])
+        self.assertNotIn("category", message["public_state"]["players"]["P2"]["trigger_zone"]["items"][0])
 
     def test_views_include_own_private_hand_and_trigger_zone(self) -> None:
         state = create_game_state(self.catalog)
@@ -263,7 +264,9 @@ class ProtocolTest(unittest.TestCase):
 
         self.assertEqual(state.players["P1"].trigger_zone.cards, [])
         self.assertEqual(state.players["P1"].hand.cards, [first_draw.instance_id, second_draw.instance_id])
-        self.assertIn("trigger_activated", [event.type for event in state.event_store.events])
+        trigger_event = next(event for event in state.event_store.events if event.type == "trigger_activated")
+        self.assertEqual(trigger_event.payload["card"]["card_no"], "T-TRG-001")
+        self.assertEqual(trigger_event.payload["card"]["category"], "trigger")
 
     def test_match_runner_processes_intercept_window_after_attack(self) -> None:
         class WindowAwarePlayer:

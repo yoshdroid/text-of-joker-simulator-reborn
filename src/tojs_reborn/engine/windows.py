@@ -255,7 +255,10 @@ def _activate_card(
         actor_player_id=player_id,
         cause_event_no=cause_event.event_no,
         source=EventSource(card_no=instance.card_no, card_instance_id=card_instance_id),
-        payload={"category": card.category},
+        payload={
+            "category": card.category,
+            "card": card_instance_public_view(state, card_instance_id),
+        },
     )
     source = UnitState(
         unit_id="",
