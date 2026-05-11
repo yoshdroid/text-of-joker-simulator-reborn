@@ -19,6 +19,7 @@ def get_effect_handlers():
         "draw_cards": _handle_draw_cards,
         "modify_base_bp": _handle_modify_base_bp,
         "modify_bp": _handle_modify_bp,
+        "move_discard_to_hand": _handle_move_discard_to_hand,
         "move_random_discard_to_hand": _handle_move_random_discard_to_hand,
         "recover_action": _handle_recover_action,
         "return_unit_to_hand": _handle_return_unit_to_hand,
@@ -698,6 +699,76 @@ def _handle_move_random_discard_to_hand(
             "owner_player_id": player_id,
             "reason": "effect",
             "category": category,
+        },
+    )
+
+
+def _handle_move_discard_to_hand(
+    state: GameState,
+    unit: UnitState,
+    ability: AbilityDefinition,
+    ability_event: FactEvent,
+    step: dict,
+) -> None:
+    selector = ability.raw.get("selector")
+    if not isinstance(selector, dict):
+        _append_effect_fizzled(state, unit.owner_player_id, ability_event, step, "selector_missing")
+        return
+    player_id = _resolve_player_id(unit.owner_player_id, selector.get("controller"))
+    player = state.players[player_id]
+    category = selector.get("category")
+    candidates = [
+        card_instance_id
+        for card_instance_id in player.discard_pile.cards
+        if category is None or state.card_catalog[state.card_instances[card_instance_id].card_no].category == category
+    ]
+    if not candidates:
+        _append_effect_fizzled(state, unit.owner_player_id, ability_event, step, "no_valid_target")
+        return
+    request_event = state.event_store.append(
+        "choice_requested",
+        round_no=state.round_no,
+        turn_no=state.turn_no,
+        actor_player_id=unit.owner_player_id,
+        cause_event_no=ability_event.event_no,
+        source=ability_event.source,
+        payload={
+            "choice_id": selector.get("id"),
+            "type": "card",
+            "candidate_card_instance_ids": candidates,
+            "required": bool(selector.get("required", True)),
+            "zone": "discard_pile",
+        },
+    )
+    chosen_card_instance_id = candidates[0]
+    state.event_store.append(
+        "choice_selected",
+        round_no=state.round_no,
+        turn_no=state.turn_no,
+        actor_player_id=unit.owner_player_id,
+        cause_event_no=request_event.event_no,
+        source=ability_event.source,
+        payload={
+            "choice_id": selector.get("id"),
+            "chosen_card_instance_id": chosen_card_instance_id,
+            "fallback": "first_legal",
+        },
+    )
+    player.discard_pile.cards.remove(chosen_card_instance_id)
+    player.hand.add(chosen_card_instance_id)
+    chosen_instance = state.card_instances[chosen_card_instance_id]
+    state.event_store.append(
+        "card_moved",
+        round_no=state.round_no,
+        turn_no=state.turn_no,
+        actor_player_id=player_id,
+        cause_event_no=request_event.event_no,
+        source=EventSource(card_no=chosen_instance.card_no, card_instance_id=chosen_card_instance_id),
+        payload={
+            "from_zone": "discard_pile",
+            "to_zone": "hand",
+            "owner_player_id": player_id,
+            "reason": "effect",
         },
     )
 

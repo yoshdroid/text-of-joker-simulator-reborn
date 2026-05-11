@@ -792,6 +792,45 @@ class EngineTest(unittest.TestCase):
         self.assertEqual(state.players["P1"].discard_pile.cards, [non_unit.instance_id])
         self.assertNotIn("effect_fizzled", [event.type for event in state.event_store.events])
 
+    def test_lina_oc_chooses_card_from_discard_to_hand(self) -> None:
+        state = create_game_state(self.catalog)
+        lina = state.create_card_instance("1-0-031", "P1")
+        first_material = state.create_card_instance("1-0-031", "P1")
+        second_material = state.create_card_instance("1-0-031", "P1")
+        first_discard = state.create_card_instance("1-0-061", "P1")
+        second_discard = state.create_card_instance("1-0-001", "P1")
+        state.players["P1"].current_cp = 10
+        state.players["P1"].hand.add(lina.instance_id)
+        state.players["P1"].hand.add(first_material.instance_id)
+        state.players["P1"].hand.add(second_material.instance_id)
+
+        override_card(state, "P1", lina.instance_id, first_material.instance_id)
+        override_card(state, "P1", lina.instance_id, second_material.instance_id)
+        state.players["P1"].discard_pile.add(second_discard.instance_id)
+        state.players["P1"].discard_pile.add(first_discard.instance_id)
+        drive_unit(state, "P1", lina.instance_id)
+
+        self.assertIn(first_discard.instance_id, state.players["P1"].hand.cards)
+        self.assertIn(second_discard.instance_id, state.players["P1"].discard_pile.cards)
+        choice_requests = [event for event in state.event_store.events if event.type == "choice_requested"]
+        self.assertEqual(choice_requests[-1].payload["type"], "card")
+        self.assertEqual(
+            choice_requests[-1].payload["candidate_card_instance_ids"],
+            [first_discard.instance_id, second_discard.instance_id, second_material.instance_id, first_material.instance_id],
+        )
+        choice_selected = [event for event in state.event_store.events if event.type == "choice_selected"][-1]
+        self.assertEqual(choice_selected.payload["chosen_card_instance_id"], first_discard.instance_id)
+
+    def test_lina_oc_fizzles_without_discard_target(self) -> None:
+        state = create_game_state(self.catalog)
+        lina = state.create_card_instance("1-0-031", "P1", level=3)
+        state.players["P1"].current_cp = 10
+        state.players["P1"].hand.add(lina.instance_id)
+
+        drive_unit(state, "P1", lina.instance_id)
+
+        self.assertIn("effect_fizzled", [event.type for event in state.event_store.events])
+
     def test_simultaneous_destroyed_self_pig_resolves_turn_player_first(self) -> None:
         state = create_game_state(self.catalog)
         state.turn_player_id = "P1"

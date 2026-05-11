@@ -365,6 +365,7 @@ null
 | `discard_from_hand` | 手札を捨てる |
 | `draw_card_by_category` | 指定カテゴリのカードを引く |
 | `move_random_discard_to_hand` | 捨札から条件に合うカードをランダムに手札へ戻す |
+| `move_discard_to_hand` | 捨札から選択したカードを手札へ戻す |
 | `recover_action` | 行動権を回復する |
 | `return_unit_to_hand` | ユニットを手札へ戻す。手札上限時は捨札へ送る |
 | `set_level` | レベルを変更する |

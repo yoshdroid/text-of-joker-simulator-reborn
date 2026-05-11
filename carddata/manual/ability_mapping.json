@@ -510,6 +510,38 @@
         }
       ]
     },
+    "1-0-031": {
+      "card_name": "見習い魔導士リーナ",
+      "abilities": [
+        {
+          "ability_key": "1-0-031:a1",
+          "ability_name": "リバイブ",
+          "source_text": "このユニットがオーバークロックした時、あなたの捨札にあるカードを１枚選ぶ。それを手札に加える。",
+          "status": "supported",
+          "timing": "SELF_OC",
+          "optional": false,
+          "priority": {
+            "band": "unit",
+            "order": "source_only"
+          },
+          "condition": null,
+          "cost_steps": [],
+          "selector": {
+            "id": "target",
+            "type": "discard_pile_card",
+            "controller": "owner",
+            "count": 1,
+            "required": true
+          },
+          "effect_steps": [
+            {
+              "effect": "move_discard_to_hand",
+              "target": "target"
+            }
+          ]
+        }
+      ]
+    },
     "1-0-033": {
       "card_name": "ヴァイパー",
       "abilities": [
