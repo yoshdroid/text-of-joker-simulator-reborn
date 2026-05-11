@@ -623,9 +623,9 @@ replay record は次を持つ。
 
 ### OC のカード統合
 
-overclock は、手札の同名 card instance を `unit_stack` に移動したものとして扱う。素材カードは discard pile に置かず、`UnitState.stacked_card_instance_ids` に保持する。
+旧仮実装では、overclock は手札の同名 card instance を `unit_stack` に移動したものとして扱っていた。素材カードは discard pile に置かず、`UnitState.stacked_card_instance_ids` に保持する実装だった。
 
-現在の OC 処理:
+旧仮実装の OC 処理:
 
 1. 手札から同名カードを選ぶ。
 2. 対象 unit の `stacked_card_instance_ids` に追加する。
@@ -640,25 +640,189 @@ overclock は、手札の同名 card instance を `unit_stack` に移動した�
 
 1. trigger / intercept の発動 window
    - どのイベント後に window を開くか。
+      すべてのイベント発生時にトリガーゾーン設置されたカードを左から発動確認する。
    - 先に発動権を得るプレイヤー。
+      ターンプレイヤー側のトリガーゾーンから確認する。
    - 両者連続パスで閉じる単位。
+      トリガーは発動可能時、強制的に発動する。
+      インターセプトは発動可能時、プレイヤーが発動 or パスを決定する。
+      ターンプレイヤー→相手側プレイヤー→ターンプレイヤー→... と交互に確認する。
+      パスが2回連続したとき、インターセプト発動確認を終了する。
 
 2. block の扱い
    - 現在は `attack_unit` が「ブロック済み戦闘」を直接表す。
    - 実際には attack 宣言後に defender が block / no block を選ぶ形へ分離するか。
+    　ターンプレイヤーが行動権のあるユニットを選択しアタック宣言、アタックイベント発行する。
+    　相手側プレイヤーが no block / 行動権のあるユニットを選択しブロック宣言、ブロックイベント発行する。
+    　ブロック宣言されたとき、戦闘発生、戦闘イベント発行する。
 
 3. overclock の素材カード
    - 素材カードは unit stack に置く方針でよいか。
+    Hand内で同名カードを重ねるオーバーライドでは、被オーバーライドされたカードを LV/CPなど初期化して discard pileへ移動する。
+    battlefieldでは同名カードを重ねるオーバーライドは実行できない。
+    battlefieldでオーバークロックするのは LV2の状態から level upする、またはHand内で LV3になったカードをユニットドライブするとき。
+    スタックというよりはインスタンスの状態として LVコントロールする。
    - unit 破壊時に stack の全 card instance を discard pile に置くか。
    - discard pile の順序は上から素材、新しいカード、元カードのどれにするか。
 
 4. legal action の粒度
    - 子プログラムに `attack_unit` を直接渡してよいか。
    - それとも `attack` と `block` を別 request に分けるか。
+    アタックがターンプレイヤーよりリクエストされた時、ブロックリクエストするのは相手側プレイヤーのみなので、分離する。
 
 5. public state
    - 相手 trigger_zone は枚数と色を公開する方針だったが、現在の protocol では枚数のみ隠蔽している。
    - 色一覧を公開 payload に含めるか。
+    無色、緑、無色、無色、のように個別に開示される。
+    将来複数回使用可能なインターセプトが実装されるが、1回使用した以降はそのカード情報も公開される。
+
+## ユーザー追記後の実装判断
+
+追記された内容により、次の実装は進められる。
+
+### 進められる実装
+
+1. trigger / intercept window
+   - すべてのイベント発生後に window 確認を入れる。
+   - trigger は発動条件を満たす場合に強制発動する。
+   - intercept はターンプレイヤー側から交互に発動確認する。
+   - intercept は両プレイヤーが連続パスした時点で window を閉じる。
+
+2. block request の分離
+   - ターンプレイヤーは `attack` のみ選ぶ。
+   - attack event 後、防御側プレイヤーへ `block` / `no_block` を request する。
+   - block が選ばれた場合のみ `block_declared` と `battle_started` を発行する。
+   - no block の場合はプレイヤーへのライフダメージへ進む。
+
+3. public state
+   - opponent trigger_zone は枚数だけではなく、左から順の公開色リストを返す。
+   - 将来、使用済みで公開された intercept については card_no 等も公開できるように visible metadata を持たせる。
+
+4. OC / override
+   - 現在の `unit_stack` 方式は仮実装であり、仕様とずれるため変更する。
+   - Hand 内の同名カード重ねは「オーバーライド」として扱う。
+   - オーバーライドされた card instance は LV/CP などを初期化して discard pile へ移動する。
+   - 残った hand の card instance が level up する。
+   - battlefield 上では同名カード重ねによる overclock は行わない。
+   - battlefield での overclock は、LV2 unit が何らかの level up により LV3 になる場合、または LV3 card を unit drive した場合に発生する。
+
+### 現在実装との主な差分
+
+- 現在の `overclock_unit` は、手札の同名カードを battlefield unit に重ねて `unit_stack` に入れる。これは修正対象。
+- 現在の `attack_unit` は attack と block を一括実行する。今後は attack declaration と block request を分離する。
+- 現在の trigger/intercept window は候補列挙のみ。今後はイベント発生後に window runner を呼ぶ。
+- 現在の public state は opponent trigger_zone を枚数のみ公開する。今後は色リストを公開する。
+
+### 追加で必要な仕様情報
+
+実装は進められるが、次の点は今後カードを増やす前に確認したい。
+
+1. trigger の「発動可能条件」
+   - trigger は強制発動とのことだが、発動条件を満たさない trigger はそのまま残るか。
+    発動タイミングが一致した時、常に発動する。
+    何でも屋の陳列台 「1枚カードを引く」draw 効果に対して Deckに 1枚もカードが存在しない時、デッキリフレッシュし 40枚にした状態から 1枚カードを引く。
+    新品の鎧「1枚インターセプトカードを引く」search-draw効果に対して Deck内に 1枚もインターセプトカードが存在しない時、トリガー発動するが効果は何も発生しない。
+   - 1つのイベントで複数 trigger が発動可能な場合、左から順にすべて発動するか。
+    1枚目のトリガーカードが発動した時、続けて相手側のトリガーゾーン内を発動確認、処理する。完了後再度自分側のトリガーゾーン確認、2つ目のトリガーカードを発動する。
+
+2. intercept の発動後処理
+   - 発動した intercept は原則 discard pile へ移動でよいか。
+    現カードプールにおいては常に discard pileへ移動とする。
+   - 複数回使用可能な intercept は、どのフィールドで使用済み公開状態を保持するか。
+    トリガーゾーン内にてカード情報を参照可能。
+
+3. hand override の詳細
+   - 重ねる側 / 重ねられる側を子プログラムが選ぶ必要があるか。
+    ある。重ねられた側の LVを +1するため、区別が重要。
+   - LV/CP 初期化後に discard pile へ移動するカードの公開順は通常の discard pile 先頭でよいか。
+    よい。discard pileへ送られた順番が把握できるようにする。
+   - hand 内で LV3 になった瞬間に OC ability は発動するか、それとも unit drive するまで発動しないか。
+    ハンド内では LV3の状態でとどまり、unit driveし CIP関連の効果発動チェックと解決処理がすべて終了した後 overclockし、行動権回復、先攻1ターン目以外での攻撃制限解除、を処理したあと OC ability有無をチェックし発動する。
+
+4. LV3 card の unit drive
+   - LV3 card を drive した場合、`unit_entered` と `unit_overclocked` の順序はどちらを先にするか。
+   - LV3 drive 時、CIP と OC の両方を持つ場合の解決順を決めたい。
+    CIP判定、解決を常に優先する。
+
+## 次の実装単位
+
+ユーザー追記により、次は以下の順で実装を進められる。
+
+### V1-A: public state の trigger zone 公開情報
+
+現在の protocol は相手 trigger_zone を枚数のみ公開しているため、まず仕様どおり左から順の色リストを公開する。
+
+実装内容:
+
+- `public_state_message` の opponent trigger_zone を `{count, colors}` 形式に変更する。
+- 将来の公開済み intercept 用に、trigger_zone 表示 item に `revealed_card_no` を追加できる形にする。
+- protocol test を更新する。
+
+### V1-B: attack / block request 分離
+
+現在の `attack_unit` は attack と block を一括処理しているため、実ゲーム手順に近づける。
+
+実装内容:
+
+- `declare_attack` を公開 API 化する。
+- action 生成から `attack_unit` を外し、`attack` を返す。
+- attack 後に defender へ `block` / `no_block` 候補を生成する。
+- `block` 選択時のみ `block_declared`、`battle_started`、戦闘処理を行う。
+- `no_block` 選択時は player attack damage を行う。
+- 既存 `attack_unit` はテスト補助または互換 API として残すか、段階的に置き換える。
+
+### V1-C: hand override / LV 管理
+
+現在の `overclock_unit` / `unit_stack` 仮実装を置き換える。
+
+実装内容:
+
+- hand 内同名カード2枚を指定して `override_card` を行う。
+- 重ねられる側 card instance の level を +1 する。
+- 重ねる側 card instance は level/CP 等を初期化し discard pile へ移動する。
+- battlefield への同名カード重ねは合法手に出さない。
+- LV3 card を drive した場合は、CIP 解決後に `unit_overclocked` を発行し、行動権回復と攻撃制限解除を処理してから `SELF_OC` を解決する。
+
+### V1-D: trigger / intercept window runner
+
+候補列挙のみの window を、イベント後に実際に処理する runner へ拡張する。
+
+実装内容:
+
+- イベント発生後に trigger zone をターンプレイヤー側から左順で確認する。
+- trigger はタイミング一致で強制発動し、発動後 discard pile へ移動する。
+- 1枚処理したら相手側 trigger zone を確認し、その後また自分側へ戻る。
+- intercept は発動候補があるたびに発動 / パスを選ぶ。
+- 両プレイヤーが2回連続でパスしたら intercept window を閉じる。
+
+### V1-E: deck refresh
+
+draw 時に deck が空の場合、discard pile から deck refresh する。
+
+実装内容:
+
+- `deck_refreshed` イベントを追加する。
+- refresh 後に draw を継続する。
+- search-draw で対象カテゴリが存在しない場合は、trigger は発動済みとして処理し、効果結果は0枚とする。
+
+## まだ確認したい仕様
+
+実装は進められるが、次の詳細は後続で確認したい。
+
+1. deck refresh の順序
+   - discard pile の先頭をどう扱って deck に戻すか。
+   - refresh 時に shuffle するか、固定順にするか。
+   discard pileを空にする。
+   deckに、ゲーム開始時に登録されたカードを復活させる。
+   シャッフルする。
+
+2. 先攻1ターン目の攻撃制限
+   - LV3 drive / OC 後の「攻撃制限解除」は先攻1ターン目以外とのことなので、先攻1ターン目判定に必要な match 開始情報を持たせる必要がある。
+
+3. trigger / intercept のタイミング定義
+   - 「すべてのイベント発生時に確認」は実装可能だが、カードごとの発動タイミングを `ability_mapping.json` にどう記述するかは、対象カード追加時に詰める。
+  カードのabilityごとに起動タイミングキーワードを記載することを想定する。
+  自然言語記述の excelと対応関係を作り自動化できるのが好ましいが、手動対応することも仕様厳密化につながるため、いずれでもよい。実装がシンプルになる方法を選択してほしい。
 
 ## 現在の検証状況
 
