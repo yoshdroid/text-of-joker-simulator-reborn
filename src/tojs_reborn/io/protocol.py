@@ -62,12 +62,23 @@ def state_update_message(state: GameState, player_id: str, *, request_id: str) -
 
 
 def request_action_message(state: GameState, player_id: str, *, request_id: str) -> dict[str, Any]:
+    return request_action_message_with_context(state, player_id, request_id=request_id)
+
+
+def request_action_message_with_context(
+    state: GameState,
+    player_id: str,
+    *,
+    request_id: str,
+    request_context: dict[str, Any] | None = None,
+) -> dict[str, Any]:
     public_state = build_public_state(state, player_id)
     private_view = build_private_view(state, player_id)
     return {
         "type": "request_action",
         "request_id": request_id,
         "player_id": player_id,
+        "request_context": request_context or {"kind": "turn_action", "cause_event_no": None, "window": None},
         "state_revision": state_revision(state),
         "public_state": public_state,
         "private_view": private_view,

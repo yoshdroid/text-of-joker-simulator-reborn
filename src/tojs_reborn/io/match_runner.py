@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+import inspect
 from dataclasses import dataclass, field
 from typing import Protocol
 
@@ -240,7 +241,16 @@ class MatchRunner:
         player = self.players[player_id]
         choose_with_state = getattr(player, "choose_action_with_state", None)
         if callable(choose_with_state):
-            response = choose_with_state(player_id, legal_actions, state=self.state)
+            request_context = _request_context_from_role(role, legal_actions)
+            if _accepts_request_context(choose_with_state):
+                response = choose_with_state(
+                    player_id,
+                    legal_actions,
+                    state=self.state,
+                    request_context=request_context,
+                )
+            else:
+                response = choose_with_state(player_id, legal_actions, state=self.state)
         else:
             response = player.choose_action(player_id, legal_actions)
         fallback_reason = getattr(player, "last_fallback_reason", None)
@@ -415,6 +425,36 @@ def _turn_draw_count(player_id: str, player_turn_count: int) -> int:
     if player_id == "P1" and player_turn_count == 1:
         return 0
     return 2
+
+
+def _accepts_request_context(callable_object) -> bool:
+    try:
+        parameters = inspect.signature(callable_object).parameters
+    except (TypeError, ValueError):
+        return False
+    return "request_context" in parameters
+
+
+def _request_context_from_role(role: str, legal_actions: list[dict]) -> dict:
+    if role == "block_action":
+        return {"kind": "block_action", "cause_event_no": _first_value(legal_actions, "cause_event_no"), "window": None}
+    if role == "window_action":
+        window = _first_value(legal_actions, "window")
+        cause_event_no = _first_value(legal_actions, "cause_event_no")
+        action_types = {action.get("type") for action in legal_actions}
+        if "activate_intercept" in action_types or "pass_window" in action_types:
+            return {"kind": "intercept_window", "cause_event_no": cause_event_no, "window": window}
+        if "activate_trigger" in action_types:
+            return {"kind": "trigger_window", "cause_event_no": cause_event_no, "window": window}
+        return {"kind": "window_action", "cause_event_no": cause_event_no, "window": window}
+    return {"kind": "turn_action", "cause_event_no": None, "window": None}
+
+
+def _first_value(actions: list[dict], key: str):
+    for action in actions:
+        if key in action:
+            return action[key]
+    return None
 
 
 def _perform_mulligan_on_state(state: GameState, player_id: str, attempt: int) -> dict:

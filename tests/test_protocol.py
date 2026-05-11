@@ -71,6 +71,7 @@ class ProtocolTest(unittest.TestCase):
         self.assertEqual(decoded["type"], "request_action")
         self.assertEqual(decoded["request_id"], "r1")
         self.assertEqual(decoded["legal_actions"][0]["type"], "pass")
+        self.assertEqual(decoded["request_context"]["kind"], "turn_action")
         self.assertIn("display", decoded["legal_actions"][0])
         self.assertIn("public_state", decoded)
         self.assertIn("private_view", decoded)
@@ -781,8 +782,28 @@ class ProtocolTest(unittest.TestCase):
         request = decode_message(transport.written[1])
         self.assertEqual(state_update["type"], "state_update")
         self.assertEqual(request["type"], "request_action")
+        self.assertEqual(request["request_context"]["kind"], "turn_action")
         self.assertIn("private_view", request)
         self.assertEqual(request["private_view"]["hand"][0]["card_no"], "1-0-040")
+
+    def test_json_line_player_sends_request_action_context(self) -> None:
+        state = create_game_state(self.catalog)
+        legal_actions = [{"type": "pass_window", "window": "attack", "cause_event_no": 12}]
+        response = encode_action_response(legal_actions[0], request_id="P1:action", player_id="P1")
+        transport = MemoryTransport([response])
+        player = JsonLinePlayer(transport)
+
+        selected = player.choose_action_with_state(
+            "P1",
+            legal_actions,
+            state=state,
+            request_context={"kind": "intercept_window", "cause_event_no": 12, "window": "attack"},
+        )
+
+        self.assertEqual(selected, legal_actions[0])
+        request = decode_message(transport.written[1])
+        self.assertEqual(request["request_context"]["kind"], "intercept_window")
+        self.assertEqual(request["request_context"]["window"], "attack")
 
     def test_json_line_player_uses_valid_mulligan_response(self) -> None:
         response = encode_mulligan_response(True, request_id="P1:mulligan", player_id="P1")

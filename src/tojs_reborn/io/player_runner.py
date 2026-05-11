@@ -14,7 +14,7 @@ from .protocol import (
     decode_message,
     encode_message,
     request_mulligan_message,
-    request_action_message,
+    request_action_message_with_context,
     mulligan_selected_message,
     state_update_message,
 )
@@ -64,7 +64,14 @@ class JsonLinePlayer:
     def choose_action(self, player_id: str, legal_actions: list[dict]) -> dict:
         return self.choose_action_with_state(player_id, legal_actions, state=None)
 
-    def choose_action_with_state(self, player_id: str, legal_actions: list[dict], *, state: GameState | None) -> dict:
+    def choose_action_with_state(
+        self,
+        player_id: str,
+        legal_actions: list[dict],
+        *,
+        state: GameState | None,
+        request_context: dict | None = None,
+    ) -> dict:
         self.last_fallback_reason = None
         request_id = f"{player_id}:action"
         if state is not None:
@@ -77,7 +84,12 @@ class JsonLinePlayer:
                     )
                 )
             )
-            request = request_action_message(state, player_id, request_id=request_id)
+            request = request_action_message_with_context(
+                state,
+                player_id,
+                request_id=request_id,
+                request_context=request_context,
+            )
             request["legal_actions"] = legal_actions
         else:
             request = {
