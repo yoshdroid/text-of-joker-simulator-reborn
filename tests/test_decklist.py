@@ -10,6 +10,7 @@ if SRC_PATH.exists():
 
 from tests.test_engine import build_catalog
 from tojs_reborn.io.decklist import DecklistError, load_decklist, parse_decklist
+from tojs_reborn.io.match_setup import MatchSetupConfig, setup_match_state
 
 
 class DecklistTest(unittest.TestCase):
@@ -69,6 +70,42 @@ class DecklistTest(unittest.TestCase):
 
         self.assertEqual(decklist.deck_name, "file")
         self.assertEqual(decklist.expanded_card_nos(), ["1-0-040"])
+
+    def test_setup_match_state_registers_decks_and_initial_hands(self) -> None:
+        deck1 = parse_decklist(
+            {
+                "deck_name": "p1",
+                "cards": [
+                    {"card_no": "1-0-040", "count": 2},
+                    {"card_no": "1-0-004", "count": 3},
+                ],
+            },
+            self.catalog,
+        )
+        deck2 = parse_decklist(
+            {
+                "deck_name": "p2",
+                "cards": [
+                    {"card_no": "1-0-001", "count": 5},
+                ],
+            },
+            self.catalog,
+        )
+
+        state = setup_match_state(
+            self.catalog,
+            {"P1": deck1, "P2": deck2},
+            config=MatchSetupConfig(seed=9, initial_hand_size=4),
+        )
+
+        self.assertEqual(state.seed, 9)
+        self.assertEqual(state.turn_player_id, "P1")
+        self.assertEqual(state.players["P1"].life, 7)
+        self.assertEqual(state.players["P1"].initial_deck_card_nos, ["1-0-040", "1-0-040", "1-0-004", "1-0-004", "1-0-004"])
+        self.assertEqual(len(state.players["P1"].hand.cards), 4)
+        self.assertEqual(len(state.players["P1"].deck.cards), 1)
+        self.assertEqual(len(state.players["P2"].hand.cards), 4)
+        self.assertEqual(len(state.players["P2"].deck.cards), 1)
 
 
 if __name__ == "__main__":
