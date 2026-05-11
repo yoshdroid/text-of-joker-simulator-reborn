@@ -415,6 +415,41 @@
         }
       ]
     },
+    "1-0-033": {
+      "card_name": "ヴァイパー",
+      "abilities": [
+        {
+          "ability_key": "1-0-033:a1",
+          "ability_name": "リバイブ",
+          "source_text": "このユニットがフィールドに出た時、あなたの捨札にあるユニットカードを１枚ランダムで手札に加える。",
+          "status": "supported",
+          "timing": "SELF_CIP",
+          "optional": false,
+          "priority": {
+            "band": "unit",
+            "order": "source_only"
+          },
+          "condition": null,
+          "cost_steps": [],
+          "selector": {
+            "id": "target",
+            "type": "discard_pile_card",
+            "controller": "owner",
+            "category": "unit",
+            "count": 1,
+            "required": false,
+            "random": true
+          },
+          "effect_steps": [
+            {
+              "effect": "move_random_discard_to_hand",
+              "player": "owner",
+              "category": "unit"
+            }
+          ]
+        }
+      ]
+    },
     "1-0-040": {
       "card_name": "ハッパロイド",
       "abilities": [

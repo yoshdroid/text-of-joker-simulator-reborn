@@ -44,6 +44,7 @@ KNOWN_EFFECTS = {
     "draw_cards",
     "modify_bp",
     "modify_base_bp",
+    "move_random_discard_to_hand",
     "move_card",
     "recover_action",
 }
@@ -60,6 +61,7 @@ ENGINE_SUPPORTED_EFFECTS = {
     "draw_cards",
     "modify_bp",
     "modify_base_bp",
+    "move_random_discard_to_hand",
     "recover_action",
 }
 

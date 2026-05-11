@@ -70,6 +70,8 @@ selector が 1 つだけの前提を崩し、子プログラムに十分な対�
     一時公開とする。まだこの効果を必要とするカードは提示していないかもしれない。
 - discard pile からの移動は card instance を維持するか、新しい instance として扱うか。
     維持する。
+    最初の確認用カードは 1-0-033 ヴァイパー とし、CIP で自分の捨札のユニットカード1枚をランダムに手札へ戻す。
+    `move_random_discard_to_hand` は公開領域である discard pile から既存 card instance id を維持して hand へ移動する。
 
 ### 3.4 duration が異なる BP 修正
 

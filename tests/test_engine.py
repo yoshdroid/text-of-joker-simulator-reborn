@@ -613,6 +613,39 @@ class EngineTest(unittest.TestCase):
         self.assertEqual(unit.base_bp_modifiers, [{"amount": -1, "duration": "permanent", "source_event_no": 0}])
         self.assertIn("unit_damage_cleared", [event.type for event in state.event_store.events])
 
+    def test_viper_cip_returns_random_unit_from_discard_to_hand_preserving_instance(self) -> None:
+        state = create_game_state(self.catalog)
+        viper = state.create_card_instance("1-0-033", "P1")
+        discarded_unit = state.create_card_instance("1-0-001", "P1")
+        discarded_trigger = state.create_card_instance("1-0-061", "P1")
+        state.players["P1"].current_cp = 10
+        state.players["P1"].hand.add(viper.instance_id)
+        state.players["P1"].discard_pile.add(discarded_trigger.instance_id)
+        state.players["P1"].discard_pile.add(discarded_unit.instance_id)
+
+        drive_unit(state, "P1", viper.instance_id)
+
+        self.assertIn(discarded_unit.instance_id, state.players["P1"].hand.cards)
+        self.assertNotIn(discarded_unit.instance_id, state.players["P1"].discard_pile.cards)
+        self.assertIn(discarded_trigger.instance_id, state.players["P1"].discard_pile.cards)
+        random_events = [event for event in state.event_store.events if event.type == "random_resolved"]
+        self.assertEqual(random_events[-1].payload["kind"], "discard_pile_card")
+        self.assertEqual(random_events[-1].payload["candidate_card_instance_ids"], [discarded_unit.instance_id])
+
+    def test_viper_cip_fizzles_without_unit_in_discard(self) -> None:
+        state = create_game_state(self.catalog)
+        viper = state.create_card_instance("1-0-033", "P1")
+        discarded_trigger = state.create_card_instance("1-0-061", "P1")
+        state.players["P1"].current_cp = 10
+        state.players["P1"].hand.add(viper.instance_id)
+        state.players["P1"].discard_pile.add(discarded_trigger.instance_id)
+
+        drive_unit(state, "P1", viper.instance_id)
+
+        self.assertEqual(state.players["P1"].hand.cards, [])
+        self.assertEqual(state.players["P1"].discard_pile.cards, [discarded_trigger.instance_id])
+        self.assertIn("effect_fizzled", [event.type for event in state.event_store.events])
+
     def test_simultaneous_destroyed_self_pig_resolves_turn_player_first(self) -> None:
         state = create_game_state(self.catalog)
         state.turn_player_id = "P1"

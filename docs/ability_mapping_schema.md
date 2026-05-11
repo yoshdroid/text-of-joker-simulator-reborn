@@ -364,6 +364,7 @@ null
 | `destroy_trigger_zone_card` | トリガーゾーンのカードを破壊する |
 | `discard_from_hand` | 手札を捨てる |
 | `draw_card_by_category` | 指定カテゴリのカードを引く |
+| `move_random_discard_to_hand` | 捨札から条件に合うカードをランダムに手札へ戻す |
 | `recover_action` | 行動権を回復する |
 | `set_level` | レベルを変更する |
 | `change_cp` | CP を変更する |
