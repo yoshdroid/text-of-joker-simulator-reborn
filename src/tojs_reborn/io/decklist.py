@@ -58,14 +58,11 @@ def parse_decklist(
 
     entries: list[DecklistEntry] = []
     card_counts: dict[str, int] = {}
+    card_no_by_name, duplicate_card_names = _build_card_name_index(card_catalog)
     for index, item in enumerate(raw_cards):
         if not isinstance(item, dict):
             raise DecklistError(f"cards[{index}] must be an object")
-        card_no = item.get("card_no")
-        if not isinstance(card_no, str) or not card_no:
-            raise DecklistError(f"cards[{index}].card_no must be a non-empty string")
-        if card_no not in card_catalog:
-            raise DecklistError(f"unknown card_no: {card_no}")
+        card_no = _resolve_card_no(item, index, card_catalog, card_no_by_name, duplicate_card_names)
         count = item.get("count")
         if not isinstance(count, int) or count < 1:
             raise DecklistError(f"cards[{index}].count must be an integer greater than or equal to 1")
@@ -79,6 +76,46 @@ def parse_decklist(
     if strict_deck_rule:
         _validate_strict_deck_rule(expanded, card_counts)
     return decklist
+
+
+def _resolve_card_no(
+    item: dict[str, Any],
+    index: int,
+    card_catalog: dict[str, CardDefinition],
+    card_no_by_name: dict[str, str],
+    duplicate_card_names: set[str],
+) -> str:
+    card_no = item.get("card_no")
+    card_name = item.get("card_name", item.get("name"))
+    has_card_no = isinstance(card_no, str) and bool(card_no)
+    has_card_name = isinstance(card_name, str) and bool(card_name)
+    if has_card_no and has_card_name:
+        raise DecklistError(f"cards[{index}] must specify either card_no or card_name, not both")
+    if has_card_no:
+        if card_no not in card_catalog:
+            raise DecklistError(f"unknown card_no: {card_no}")
+        return card_no
+    if has_card_name:
+        if card_name in duplicate_card_names:
+            raise DecklistError(f"ambiguous card_name: {card_name}")
+        resolved = card_no_by_name.get(card_name)
+        if resolved is None:
+            raise DecklistError(f"unknown card_name: {card_name}")
+        return resolved
+    raise DecklistError(f"cards[{index}] must specify card_name or card_no")
+
+
+def _build_card_name_index(card_catalog: dict[str, CardDefinition]) -> tuple[dict[str, str], set[str]]:
+    card_no_by_name: dict[str, str] = {}
+    duplicate_names: set[str] = set()
+    for card_no, card in card_catalog.items():
+        if card.name in card_no_by_name:
+            duplicate_names.add(card.name)
+            continue
+        card_no_by_name[card.name] = card_no
+    for name in duplicate_names:
+        del card_no_by_name[name]
+    return card_no_by_name, duplicate_names
 
 
 def _validate_strict_deck_rule(expanded_card_nos: list[str], card_counts: dict[str, int]) -> None:

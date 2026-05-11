@@ -9,6 +9,7 @@ if SRC_PATH.exists():
     sys.path.insert(0, str(SRC_PATH))
 
 from tests.test_engine import build_catalog
+from tojs_reborn.engine.state import CardDefinition
 from tojs_reborn.io.decklist import DecklistError, load_decklist, parse_decklist
 from tojs_reborn.io.match_setup import MatchSetupConfig, setup_match_state
 
@@ -22,8 +23,8 @@ class DecklistTest(unittest.TestCase):
             {
                 "deck_name": "sample",
                 "cards": [
-                    {"card_no": "1-0-040", "count": 2},
-                    {"card_no": "1-0-004", "count": 1},
+                    {"card_name": self.catalog["1-0-040"].name, "count": 2},
+                    {"card_name": self.catalog["1-0-004"].name, "count": 1},
                 ],
             },
             self.catalog,
@@ -32,16 +33,41 @@ class DecklistTest(unittest.TestCase):
         self.assertEqual(decklist.deck_name, "sample")
         self.assertEqual(decklist.expanded_card_nos(), ["1-0-040", "1-0-040", "1-0-004"])
 
+    def test_parse_decklist_keeps_card_no_compatibility(self) -> None:
+        decklist = parse_decklist({"cards": [{"card_no": "1-0-040", "count": 1}]}, self.catalog)
+
+        self.assertEqual(decklist.expanded_card_nos(), ["1-0-040"])
+
     def test_parse_decklist_rejects_unknown_card_no(self) -> None:
         with self.assertRaisesRegex(DecklistError, "unknown card_no"):
             parse_decklist({"cards": [{"card_no": "NO-SUCH-CARD", "count": 1}]}, self.catalog)
 
+    def test_parse_decklist_rejects_unknown_card_name(self) -> None:
+        with self.assertRaisesRegex(DecklistError, "unknown card_name"):
+            parse_decklist({"cards": [{"card_name": "存在しないカード", "count": 1}]}, self.catalog)
+
+    def test_parse_decklist_rejects_ambiguous_card_name(self) -> None:
+        catalog = {
+            "T-1": CardDefinition("T-1", "unit", "red", "Duplicate", 1, (1000, 1000, 1000), ()),
+            "T-2": CardDefinition("T-2", "unit", "blue", "Duplicate", 1, (1000, 1000, 1000), ()),
+        }
+
+        with self.assertRaisesRegex(DecklistError, "ambiguous card_name"):
+            parse_decklist({"cards": [{"card_name": "Duplicate", "count": 1}]}, catalog)
+
+    def test_parse_decklist_rejects_entry_with_both_card_no_and_card_name(self) -> None:
+        with self.assertRaisesRegex(DecklistError, "either card_no or card_name"):
+            parse_decklist(
+                {"cards": [{"card_no": "1-0-040", "card_name": self.catalog["1-0-040"].name, "count": 1}]},
+                self.catalog,
+            )
+
     def test_parse_decklist_rejects_non_positive_count(self) -> None:
         with self.assertRaisesRegex(DecklistError, "count"):
-            parse_decklist({"cards": [{"card_no": "1-0-040", "count": 0}]}, self.catalog)
+            parse_decklist({"cards": [{"card_name": self.catalog["1-0-040"].name, "count": 0}]}, self.catalog)
 
     def test_parse_decklist_allows_small_test_deck_by_default(self) -> None:
-        decklist = parse_decklist({"cards": [{"card_no": "1-0-040", "count": 1}]}, self.catalog)
+        decklist = parse_decklist({"cards": [{"card_name": self.catalog["1-0-040"].name, "count": 1}]}, self.catalog)
 
         self.assertEqual(decklist.expanded_card_nos(), ["1-0-040"])
 
@@ -64,7 +90,10 @@ class DecklistTest(unittest.TestCase):
         output_dir = ROOT / "test_output" / "decklist"
         output_dir.mkdir(parents=True, exist_ok=True)
         path = output_dir / "deck.json"
-        path.write_text('{"deck_name":"file","cards":[{"card_no":"1-0-040","count":1}]}', encoding="utf-8")
+        path.write_text(
+            '{"deck_name":"file","cards":[{"card_name":"' + self.catalog["1-0-040"].name + '","count":1}]}',
+            encoding="utf-8",
+        )
 
         decklist = load_decklist(path, self.catalog)
 

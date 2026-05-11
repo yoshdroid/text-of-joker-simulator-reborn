@@ -336,8 +336,8 @@ class ProtocolTest(unittest.TestCase):
             ),
             encoding="utf-8",
         )
-        deck1_path.write_text('{"cards":[{"card_no":"1-0-040","count":4}]}', encoding="utf-8")
-        deck2_path.write_text('{"cards":[{"card_no":"1-0-001","count":4}]}', encoding="utf-8")
+        deck1_path.write_text('{"cards":[{"card_name":"Happaloid","count":4}]}', encoding="utf-8")
+        deck2_path.write_text('{"cards":[{"card_name":"Bloodhound","count":4}]}', encoding="utf-8")
 
         with redirect_stdout(StringIO()):
             exit_code = run_match_cli(
@@ -402,8 +402,8 @@ class ProtocolTest(unittest.TestCase):
             ),
             encoding="utf-8",
         )
-        deck1_path.write_text('{"cards":[{"card_no":"1-0-040","count":4}]}', encoding="utf-8")
-        deck2_path.write_text('{"cards":[{"card_no":"1-0-001","count":4}]}', encoding="utf-8")
+        deck1_path.write_text('{"cards":[{"card_name":"Happaloid","count":4}]}', encoding="utf-8")
+        deck2_path.write_text('{"cards":[{"card_name":"Bloodhound","count":4}]}', encoding="utf-8")
         with redirect_stdout(StringIO()):
             self.assertEqual(
                 run_match_cli(
@@ -587,8 +587,8 @@ class ProtocolTest(unittest.TestCase):
             ),
             encoding="utf-8",
         )
-        deck1_path.write_text('{"cards":[{"card_no":"1-0-040","count":4}]}', encoding="utf-8")
-        deck2_path.write_text('{"cards":[{"card_no":"1-0-001","count":4}]}', encoding="utf-8")
+        deck1_path.write_text('{"cards":[{"card_name":"Happaloid","count":4}]}', encoding="utf-8")
+        deck2_path.write_text('{"cards":[{"card_name":"Bloodhound","count":4}]}', encoding="utf-8")
 
         with redirect_stdout(StringIO()):
             exit_code = run_match_cli(

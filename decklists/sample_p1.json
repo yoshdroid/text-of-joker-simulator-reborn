@@ -1,0 +1,11 @@
+{
+  "deck_name": "sample_p1_green",
+  "cards": [
+    { "card_name": "ハッパロイド", "count": 3 },
+    { "card_name": "ランサー", "count": 2 },
+    { "card_name": "新品の鎧", "count": 2 },
+    { "card_name": "何でも屋の陳列台", "count": 2 },
+    { "card_name": "追い風", "count": 2 },
+    { "card_name": "ハウリング", "count": 2 }
+  ]
+}

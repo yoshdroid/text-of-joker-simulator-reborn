@@ -62,7 +62,7 @@ python -m tojs_reborn.io.match_cli --p1 sample:first --p2 sample:pass --deck1 de
 
 完了条件は下記である。
 
-- decklist JSON を読み込み、カード定義に存在しない `card_no` を検出できる。
+- decklist JSON を読み込み、カード定義に存在しない `card_name` / `card_no` を検出できる。
 - decklist から player ごとの deck instance を作成できる。
 - seed を指定した match は deterministic に実行できる。
 - match 開始、turn 開始、action request、window、match 終了が event log に記録される。
@@ -85,18 +85,24 @@ decklist の読み込みと validation を担当する。
 {
   "deck_name": "sample_happaloid",
   "cards": [
-    { "card_no": "1-0-040", "count": 3 },
-    { "card_no": "1-0-004", "count": 3 }
+    { "card_name": "ハッパロイド", "count": 3 },
+    { "card_name": "ランサー", "count": 3 }
   ]
 }
 ```
+
+decklist は原則として `card_name` を使用する。
+互換用に `card_no` も許可するが、通常のレシピ入力では `card_name` を使う。
+`card_name` は正規化カードプールの `name` と完全一致する必要がある。
+同名カードが複数ある場合は曖昧な decklist として validation error にする。
 
 v3 初期では、テスト用の小さい decklist を許可する。
 
 正式ルール用 validation は将来拡張とし、v3 では下記を必須とする。
 
 - `cards` が存在する。
-- `card_no` が正規化カードプールに存在する。
+- `card_name` が正規化カードプールに存在し、一意に解決できる。
+- 互換用の `card_no` が指定された場合は、正規化カードプールに存在する。
 - `count` が 1 以上の整数である。
 - 展開後の deck が 1 枚以上である。
 
@@ -281,7 +287,7 @@ v3 実装では、子プログラムに対して最低限 `request_action` / `ch
 
 - `decklist.py` を追加する。
 - decklist JSON を読み込む。
-- cardpool に存在しない `card_no` を validation error にする。
+- cardpool に存在しない `card_name` / `card_no` を validation error にする。
 - test deck 用の小さい deck を許可する。
 - unittest を追加する。
 - commit する。
@@ -341,7 +347,8 @@ python -m tojs_reborn.io.replay_cli --replay out/replay.json
 
 ## 9. v3 で追加したいテスト
 
-- decklist に未知 `card_no` があると失敗する。
+- decklist に未知 `card_name` / `card_no` があると失敗する。
+- decklist に重複名で曖昧な `card_name` があると失敗する。
 - decklist の `count` が 0 以下だと失敗する。
 - decklist から deck instance が期待枚数作られる。
 - match setup 後に `initial_deck_card_nos` が replay 用に保持される。

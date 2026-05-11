@@ -8,11 +8,15 @@ v3 の decklist は下記形式で作成する。
 {
   "deck_name": "sample",
   "cards": [
-    { "card_no": "1-0-040", "count": 3 },
-    { "card_no": "1-0-004", "count": 3 }
+    { "card_name": "ハッパロイド", "count": 3 },
+    { "card_name": "ランサー", "count": 3 }
   ]
 }
 ```
+
+`card_name` は正規化カードプールの `name` と完全一致する必要がある。
+同名カードが複数ある場合は曖昧な decklist としてエラーにする。
+互換用に `card_no` 指定も残しているが、通常のデッキレシピでは `card_name` を使う。
 
 デフォルトではテスト用の小さいデッキを許可する。
 
