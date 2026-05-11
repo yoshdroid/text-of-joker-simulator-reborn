@@ -405,6 +405,60 @@
           ]
         }
       ]
+    },
+    "1-0-097": {
+      "card_name": "追い風",
+      "abilities": [
+        {
+          "ability_key": "1-0-097:a1",
+          "ability_name": "追い風",
+          "source_text": "あなたのユニットがフィールドに出た時、あなたのＣＰを＋４する。",
+          "status": "supported",
+          "timing": "INTERCEPT_UNIT_ENTERED",
+          "optional": true,
+          "priority": {
+            "band": "intercept",
+            "order": "left_to_right"
+          },
+          "condition": null,
+          "cost_steps": [],
+          "selector": null,
+          "effect_steps": [
+            {
+              "effect": "change_cp",
+              "player": "owner",
+              "amount": 4
+            }
+          ]
+        }
+      ]
+    },
+    "1-0-099": {
+      "card_name": "ハウリング",
+      "abilities": [
+        {
+          "ability_key": "1-0-099:a1",
+          "ability_name": "ハウリング",
+          "source_text": "あなたのユニットがフィールドに出た時、あなたはカードを２枚引く。",
+          "status": "supported",
+          "timing": "INTERCEPT_UNIT_ENTERED",
+          "optional": true,
+          "priority": {
+            "band": "intercept",
+            "order": "left_to_right"
+          },
+          "condition": null,
+          "cost_steps": [],
+          "selector": null,
+          "effect_steps": [
+            {
+              "effect": "draw_cards",
+              "player": "owner",
+              "count": 2
+            }
+          ]
+        }
+      ]
     }
   }
 }

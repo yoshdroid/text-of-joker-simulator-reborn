@@ -308,6 +308,9 @@ v1 で合成カードとして確認した window / selector / effect を実カ�
 - `新品の鎧` を `TRIGGER_UNIT_ENTERED` / `draw_card_by_category: intercept` として supported 化する。
 - trigger が発動後 discard pile へ移動することを仕様テストで確認する。
 - search-draw 対象が deck にない場合でも trigger は発動済みになり、0枚 draw として記録することを確認する。
+- `追い風` を `INTERCEPT_UNIT_ENTERED` / `change_cp +4` として supported 化する。
+- `ハウリング` を `INTERCEPT_UNIT_ENTERED` / `draw_cards 2` として supported 化する。
+- unit_entered intercept は、カード所有者の unit enter のときだけ候補になることを確認する。
 
 ### V2-C: match runner replay
 
@@ -361,6 +364,12 @@ trigger / intercept の実カードを追加し、発動順と pass 処理を固
 
 - trigger / intercept を含む match runner シナリオが通る。
 - 発動順が仕様テストで固定されている。
+
+実装状況:
+
+- trigger は `何でも屋の陳列台` と `新品の鎧` で確認済み。
+- intercept は `追い風` と `ハウリング` で確認済み。
+- `unit_entered` 後の intercept window を match runner から開く。
 
 ## v2 で追加したいテスト観点
 

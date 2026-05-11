@@ -561,7 +561,7 @@ class EngineTest(unittest.TestCase):
 
     def test_trigger_window_forces_activation_turn_player_then_opponent(self) -> None:
         catalog = dict(self.catalog)
-        catalog["T-TRG-001"] = draw_window_card("T-TRG-001", "trigger", "TRIGGER_UNIT_ENTERED")
+        catalog["T-TRG-001"] = draw_window_card("T-TRG-001", "trigger", "TRIGGER_ANY")
         state = create_game_state(catalog)
         state.turn_player_id = "P1"
         p1_trigger = state.create_card_instance("T-TRG-001", "P1")

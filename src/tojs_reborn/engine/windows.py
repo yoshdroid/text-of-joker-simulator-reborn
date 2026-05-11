@@ -12,6 +12,7 @@ from .state import AbilityDefinition, GameState, UnitState
 WindowChoice = Callable[[str, list[dict[str, Any]]], dict[str, Any]]
 
 _AUTOMATIC_INTERCEPT_WINDOWS = {
+    "unit_entered": "unit_entered",
     "unit_attacked": "attack",
 }
 
@@ -63,7 +64,7 @@ def process_trigger_window(
 
         effect_handlers = get_effect_handlers()
     cause_event = _event_by_no(state, cause_event_no)
-    if not _has_matching_card(state, "trigger", "TRIGGER", cause_event.type):
+    if not _has_matching_card(state, "trigger", "TRIGGER", cause_event.type, cause_event):
         return 0
     activated_count = 0
     current_player_id = state.turn_player_id
@@ -108,7 +109,7 @@ def process_intercept_window(
 
         effect_handlers = get_effect_handlers()
     cause_event = _event_by_no(state, cause_event_no)
-    if not _has_matching_card(state, "intercept", "INTERCEPT", window):
+    if not _has_matching_card(state, "intercept", "INTERCEPT", window, cause_event):
         return 0
     activated_count = 0
     current_player_id = state.turn_player_id
@@ -208,7 +209,7 @@ def _activate_first_matching_card(
         card = state.card_catalog[card_no]
         if card.category != card_category:
             continue
-        if not any(_timing_matches(ability, window_prefix, window_name) for ability in card.abilities):
+        if not any(_ability_matches_window(ability, window_prefix, window_name, cause_event, player_id) for ability in card.abilities):
             continue
         return _activate_card(
             state,
@@ -241,7 +242,7 @@ def _activate_card(
     matching_abilities = [
         ability
         for ability in card.abilities
-        if ability.status == "supported" and _timing_matches(ability, prefix, str(window_name))
+        if _ability_matches_window(ability, prefix, str(window_name), cause_event, player_id)
     ]
     if not matching_abilities:
         return False
@@ -316,7 +317,7 @@ def _list_intercept_actions(state: GameState, player_id: str, window: str, cause
         card = state.card_catalog[card_no]
         if card.category != "intercept":
             continue
-        if not any(_timing_matches(ability, "INTERCEPT", window) for ability in card.abilities):
+        if not any(_ability_matches_window(ability, "INTERCEPT", window, cause_event, player_id) for ability in card.abilities):
             continue
         actions.append(
             {
@@ -330,16 +331,36 @@ def _list_intercept_actions(state: GameState, player_id: str, window: str, cause
     return actions
 
 
-def _has_matching_card(state: GameState, card_category: str, window_prefix: str, window_name: str) -> bool:
+def _has_matching_card(
+    state: GameState,
+    card_category: str,
+    window_prefix: str,
+    window_name: str,
+    cause_event: FactEvent,
+) -> bool:
     for player in state.players.values():
         for card_instance_id in player.trigger_zone.cards:
             card_no = state.card_instances[card_instance_id].card_no
             card = state.card_catalog[card_no]
             if card.category != card_category:
                 continue
-            if any(_timing_matches(ability, window_prefix, window_name) for ability in card.abilities):
+            if any(_ability_matches_window(ability, window_prefix, window_name, cause_event, player.player_id) for ability in card.abilities):
                 return True
     return False
+
+
+def _ability_matches_window(
+    ability: AbilityDefinition,
+    prefix: str,
+    window_name: str,
+    cause_event: FactEvent,
+    player_id: str,
+) -> bool:
+    if not _timing_matches(ability, prefix, window_name):
+        return False
+    if ability.timing.upper().endswith("_UNIT_ENTERED") and cause_event.actor_player_id != player_id:
+        return False
+    return True
 
 
 def _timing_matches(ability: AbilityDefinition, prefix: str, window_name: str) -> bool:

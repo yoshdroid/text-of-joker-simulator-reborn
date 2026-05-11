@@ -133,6 +133,38 @@ class ProtocolTest(unittest.TestCase):
         self.assertEqual(state.players["P2"].life, 6)
         self.assertIn("intercept_activated", [event.type for event in state.event_store.events])
 
+    def test_match_runner_processes_tailwind_intercept_after_owner_unit_enters(self) -> None:
+        state = create_game_state(self.catalog)
+        state.turn_player_id = "P1"
+        state.players["P1"].current_cp = 1
+        unit_card = state.create_card_instance("1-0-001", "P1")
+        intercept_card = state.create_card_instance("1-0-097", "P1")
+        state.players["P1"].hand.add(unit_card.instance_id)
+        state.players["P1"].trigger_zone.add(intercept_card.instance_id)
+        runner = MatchRunner(state, players={"P1": FirstLegalPlayer(), "P2": FirstLegalPlayer()})
+
+        runner.run_turn_action("P1")
+
+        self.assertEqual(state.players["P1"].current_cp, 4)
+        self.assertEqual(state.players["P1"].trigger_zone.cards, [])
+        self.assertEqual(state.players["P1"].discard_pile.cards, [intercept_card.instance_id])
+        self.assertIn("intercept_activated", [event.type for event in state.event_store.events])
+
+    def test_unit_entered_intercept_does_not_activate_for_opponent_unit(self) -> None:
+        state = create_game_state(self.catalog)
+        state.turn_player_id = "P2"
+        state.players["P2"].current_cp = 1
+        unit_card = state.create_card_instance("1-0-001", "P2")
+        intercept_card = state.create_card_instance("1-0-097", "P1")
+        state.players["P2"].hand.add(unit_card.instance_id)
+        state.players["P1"].trigger_zone.add(intercept_card.instance_id)
+        runner = MatchRunner(state, players={"P1": FirstLegalPlayer(), "P2": FirstLegalPlayer()})
+
+        runner.run_turn_action("P2")
+
+        self.assertEqual(state.players["P1"].trigger_zone.cards, [intercept_card.instance_id])
+        self.assertNotIn("intercept_activated", [event.type for event in state.event_store.events])
+
 
 if __name__ == "__main__":
     unittest.main()
