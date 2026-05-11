@@ -355,6 +355,7 @@ null
 
 | effect | 説明 |
 | --- | --- |
+| `consume_action` | 行動権を消費する |
 | `draw_cards` | カードを引く |
 | `move_card` | カードをゾーン間移動する |
 | `deal_damage_to_unit` | ユニットにダメージを与える |

@@ -9,6 +9,7 @@ from .state import AbilityDefinition, GameState, UnitState
 def get_effect_handlers():
     return {
         "change_cp": _handle_change_cp,
+        "consume_action": _handle_consume_action,
         "deal_damage_to_unit": _handle_deal_damage_to_unit,
         "deal_damage_to_units": _handle_deal_damage_to_units,
         "deal_life_damage": _handle_deal_life_damage,
@@ -637,6 +638,32 @@ def _handle_recover_action(
     target.exhausted = False
     state.event_store.append(
         "unit_action_recovered",
+        round_no=state.round_no,
+        turn_no=state.turn_no,
+        actor_player_id=unit.owner_player_id,
+        cause_event_no=ability_event.event_no,
+        source=ability_event.source,
+        payload={"unit_id": target.unit_id, "reason": "effect"},
+    )
+
+
+def _handle_consume_action(
+    state: GameState,
+    unit: UnitState,
+    ability: AbilityDefinition,
+    ability_event: FactEvent,
+    step: dict,
+) -> None:
+    target = _resolve_unit_target_for_effect(state, unit, ability, ability_event, step.get("target"))
+    if target is None:
+        _append_effect_fizzled(state, unit.owner_player_id, ability_event, step, "no_valid_target")
+        return
+    if target.exhausted:
+        _append_effect_fizzled(state, unit.owner_player_id, ability_event, step, "target_already_exhausted")
+        return
+    target.exhausted = True
+    state.event_store.append(
+        "unit_action_consumed",
         round_no=state.round_no,
         turn_no=state.turn_no,
         actor_player_id=unit.owner_player_id,

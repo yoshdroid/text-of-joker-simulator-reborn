@@ -34,6 +34,7 @@ KNOWN_TIMING_PREFIXES = (
 
 KNOWN_EFFECTS = {
     "change_cp",
+    "consume_action",
     "deal_damage_to_unit",
     "deal_damage_to_units",
     "deal_life_damage",
@@ -53,6 +54,7 @@ KNOWN_EFFECTS = {
 
 ENGINE_SUPPORTED_EFFECTS = {
     "change_cp",
+    "consume_action",
     "deal_damage_to_unit",
     "deal_damage_to_units",
     "deal_life_damage",
