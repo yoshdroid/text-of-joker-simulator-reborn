@@ -26,6 +26,7 @@ from tojs_reborn.io.player_runner import (
     encode_choice_response,
 )
 from tojs_reborn.io.process_player import start_process_player
+from tojs_reborn.io.replay_cli import run_replay_cli
 from tojs_reborn.io.protocol import (
     action_selected_message,
     choice_request_message,
@@ -365,6 +366,67 @@ class ProtocolTest(unittest.TestCase):
         replay = json.loads(replay_path.read_text(encoding="utf-8"))
         self.assertEqual(replay["match_result"]["reason"], "max_turns")
         self.assertEqual(replay["intents"][0]["type"], "match_started")
+
+    def test_replay_cli_verifies_match_cli_replay(self) -> None:
+        output_dir = ROOT / "test_output" / "replay_cli"
+        output_dir.mkdir(parents=True, exist_ok=True)
+        cards_path = output_dir / "cards.normalized.json"
+        deck1_path = output_dir / "deck1.json"
+        deck2_path = output_dir / "deck2.json"
+        replay_path = output_dir / "replay.json"
+        cards_path.write_text(
+            json.dumps(
+                {
+                    "cards": [
+                        {
+                            "card_no": "1-0-040",
+                            "category": "unit",
+                            "color": "green",
+                            "name": "Happaloid",
+                            "cp": 1,
+                            "bp_by_level": [1000, 1000, 1000],
+                            "abilities": [],
+                        },
+                        {
+                            "card_no": "1-0-001",
+                            "category": "unit",
+                            "color": "red",
+                            "name": "Bloodhound",
+                            "cp": 1,
+                            "bp_by_level": [1000, 1000, 1000],
+                            "abilities": [],
+                        },
+                    ]
+                },
+                ensure_ascii=False,
+            ),
+            encoding="utf-8",
+        )
+        deck1_path.write_text('{"cards":[{"card_no":"1-0-040","count":4}]}', encoding="utf-8")
+        deck2_path.write_text('{"cards":[{"card_no":"1-0-001","count":4}]}', encoding="utf-8")
+        with redirect_stdout(StringIO()):
+            self.assertEqual(
+                run_match_cli(
+                    [
+                        "--cards",
+                        str(cards_path),
+                        "--deck1",
+                        str(deck1_path),
+                        "--deck2",
+                        str(deck2_path),
+                        "--max-turns",
+                        "2",
+                        "--replay",
+                        str(replay_path),
+                    ]
+                ),
+                0,
+            )
+
+        with redirect_stdout(StringIO()):
+            exit_code = run_replay_cli(["--cards", str(cards_path), "--replay", str(replay_path)])
+
+        self.assertEqual(exit_code, 0)
 
     def test_json_line_player_uses_valid_action_response(self) -> None:
         legal_actions = [{"type": "pass"}, {"type": "drive_unit", "card_instance_id": "c0001"}]
