@@ -26,10 +26,16 @@ Implement the minimal v1 trigger / intercept window runner, replacing the previo
   - `INTERCEPT_ANY`
   - `INTERCEPT_ATTACK`
 - Added tests for trigger order and intercept pass closure.
+- Added `process_windows_for_events`.
+  - Scans new events from a specified event number.
+  - Opens trigger windows only when a matching trigger exists.
+  - Opens the `attack` intercept window for `unit_attacked`.
+- Connected `MatchRunner` to process windows after top-level actions and combat decisions.
+- Added match-runner tests for automatic trigger and intercept processing.
 
 ## Remaining Notes
 
-- The runner is still an explicit API. A future match-runner step should decide which game events automatically open trigger and intercept windows.
+- The runner is still explicit for direct engine API calls. `MatchRunner` now calls it automatically.
 - Trigger timing currently supports `TRIGGER_ANY` and `TRIGGER_<EVENT_TYPE>`.
 - Intercept timing currently supports `INTERCEPT_ANY` and `INTERCEPT_<WINDOW>`.
 
@@ -37,6 +43,6 @@ Implement the minimal v1 trigger / intercept window runner, replacing the previo
 
 ```text
 python -m unittest -v
-Ran 39 tests
+Ran 41 tests
 OK
 ```

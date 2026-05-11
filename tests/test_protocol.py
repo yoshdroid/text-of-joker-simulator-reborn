@@ -8,7 +8,7 @@ SRC_PATH = ROOT / "src"
 if SRC_PATH.exists():
     sys.path.insert(0, str(SRC_PATH))
 
-from tests.test_engine import build_catalog
+from tests.test_engine import build_catalog, draw_window_card
 from tojs_reborn.engine.state import create_game_state
 from tojs_reborn.io.match_runner import FirstLegalPlayer, MatchRunner
 from tojs_reborn.io.protocol import decode_message, encode_message, public_state_message, request_action_message
@@ -80,6 +80,58 @@ class ProtocolTest(unittest.TestCase):
         self.assertEqual(selected["type"], "attack")
         self.assertEqual(state.players["P2"].life, 6)
         self.assertNotIn("battle_started", [event.type for event in state.event_store.events])
+
+    def test_match_runner_processes_trigger_window_after_drive(self) -> None:
+        catalog = dict(self.catalog)
+        catalog["T-TRG-001"] = draw_window_card("T-TRG-001", "trigger", "TRIGGER_UNIT_ENTERED")
+        state = create_game_state(catalog)
+        state.players["P1"].current_cp = 1
+        unit_card = state.create_card_instance("1-0-040", "P1")
+        trigger_card = state.create_card_instance("T-TRG-001", "P1")
+        first_draw = state.create_card_instance("1-0-001", "P1")
+        second_draw = state.create_card_instance("1-0-004", "P1")
+        state.players["P1"].hand.add(unit_card.instance_id)
+        state.players["P1"].trigger_zone.add(trigger_card.instance_id)
+        state.players["P1"].deck.cards.extend([first_draw.instance_id, second_draw.instance_id])
+        runner = MatchRunner(state, players={"P1": FirstLegalPlayer(), "P2": FirstLegalPlayer()})
+
+        runner.run_turn_action("P1")
+
+        self.assertEqual(state.players["P1"].trigger_zone.cards, [])
+        self.assertEqual(state.players["P1"].hand.cards, [first_draw.instance_id, second_draw.instance_id])
+        self.assertIn("trigger_activated", [event.type for event in state.event_store.events])
+
+    def test_match_runner_processes_intercept_window_after_attack(self) -> None:
+        class WindowAwarePlayer:
+            def choose_action(self, player_id: str, legal_actions: list[dict]) -> dict:
+                for action in legal_actions:
+                    if action["type"] == "activate_intercept":
+                        return action
+                if legal_actions and legal_actions[0]["type"] == "no_block":
+                    return legal_actions[0]
+                for action in legal_actions:
+                    if action["type"] == "attack":
+                        return action
+                return legal_actions[0]
+
+        catalog = dict(self.catalog)
+        catalog["T-INT-001"] = draw_window_card("T-INT-001", "intercept", "INTERCEPT_ATTACK")
+        state = create_game_state(catalog)
+        attacker_card = state.create_card_instance("1-0-001", "P1")
+        intercept_card = state.create_card_instance("T-INT-001", "P1")
+        draw_target = state.create_card_instance("1-0-004", "P1")
+        attacker = state.create_unit(attacker_card.instance_id)
+        state.players["P1"].battlefield.add(attacker.unit_id)
+        state.players["P1"].trigger_zone.add(intercept_card.instance_id)
+        state.players["P1"].deck.cards.append(draw_target.instance_id)
+        runner = MatchRunner(state, players={"P1": WindowAwarePlayer(), "P2": WindowAwarePlayer()})
+
+        runner.run_turn_action("P1")
+
+        self.assertEqual(state.players["P1"].trigger_zone.cards, [])
+        self.assertEqual(state.players["P1"].hand.cards, [draw_target.instance_id])
+        self.assertEqual(state.players["P2"].life, 6)
+        self.assertIn("intercept_activated", [event.type for event in state.event_store.events])
 
 
 if __name__ == "__main__":

@@ -619,7 +619,7 @@ replay record は次を持つ。
 
 `list_trigger_intercept_window` は、指定 player の trigger_zone にある trigger / intercept の公開候補を返す。
 
-現在は候補列挙のみで、実際の発動、コスト支払い、発動権移動、連続パス終了は未実装。
+現在は候補列挙に加え、最小 runner と match runner からの自動接続を実装済み。
 
 ### OC のカード統合
 
@@ -710,7 +710,7 @@ replay record は次を持つ。
 
 - 現在の `overclock_unit` は、手札の同名カードを battlefield unit に重ねて `unit_stack` に入れる。これは修正対象。
 - 現在の `attack_unit` は attack と block を一括実行する。今後は attack declaration と block request を分離する。
-- 現在の trigger/intercept window は候補列挙のみ。今後はイベント発生後に window runner を呼ぶ。
+- 現在の trigger/intercept window は最小 runner 実装済み。match runner では action 後の新規イベントに対して window を確認する。
 - 現在の public state は opponent trigger_zone を枚数のみ公開する。今後は色リストを公開する。
 
 ### 追加で必要な仕様情報
@@ -825,7 +825,8 @@ replay record は次を持つ。
 - `process_intercept_window` は window 名と choice callback を受け取り、`activate_intercept` / `pass_window` を処理する。
 - intercept は `INTERCEPT_ANY` または `INTERCEPT_<WINDOW>` の timing に対応する。
 - 両者の連続 pass で intercept window を閉じる最小実装を追加した。
-- 現時点では runner を各イベントへ自動挿入する hook は未接続。match runner からどの window を開くかは追加カード仕様に合わせて接続する。
+- `process_windows_for_events` は指定 event_no 以降のイベントに対して trigger window を確認し、`unit_attacked` では `attack` intercept window を開く。
+- `MatchRunner` は drive / trigger set / override / attack / block / no block / pass 後に window runner を呼び出す。
 
 ### V1-E: deck refresh
 
@@ -871,6 +872,6 @@ draw 時に deck が空の場合、discard pile から deck refresh する。
 
 ```text
 python -m unittest -v
-Ran 39 tests
+Ran 41 tests
 OK
 ```

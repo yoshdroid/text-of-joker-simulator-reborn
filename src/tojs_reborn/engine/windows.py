@@ -11,6 +11,18 @@ from .state import AbilityDefinition, GameState, UnitState
 
 WindowChoice = Callable[[str, list[dict[str, Any]]], dict[str, Any]]
 
+_AUTOMATIC_INTERCEPT_WINDOWS = {
+    "unit_attacked": "attack",
+}
+
+_WINDOW_EVENT_TYPES = {
+    "trigger_window_opened",
+    "trigger_activated",
+    "intercept_window_opened",
+    "intercept_activated",
+    "intercept_passed",
+}
+
 
 def list_trigger_intercept_window(
     state: GameState,
@@ -51,6 +63,8 @@ def process_trigger_window(
 
         effect_handlers = get_effect_handlers()
     cause_event = _event_by_no(state, cause_event_no)
+    if not _has_matching_card(state, "trigger", "TRIGGER", cause_event.type):
+        return 0
     activated_count = 0
     current_player_id = state.turn_player_id
     consecutive_empty_checks = 0
@@ -94,6 +108,8 @@ def process_intercept_window(
 
         effect_handlers = get_effect_handlers()
     cause_event = _event_by_no(state, cause_event_no)
+    if not _has_matching_card(state, "intercept", "INTERCEPT", window):
+        return 0
     activated_count = 0
     current_player_id = state.turn_player_id
     consecutive_passes = 0
@@ -149,6 +165,31 @@ def process_intercept_window(
             consecutive_passes += 1
         current_player_id = opponent_id(current_player_id)
     return activated_count
+
+
+def process_windows_for_events(
+    state: GameState,
+    first_event_no: int,
+    choose_intercept: WindowChoice | None = None,
+    effect_handlers: dict[str, EffectHandler] | None = None,
+) -> int:
+    processed_count = 0
+    index = _event_index_at_or_after(state, first_event_no)
+    while index < len(state.event_store.events):
+        event = state.event_store.events[index]
+        if event.type not in _WINDOW_EVENT_TYPES:
+            processed_count += process_trigger_window(state, event.event_no, effect_handlers)
+            intercept_window = _AUTOMATIC_INTERCEPT_WINDOWS.get(event.type)
+            if intercept_window is not None:
+                processed_count += process_intercept_window(
+                    state,
+                    intercept_window,
+                    event.event_no,
+                    choose_intercept,
+                    effect_handlers,
+                )
+        index += 1
+    return processed_count
 
 
 def _activate_first_matching_card(
@@ -289,6 +330,18 @@ def _list_intercept_actions(state: GameState, player_id: str, window: str, cause
     return actions
 
 
+def _has_matching_card(state: GameState, card_category: str, window_prefix: str, window_name: str) -> bool:
+    for player in state.players.values():
+        for card_instance_id in player.trigger_zone.cards:
+            card_no = state.card_instances[card_instance_id].card_no
+            card = state.card_catalog[card_no]
+            if card.category != card_category:
+                continue
+            if any(_timing_matches(ability, window_prefix, window_name) for ability in card.abilities):
+                return True
+    return False
+
+
 def _timing_matches(ability: AbilityDefinition, prefix: str, window_name: str) -> bool:
     if ability.status != "supported":
         return False
@@ -306,3 +359,10 @@ def _event_by_no(state: GameState, event_no: int) -> FactEvent:
         if event.event_no == event_no:
             return event
     raise ValueError(f"unknown event_no: {event_no}")
+
+
+def _event_index_at_or_after(state: GameState, event_no: int) -> int:
+    for index, event in enumerate(state.event_store.events):
+        if event.event_no >= event_no:
+            return index
+    return len(state.event_store.events)
