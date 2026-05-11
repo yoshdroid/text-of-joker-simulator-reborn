@@ -12,6 +12,7 @@ from tojs_reborn.engine.state import load_card_catalog
 from .decklist import DecklistError, load_decklist
 from .match_runner import ActionPlayer, FirstLegalPlayer, MatchRunner, replay_match_record, snapshot_match_initial_state
 from .match_setup import MatchSetupConfig, setup_match_state
+from .process_player import start_process_player
 
 
 @dataclass
@@ -47,14 +48,17 @@ def run_match_cli(argv: Sequence[str] | None = None) -> int:
             {"P1": deck1, "P2": deck2},
             config=MatchSetupConfig(seed=args.seed),
         )
-        players = {
-            "P1": _build_player(args.p1),
-            "P2": _build_player(args.p2),
-        }
-        initial_state = snapshot_match_initial_state(state)
-        runner = MatchRunner(state, players=players)
-        result = runner.run_match(max_turns=args.max_turns, max_actions_per_turn=args.max_actions_per_turn)
-        replay_record = runner.build_replay_record(initial_state)
+        players = {"P1": _build_player(args.p1), "P2": _build_player(args.p2)}
+        try:
+            initial_state = snapshot_match_initial_state(state)
+            runner = MatchRunner(state, players=players)
+            result = runner.run_match(max_turns=args.max_turns, max_actions_per_turn=args.max_actions_per_turn)
+            replay_record = runner.build_replay_record(initial_state)
+        finally:
+            for player in players.values():
+                close = getattr(player, "close", None)
+                if callable(close):
+                    close()
         replay_record["match_result"] = {
             "winner_player_id": result.winner_player_id,
             "reason": result.reason,
@@ -91,7 +95,7 @@ def _build_player(spec: str) -> ActionPlayer:
     if spec == "sample:pass":
         return PassPlayer()
     if spec.startswith("cmd:"):
-        raise ValueError("cmd: player is not implemented yet")
+        return start_process_player(spec.removeprefix("cmd:"))
     raise ValueError(f"unknown player spec: {spec}")
 
 

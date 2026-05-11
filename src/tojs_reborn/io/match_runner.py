@@ -168,7 +168,21 @@ class MatchRunner:
         return self._choose_action(player_id, legal_actions, role="window_action")
 
     def _choose_action(self, player_id: str, legal_actions: list[dict], *, role: str) -> dict:
-        response = self.players[player_id].choose_action(player_id, legal_actions)
+        player = self.players[player_id]
+        response = player.choose_action(player_id, legal_actions)
+        fallback_reason = getattr(player, "last_fallback_reason", None)
+        if fallback_reason is not None:
+            self.state.event_store.append(
+                "player_response_fallback",
+                round_no=self.state.round_no,
+                turn_no=self.state.turn_no,
+                actor_player_id=player_id,
+                payload={"role": role, "reason": fallback_reason, "fallback": legal_actions[0]},
+            )
+            try:
+                setattr(player, "last_fallback_reason", None)
+            except AttributeError:
+                pass
         if self._active_intent is not None:
             self._active_intent["choices"].append(
                 {

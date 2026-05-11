@@ -25,6 +25,7 @@ from tojs_reborn.io.player_runner import (
     encode_action_response,
     encode_choice_response,
 )
+from tojs_reborn.io.process_player import start_process_player
 from tojs_reborn.io.protocol import (
     action_selected_message,
     choice_request_message,
@@ -394,6 +395,17 @@ class ProtocolTest(unittest.TestCase):
 
                 self.assertEqual(selected, legal_actions[0])
 
+    def test_match_runner_logs_json_line_player_fallback_reason(self) -> None:
+        state = create_game_state(self.catalog)
+        player = JsonLinePlayer(MemoryTransport([None]))
+        runner = MatchRunner(state, players={"P1": player, "P2": FirstLegalPlayer()})
+
+        runner.run_turn_action("P1")
+
+        fallback_events = [event for event in state.event_store.events if event.type == "player_response_fallback"]
+        self.assertEqual(len(fallback_events), 1)
+        self.assertEqual(fallback_events[0].payload["reason"], "timeout")
+
     def test_json_line_player_uses_same_transport_for_choice_request(self) -> None:
         legal_choices = [{"unit_id": "u0001"}, {"unit_id": "u0002"}]
         response = encode_choice_response(legal_choices[1], request_id="choice-1", player_id="P1")
@@ -469,6 +481,76 @@ class ProtocolTest(unittest.TestCase):
                     process.stdout.close()
                 if process.stderr is not None:
                     process.stderr.close()
+
+    def test_process_player_starts_sample_player_command(self) -> None:
+        legal_actions = [{"type": "pass"}, {"type": "drive_unit", "card_instance_id": "c0001"}]
+        process_player = start_process_player(f'"{sys.executable}" -m tojs_reborn.io.sample_player --mode first')
+        try:
+            self.assertEqual(process_player.choose_action("P1", legal_actions), legal_actions[1])
+        finally:
+            process_player.close()
+
+    def test_match_cli_runs_external_process_sample_players(self) -> None:
+        output_dir = ROOT / "test_output" / "match_cli_process"
+        output_dir.mkdir(parents=True, exist_ok=True)
+        cards_path = output_dir / "cards.normalized.json"
+        deck1_path = output_dir / "deck1.json"
+        deck2_path = output_dir / "deck2.json"
+        replay_path = output_dir / "replay.json"
+        cards_path.write_text(
+            json.dumps(
+                {
+                    "cards": [
+                        {
+                            "card_no": "1-0-040",
+                            "category": "unit",
+                            "color": "green",
+                            "name": "Happaloid",
+                            "cp": 1,
+                            "bp_by_level": [1000, 1000, 1000],
+                            "abilities": [],
+                        },
+                        {
+                            "card_no": "1-0-001",
+                            "category": "unit",
+                            "color": "red",
+                            "name": "Bloodhound",
+                            "cp": 1,
+                            "bp_by_level": [1000, 1000, 1000],
+                            "abilities": [],
+                        },
+                    ]
+                },
+                ensure_ascii=False,
+            ),
+            encoding="utf-8",
+        )
+        deck1_path.write_text('{"cards":[{"card_no":"1-0-040","count":4}]}', encoding="utf-8")
+        deck2_path.write_text('{"cards":[{"card_no":"1-0-001","count":4}]}', encoding="utf-8")
+
+        with redirect_stdout(StringIO()):
+            exit_code = run_match_cli(
+                [
+                    "--cards",
+                    str(cards_path),
+                    "--deck1",
+                    str(deck1_path),
+                    "--deck2",
+                    str(deck2_path),
+                    "--p1",
+                    f'cmd:"{sys.executable}" -m tojs_reborn.io.sample_player --mode first',
+                    "--p2",
+                    f'cmd:"{sys.executable}" -m tojs_reborn.io.sample_player --mode pass',
+                    "--max-turns",
+                    "2",
+                    "--replay",
+                    str(replay_path),
+                    "--verify-replay",
+                ]
+            )
+
+        self.assertEqual(exit_code, 0)
+        self.assertTrue(replay_path.exists())
 
 
 if __name__ == "__main__":
