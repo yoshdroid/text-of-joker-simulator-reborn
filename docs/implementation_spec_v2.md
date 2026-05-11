@@ -353,6 +353,13 @@ v1 で合成カードとして確認した window / selector / effect を実カ�
 - サンプル子プログラム2つを起動し、1ターン以上進められる。
 - protocol テストがある。
 
+実装状況:
+
+- `player_runner.py` に JSON Lines action player の最小実装を追加する。
+- response timeout は既定 1.0 秒とする。
+- timeout / invalid JSON / illegal action は合法手先頭へ fallback する。
+- `action_selected` message helper と round-trip test を追加する。
+
 ### V2-E: window の実カード統合
 
 目的:

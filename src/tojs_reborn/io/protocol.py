@@ -15,6 +15,7 @@ KNOWN_MESSAGE_TYPES = {
     "action_selected",
     "choice_request",
     "choice_selected",
+    "error",
     "game_over",
 }
 
@@ -55,6 +56,15 @@ def request_action_message(state: GameState, player_id: str, *, request_id: str)
         "request_id": request_id,
         "player_id": player_id,
         "legal_actions": list_legal_actions(state, player_id),
+    }
+
+
+def action_selected_message(action: dict[str, Any], *, request_id: str, player_id: str) -> dict[str, Any]:
+    return {
+        "type": "action_selected",
+        "request_id": request_id,
+        "player_id": player_id,
+        "action": action,
     }
 
 

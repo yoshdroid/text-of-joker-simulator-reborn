@@ -11,7 +11,28 @@ if SRC_PATH.exists():
 from tests.test_engine import build_catalog, draw_window_card
 from tojs_reborn.engine.state import create_game_state
 from tojs_reborn.io.match_runner import FirstLegalPlayer, MatchRunner, replay_match_record, snapshot_match_initial_state
-from tojs_reborn.io.protocol import decode_message, encode_message, public_state_message, request_action_message
+from tojs_reborn.io.player_runner import JsonLinePlayer, encode_action_response
+from tojs_reborn.io.protocol import (
+    action_selected_message,
+    decode_message,
+    encode_message,
+    public_state_message,
+    request_action_message,
+)
+
+
+class MemoryTransport:
+    def __init__(self, responses: list[str | None] | None = None) -> None:
+        self.responses = list(responses or [])
+        self.written: list[str] = []
+
+    def write_line(self, line: str) -> None:
+        self.written.append(line)
+
+    def read_line(self, timeout_seconds: float) -> str | None:
+        if not self.responses:
+            return None
+        return self.responses.pop(0)
 
 
 class ProtocolTest(unittest.TestCase):
@@ -27,6 +48,14 @@ class ProtocolTest(unittest.TestCase):
         self.assertEqual(decoded["type"], "request_action")
         self.assertEqual(decoded["request_id"], "r1")
         self.assertEqual(decoded["legal_actions"], [{"type": "pass"}])
+
+    def test_json_lines_protocol_round_trips_action_selected(self) -> None:
+        message = action_selected_message({"type": "pass"}, request_id="r1", player_id="P1")
+
+        decoded = decode_message(encode_message(message))
+
+        self.assertEqual(decoded["type"], "action_selected")
+        self.assertEqual(decoded["action"], {"type": "pass"})
 
     def test_public_state_hides_opponent_private_zones(self) -> None:
         state = create_game_state(self.catalog)
@@ -203,6 +232,35 @@ class ProtocolTest(unittest.TestCase):
 
         self.assertEqual(replayed.event_store.to_list(), state.event_store.to_list())
         self.assertIn("invalid_response", [event.type for event in state.event_store.events])
+
+    def test_json_line_player_uses_valid_action_response(self) -> None:
+        legal_actions = [{"type": "pass"}, {"type": "drive_unit", "card_instance_id": "c0001"}]
+        response = encode_action_response(legal_actions[1], request_id="P1:action", player_id="P1")
+        transport = MemoryTransport([response])
+        player = JsonLinePlayer(transport)
+
+        selected = player.choose_action("P1", legal_actions)
+
+        self.assertEqual(selected, legal_actions[1])
+        request = decode_message(transport.written[0])
+        self.assertEqual(request["type"], "request_action")
+        self.assertEqual(request["request_id"], "P1:action")
+
+    def test_json_line_player_falls_back_on_timeout_invalid_json_and_illegal_action(self) -> None:
+        legal_actions = [{"type": "pass"}]
+        cases = [
+            None,
+            "not json\n",
+            encode_action_response({"type": "not_legal"}, request_id="P1:action", player_id="P1"),
+        ]
+
+        for response in cases:
+            with self.subTest(response=response):
+                player = JsonLinePlayer(MemoryTransport([response]))
+
+                selected = player.choose_action("P1", legal_actions)
+
+                self.assertEqual(selected, legal_actions[0])
 
 
 if __name__ == "__main__":
