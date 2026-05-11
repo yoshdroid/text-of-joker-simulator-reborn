@@ -555,7 +555,7 @@ v1 は、次を満たした時点で完了とする。
 - replay の完全な再実行。最小実装済み。
 - action/choice の合法手生成。最小実装済み。
 - 子プログラム通信用 protocol / match runner。最小実装済み。
-- trigger / intercept の割り込み window。候補列挙のみ最小実装済み。
+- trigger / intercept の割り込み window。最小 runner 実装済み。
 - OC の実ゲーム相当のカード統合処理。unit stack として最小実装済み。
 - 追加カードを使った仕様テスト拡充。継続。
 
@@ -817,6 +817,16 @@ replay record は次を持つ。
 - intercept は発動候補があるたびに発動 / パスを選ぶ。
 - 両プレイヤーが2回連続でパスしたら intercept window を閉じる。
 
+実装状況:
+
+- `process_trigger_window` は cause event を受け取り、ターンプレイヤー側から交互に trigger zone を確認する。
+- trigger は `TRIGGER_ANY` または `TRIGGER_<EVENT_TYPE>` の timing に対応する。
+- trigger 発動時は `trigger_window_opened`、`trigger_activated`、`ability_resolved`、`card_moved` を記録する。
+- `process_intercept_window` は window 名と choice callback を受け取り、`activate_intercept` / `pass_window` を処理する。
+- intercept は `INTERCEPT_ANY` または `INTERCEPT_<WINDOW>` の timing に対応する。
+- 両者の連続 pass で intercept window を閉じる最小実装を追加した。
+- 現時点では runner を各イベントへ自動挿入する hook は未接続。match runner からどの window を開くかは追加カード仕様に合わせて接続する。
+
 ### V1-E: deck refresh
 
 draw 時に deck が空の場合、discard pile から deck refresh する。
@@ -861,6 +871,6 @@ draw 時に deck が空の場合、discard pile から deck refresh する。
 
 ```text
 python -m unittest -v
-Ran 33 tests
+Ran 39 tests
 OK
 ```

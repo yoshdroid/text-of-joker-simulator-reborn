@@ -22,7 +22,7 @@ from tojs_reborn.engine.replay import (
 from tojs_reborn.engine.rules import get_unit_bp
 from tojs_reborn.engine.state import AbilityDefinition, CardDefinition, create_game_state
 from tojs_reborn.engine.turn import end_turn, start_turn
-from tojs_reborn.engine.windows import list_trigger_intercept_window
+from tojs_reborn.engine.windows import list_trigger_intercept_window, process_intercept_window, process_trigger_window
 
 
 EXCEL_PATH = ROOT / "carddata" / "text-of-joker.cardpool.xlsx"
@@ -68,6 +68,28 @@ def draw_watcher_card(card_no: str, name: str, timing: str) -> CardDefinition:
             AbilityDefinition(
                 ability_id=f"{card_no}:a1",
                 name=f"{timing} watcher",
+                status="supported",
+                timing=timing,
+                optional=False,
+                effect_steps=({"effect": "draw_cards", "player": "owner", "count": 1},),
+                raw={},
+            ),
+        ),
+    )
+
+
+def draw_window_card(card_no: str, category: str, timing: str) -> CardDefinition:
+    return CardDefinition(
+        card_no=card_no,
+        category=category,
+        color="test",
+        name=f"{category} draw",
+        cp=None,
+        bp_by_level=(),
+        abilities=(
+            AbilityDefinition(
+                ability_id=f"{card_no}:a1",
+                name=f"{timing} draw",
                 status="supported",
                 timing=timing,
                 optional=False,
@@ -536,6 +558,67 @@ class EngineTest(unittest.TestCase):
 
         self.assertEqual(window["pass_action"], {"type": "pass_window", "window": "attack"})
         self.assertEqual(window["candidates"][0]["card_instance_id"], trigger_card.instance_id)
+
+    def test_trigger_window_forces_activation_turn_player_then_opponent(self) -> None:
+        catalog = dict(self.catalog)
+        catalog["T-TRG-001"] = draw_window_card("T-TRG-001", "trigger", "TRIGGER_UNIT_ENTERED")
+        state = create_game_state(catalog)
+        state.turn_player_id = "P1"
+        p1_trigger = state.create_card_instance("T-TRG-001", "P1")
+        p1_second_trigger = state.create_card_instance("T-TRG-001", "P1")
+        p2_trigger = state.create_card_instance("T-TRG-001", "P2")
+        p1_draw_1 = state.create_card_instance("1-0-001", "P1")
+        p1_draw_2 = state.create_card_instance("1-0-004", "P1")
+        p2_draw = state.create_card_instance("1-0-001", "P2")
+        state.players["P1"].trigger_zone.cards.extend([p1_trigger.instance_id, p1_second_trigger.instance_id])
+        state.players["P2"].trigger_zone.cards.append(p2_trigger.instance_id)
+        state.players["P1"].deck.cards.extend([p1_draw_1.instance_id, p1_draw_2.instance_id])
+        state.players["P2"].deck.cards.append(p2_draw.instance_id)
+        cause_event = state.event_store.append("unit_entered", round_no=1, turn_no=1, actor_player_id="P1")
+
+        activated_count = process_trigger_window(state, cause_event.event_no)
+
+        self.assertEqual(activated_count, 3)
+        self.assertEqual(state.players["P1"].trigger_zone.cards, [])
+        self.assertEqual(state.players["P2"].trigger_zone.cards, [])
+        self.assertEqual(state.players["P1"].hand.cards, [p1_draw_1.instance_id, p1_draw_2.instance_id])
+        self.assertEqual(state.players["P2"].hand.cards, [p2_draw.instance_id])
+        activation_events = [event for event in state.event_store.events if event.type == "trigger_activated"]
+        self.assertEqual([event.actor_player_id for event in activation_events], ["P1", "P2", "P1"])
+        self.assertEqual(
+            [event.source.card_instance_id for event in activation_events],
+            [p1_trigger.instance_id, p2_trigger.instance_id, p1_second_trigger.instance_id],
+        )
+
+    def test_intercept_window_activates_selected_card_then_closes_after_two_passes(self) -> None:
+        catalog = dict(self.catalog)
+        catalog["T-INT-001"] = draw_window_card("T-INT-001", "intercept", "INTERCEPT_ATTACK")
+        state = create_game_state(catalog)
+        state.turn_player_id = "P1"
+        intercept_card = state.create_card_instance("T-INT-001", "P1")
+        draw_target = state.create_card_instance("1-0-001", "P1")
+        state.players["P1"].trigger_zone.add(intercept_card.instance_id)
+        state.players["P1"].deck.cards.append(draw_target.instance_id)
+        cause_event = state.event_store.append("unit_attacked", round_no=1, turn_no=1, actor_player_id="P1")
+        used = set()
+
+        def choose(player_id, actions):
+            for action in actions:
+                if action["type"] == "activate_intercept" and action["card_instance_id"] not in used:
+                    used.add(action["card_instance_id"])
+                    return action
+            return {"type": "pass_window", "window": "attack"}
+
+        activated_count = process_intercept_window(state, "attack", cause_event.event_no, choose)
+
+        self.assertEqual(activated_count, 1)
+        self.assertEqual(state.players["P1"].trigger_zone.cards, [])
+        self.assertEqual(state.players["P1"].discard_pile.cards, [intercept_card.instance_id])
+        self.assertEqual(state.players["P1"].hand.cards, [draw_target.instance_id])
+        self.assertEqual(
+            [event.type for event in state.event_store.events if event.type.startswith("intercept")],
+            ["intercept_window_opened", "intercept_activated", "intercept_passed", "intercept_passed"],
+        )
 
     def test_block_declared_resolves_block_bp_modifier_and_expires_at_turn_end(self) -> None:
         state = create_game_state(self.catalog)
