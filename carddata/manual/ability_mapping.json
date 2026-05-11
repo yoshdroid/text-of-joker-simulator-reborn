@@ -232,6 +232,34 @@
         }
       ]
     },
+    "1-0-020": {
+      "card_name": "カイム",
+      "abilities": [
+        {
+          "ability_key": "1-0-020:a1",
+          "ability_name": "トリガードロー",
+          "source_text": "このユニットがフィールドに出た時、あなたはトリガーカードを１枚引く。",
+          "status": "supported",
+          "timing": "SELF_CIP",
+          "optional": false,
+          "priority": {
+            "band": "unit",
+            "order": "source_only"
+          },
+          "condition": null,
+          "cost_steps": [],
+          "selector": null,
+          "effect_steps": [
+            {
+              "effect": "draw_card_by_category",
+              "player": "owner",
+              "category": "trigger",
+              "count": 1
+            }
+          ]
+        }
+      ]
+    },
     "1-0-023": {
       "card_name": "ラグエル",
       "abilities": [

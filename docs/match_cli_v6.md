@@ -20,3 +20,4 @@ python -m tojs_reborn.io.replay_viewer --cards carddata/generated/cards.normaliz
 - `1-0-003` バク・ダルマン: 相手全ユニット対象。
 - `1-0-005` ヘルハウンド: 相手 trigger zone のランダム破壊。
 - `1-0-033` ヴァイパー: 捨札のユニットをランダムに手札へ戻す。
+- `1-0-020` カイム: デッキからトリガーカードだけを探して引く。

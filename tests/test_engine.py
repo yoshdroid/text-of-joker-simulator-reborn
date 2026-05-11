@@ -299,6 +299,41 @@ class EngineTest(unittest.TestCase):
         self.assertIn("effect_fizzled", [event.type for event in state.event_store.events])
         self.assertNotIn("damage_dealt", [event.type for event in state.event_store.events])
 
+    def test_kaim_cip_draws_trigger_card_from_deck_without_reordering_other_cards(self) -> None:
+        state = create_game_state(self.catalog)
+        kaim = state.create_card_instance("1-0-020", "P1")
+        unit_card = state.create_card_instance("1-0-001", "P1")
+        trigger_card = state.create_card_instance("1-0-061", "P1")
+        intercept_card = state.create_card_instance("1-0-097", "P1")
+        state.players["P1"].current_cp = 10
+        state.players["P1"].hand.add(kaim.instance_id)
+        state.players["P1"].deck.cards.extend([unit_card.instance_id, trigger_card.instance_id, intercept_card.instance_id])
+
+        drive_unit(state, "P1", kaim.instance_id)
+
+        self.assertEqual(state.players["P1"].hand.cards, [trigger_card.instance_id])
+        self.assertEqual(state.players["P1"].deck.cards, [unit_card.instance_id, intercept_card.instance_id])
+        move_events = [
+            event for event in state.event_store.events
+            if event.type == "card_moved" and event.payload.get("from_zone") == "deck"
+        ]
+        self.assertEqual(move_events[-1].payload["category"], "trigger")
+
+    def test_kaim_cip_draws_zero_when_no_trigger_card_in_deck(self) -> None:
+        state = create_game_state(self.catalog)
+        kaim = state.create_card_instance("1-0-020", "P1")
+        unit_card = state.create_card_instance("1-0-001", "P1")
+        state.players["P1"].current_cp = 10
+        state.players["P1"].hand.add(kaim.instance_id)
+        state.players["P1"].deck.cards.append(unit_card.instance_id)
+
+        drive_unit(state, "P1", kaim.instance_id)
+
+        self.assertEqual(state.players["P1"].hand.cards, [])
+        self.assertEqual(state.players["P1"].deck.cards, [unit_card.instance_id])
+        draw_events = [event for event in state.event_store.events if event.type == "cards_drawn"]
+        self.assertEqual(draw_events[-1].payload["count"], 0)
+
     def test_rival_cip_existing_opponent_unit_triggers_but_opponent_happaloid_self_cip_does_not(self) -> None:
         catalog = dict(self.catalog)
         catalog["T-0-002"] = draw_watcher_card("T-0-002", "Rival CIP Watcher", "RIVAL_CIP")
