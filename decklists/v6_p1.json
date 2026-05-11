@@ -1,0 +1,14 @@
+{
+  "deck_name": "v6_p1_green_toolbox",
+  "cards": [
+    { "card_name": "ハッパロイド", "count": 3 },
+    { "card_name": "フォクスコマンドー", "count": 3 },
+    { "card_name": "ケロール・キッド", "count": 3 },
+    { "card_name": "グラインドビートル", "count": 2 },
+    { "card_name": "リーフィア", "count": 2 },
+    { "card_name": "新品の鎧", "count": 2 },
+    { "card_name": "何でも屋の陳列台", "count": 2 },
+    { "card_name": "追い風", "count": 2 },
+    { "card_name": "ハウリング", "count": 2 }
+  ]
+}

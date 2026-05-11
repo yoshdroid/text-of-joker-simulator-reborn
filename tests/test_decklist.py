@@ -100,6 +100,15 @@ class DecklistTest(unittest.TestCase):
         self.assertEqual(decklist.deck_name, "file")
         self.assertEqual(decklist.expanded_card_nos(), ["1-0-040"])
 
+    def test_v6_decklists_load_by_card_name(self) -> None:
+        deck1 = load_decklist(ROOT / "decklists" / "v6_p1.json", self.catalog)
+        deck2 = load_decklist(ROOT / "decklists" / "v6_p2.json", self.catalog)
+
+        self.assertIn("1-0-042", deck1.expanded_card_nos())
+        self.assertIn("1-0-041", deck1.expanded_card_nos())
+        self.assertIn("1-0-003", deck2.expanded_card_nos())
+        self.assertIn("1-0-010", deck2.expanded_card_nos())
+
     def test_setup_match_state_registers_decks_and_initial_hands(self) -> None:
         deck1 = parse_decklist(
             {
