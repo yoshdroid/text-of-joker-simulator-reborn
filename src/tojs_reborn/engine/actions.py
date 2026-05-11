@@ -2,7 +2,7 @@ from __future__ import annotations
 
 from .events import EventSource, FactEvent
 from .rules import get_unit_bp, opponent_id
-from .resolver import resolve_unit_entered
+from .resolver import resolve_unit_entered, resolve_unit_overclocked
 from .state import AbilityDefinition, GameState, UnitState
 
 
@@ -139,7 +139,68 @@ def drive_unit(state: GameState, player_id: str, card_instance_id: str) -> UnitS
         payload={"owner_player_id": player_id},
     )
     resolve_unit_entered(state, unit, enter_event, get_effect_handlers())
+    if unit.level >= 3:
+        _resolve_drive_overclock(state, unit, enter_event.event_no)
     return unit
+
+
+def override_card(
+    state: GameState,
+    player_id: str,
+    target_card_instance_id: str,
+    material_card_instance_id: str,
+) -> None:
+    player = state.players[player_id]
+    target = state.card_instances[target_card_instance_id]
+    material = state.card_instances[material_card_instance_id]
+    if target_card_instance_id not in player.hand.cards:
+        raise ValueError(f"target card is not in hand: {target_card_instance_id}")
+    if material_card_instance_id not in player.hand.cards:
+        raise ValueError(f"material card is not in hand: {material_card_instance_id}")
+    if target.card_no != material.card_no:
+        raise ValueError("override requires the same card number")
+    if target.level >= 3:
+        raise ValueError("target card is already level 3")
+    action_event = state.event_store.append(
+        "action_declared",
+        round_no=state.round_no,
+        turn_no=state.turn_no,
+        actor_player_id=player_id,
+        source=EventSource(card_no=target.card_no, card_instance_id=target_card_instance_id),
+        payload={
+            "action": "override_card",
+            "target_card_instance_id": target_card_instance_id,
+            "material_card_instance_id": material_card_instance_id,
+        },
+    )
+    player.hand.remove(material_card_instance_id)
+    material.level = 1
+    player.discard_pile.add(material_card_instance_id)
+    state.event_store.append(
+        "card_moved",
+        round_no=state.round_no,
+        turn_no=state.turn_no,
+        actor_player_id=player_id,
+        cause_event_no=action_event.event_no,
+        source=EventSource(card_no=material.card_no, card_instance_id=material_card_instance_id),
+        payload={
+            "from_zone": "hand",
+            "to_zone": "discard_pile",
+            "owner_player_id": player_id,
+            "reason": "override_material",
+        },
+    )
+    before_level = target.level
+    target.level += 1
+    state.event_store.append(
+        "card_level_changed",
+        round_no=state.round_no,
+        turn_no=state.turn_no,
+        actor_player_id=player_id,
+        cause_event_no=action_event.event_no,
+        source=EventSource(card_no=target.card_no, card_instance_id=target_card_instance_id),
+        payload={"before_level": before_level, "after_level": target.level, "zone": "hand"},
+    )
 
 
 def set_trigger(state: GameState, player_id: str, card_instance_id: str) -> None:
@@ -233,6 +294,30 @@ def overclock_unit(state: GameState, player_id: str, card_instance_id: str, targ
 
     resolve_unit_overclocked(state, unit, oc_event, get_effect_handlers())
     return unit
+
+
+def _resolve_drive_overclock(state: GameState, unit: UnitState, cause_event_no: int) -> None:
+    overclock_event = state.event_store.append(
+        "unit_overclocked",
+        round_no=state.round_no,
+        turn_no=state.turn_no,
+        actor_player_id=unit.owner_player_id,
+        cause_event_no=cause_event_no,
+        source=EventSource(card_no=unit.card_no, card_instance_id=unit.card_instance_id, unit_id=unit.unit_id),
+        payload={"level": unit.level, "reason": "drive_level_3"},
+    )
+    if unit.exhausted:
+        unit.exhausted = False
+        state.event_store.append(
+            "unit_action_recovered",
+            round_no=state.round_no,
+            turn_no=state.turn_no,
+            actor_player_id=unit.owner_player_id,
+            cause_event_no=overclock_event.event_no,
+            source=EventSource(card_no=unit.card_no, card_instance_id=unit.card_instance_id, unit_id=unit.unit_id),
+            payload={"unit_id": unit.unit_id, "reason": "overclock"},
+        )
+    resolve_unit_overclocked(state, unit, overclock_event, get_effect_handlers())
 
 
 def deal_damage_to_unit(

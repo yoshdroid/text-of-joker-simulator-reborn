@@ -32,7 +32,7 @@ class CardDefinition:
     abilities: tuple[AbilityDefinition, ...]
 
 
-@dataclass(frozen=True)
+@dataclass
 class CardInstance:
     instance_id: str
     card_no: str

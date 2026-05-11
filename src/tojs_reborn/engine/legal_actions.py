@@ -12,7 +12,7 @@ def list_legal_actions(state: GameState, player_id: str) -> list[dict[str, Any]]
     actions: list[dict[str, Any]] = []
     actions.extend(_drive_actions(state, player_id))
     actions.extend(_set_trigger_actions(state, player_id))
-    actions.extend(_overclock_actions(state, player_id))
+    actions.extend(_override_actions(state, player_id))
     actions.extend(_attack_actions(state, player_id))
     actions.append({"type": "pass"})
     return actions
@@ -40,19 +40,23 @@ def _set_trigger_actions(state: GameState, player_id: str) -> list[dict[str, Any
     return actions
 
 
-def _overclock_actions(state: GameState, player_id: str) -> list[dict[str, Any]]:
+def _override_actions(state: GameState, player_id: str) -> list[dict[str, Any]]:
     player = state.players[player_id]
     actions = []
-    for card_instance_id in player.hand.cards:
-        card_no = state.card_instances[card_instance_id].card_no
-        for unit_id in player.battlefield.units:
-            unit = state.units.get(unit_id)
-            if unit is not None and unit.card_no == card_no and unit.level < 3:
+    for target_card_instance_id in player.hand.cards:
+        target = state.card_instances[target_card_instance_id]
+        if target.level >= 3:
+            continue
+        for material_card_instance_id in player.hand.cards:
+            if material_card_instance_id == target_card_instance_id:
+                continue
+            material = state.card_instances[material_card_instance_id]
+            if material.card_no == target.card_no:
                 actions.append(
                     {
-                        "type": "overclock_unit",
-                        "card_instance_id": card_instance_id,
-                        "target_unit_id": unit_id,
+                        "type": "override_card",
+                        "target_card_instance_id": target_card_instance_id,
+                        "material_card_instance_id": material_card_instance_id,
                     }
                 )
     return actions

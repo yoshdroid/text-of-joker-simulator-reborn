@@ -758,6 +758,12 @@ replay record は次を持つ。
 - 将来の公開済み intercept 用に、trigger_zone 表示 item に `revealed_card_no` を追加できる形にする。
 - protocol test を更新する。
 
+実装状況:
+
+- 最小実装済み。
+- opponent trigger_zone は `{count, colors, items}` として公開する。
+- `items[].revealed_card_no` は現時点では常に `null`。
+
 ### V1-B: attack / block request 分離
 
 現在の `attack_unit` は attack と block を一括処理しているため、実ゲーム手順に近づける。
@@ -782,6 +788,14 @@ replay record は次を持つ。
 - 重ねる側 card instance は level/CP 等を初期化し discard pile へ移動する。
 - battlefield への同名カード重ねは合法手に出さない。
 - LV3 card を drive した場合は、CIP 解決後に `unit_overclocked` を発行し、行動権回復と攻撃制限解除を処理してから `SELF_OC` を解決する。
+
+実装状況:
+
+- hand 内 `override_card` は最小実装済み。
+- 重ねられる側 card instance の `level` を +1 する。
+- 重ねる側 card instance は level 1 に初期化し discard pile へ移動する。
+- legal action には battlefield unit への `overclock_unit` ではなく、hand 内 `override_card` を出す。
+- LV3 card drive 後、CIP 解決後に `unit_overclocked` を発行し、`SELF_OC` を解決する。
 
 ### V1-D: trigger / intercept window runner
 

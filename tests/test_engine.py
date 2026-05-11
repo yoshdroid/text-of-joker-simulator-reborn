@@ -9,7 +9,7 @@ if SRC_PATH.exists():
     sys.path.insert(0, str(SRC_PATH))
 
 from tojs_reborn.cardpool.normalizer import normalize_cardpool
-from tojs_reborn.engine.actions import draw_cards, drive_unit, overclock_unit, set_trigger
+from tojs_reborn.engine.actions import draw_cards, drive_unit, override_card, set_trigger
 from tojs_reborn.engine.combat import attack_player, attack_unit, destroy_lethal_units
 from tojs_reborn.engine.events import EventStore
 from tojs_reborn.engine.legal_actions import list_legal_actions
@@ -545,33 +545,41 @@ class EngineTest(unittest.TestCase):
             ["1-0-044:a1"],
         )
 
-    def test_overclock_resolves_self_oc_life_damage(self) -> None:
+    def test_hand_override_levels_card_and_level3_drive_resolves_self_oc_after_cip(self) -> None:
         state = create_game_state(self.catalog)
         state.turn_player_id = "P1"
-        base = state.create_card_instance("1-0-007", "P1")
-        material = state.create_card_instance("1-0-007", "P1")
-        unit = state.create_unit(base.instance_id)
-        state.players["P1"].battlefield.add(unit.unit_id)
-        state.players["P1"].hand.add(material.instance_id)
+        target = state.create_card_instance("1-0-007", "P1")
+        first_material = state.create_card_instance("1-0-007", "P1")
+        second_material = state.create_card_instance("1-0-007", "P1")
+        state.players["P1"].hand.add(target.instance_id)
+        state.players["P1"].hand.add(first_material.instance_id)
+        state.players["P1"].hand.add(second_material.instance_id)
+        state.players["P1"].current_cp = 10
 
-        overclock_unit(state, "P1", material.instance_id, unit.unit_id)
+        override_card(state, "P1", target.instance_id, first_material.instance_id)
+        override_card(state, "P1", target.instance_id, second_material.instance_id)
+        unit = drive_unit(state, "P1", target.instance_id)
 
-        self.assertEqual(unit.level, 2)
-        self.assertEqual(unit.stacked_card_instance_ids, [base.instance_id, material.instance_id])
-        self.assertNotIn(material.instance_id, state.players["P1"].discard_pile.cards)
+        self.assertEqual(unit.level, 3)
+        self.assertEqual(state.card_instances[target.instance_id].level, 3)
+        self.assertIn(first_material.instance_id, state.players["P1"].discard_pile.cards)
+        self.assertIn(second_material.instance_id, state.players["P1"].discard_pile.cards)
         self.assertEqual(state.players["P2"].life, 6)
-        self.assertIn("unit_overclocked", [event.type for event in state.event_store.events])
+        event_types = [event.type for event in state.event_store.events]
+        self.assertLess(event_types.index("unit_entered"), event_types.index("unit_overclocked"))
 
-    def test_legal_actions_include_drive_attack_set_trigger_and_overclock(self) -> None:
+    def test_legal_actions_include_drive_attack_set_trigger_and_override(self) -> None:
         state = create_game_state(self.catalog)
         state.turn_player_id = "P1"
         state.players["P1"].current_cp = 10
         unit_card = state.create_card_instance("1-0-001", "P1")
         same_card = state.create_card_instance("1-0-001", "P1")
+        same_card_material = state.create_card_instance("1-0-001", "P1")
         trigger_card = state.create_card_instance("1-0-065", "P1")
         unit = state.create_unit(unit_card.instance_id)
         state.players["P1"].battlefield.add(unit.unit_id)
         state.players["P1"].hand.add(same_card.instance_id)
+        state.players["P1"].hand.add(same_card_material.instance_id)
         state.players["P1"].hand.add(trigger_card.instance_id)
 
         action_types = {action["type"] for action in list_legal_actions(state, "P1")}
@@ -579,7 +587,7 @@ class EngineTest(unittest.TestCase):
         self.assertIn("drive_unit", action_types)
         self.assertIn("attack_player", action_types)
         self.assertIn("set_trigger", action_types)
-        self.assertIn("overclock_unit", action_types)
+        self.assertIn("override_card", action_types)
         self.assertIn("pass", action_types)
 
 

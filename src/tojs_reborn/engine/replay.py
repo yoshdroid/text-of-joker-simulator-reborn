@@ -2,7 +2,7 @@ from __future__ import annotations
 
 from typing import Any
 
-from .actions import drive_unit, overclock_unit, set_trigger
+from .actions import drive_unit, overclock_unit, override_card, set_trigger
 from .combat import attack_player, attack_unit
 from .state import CardDefinition, GameState, create_game_state
 from .turn import end_turn, start_turn
@@ -58,6 +58,8 @@ def apply_intent(state: GameState, intent: dict[str, Any]) -> None:
         drive_unit(state, player_id, intent["card_instance_id"])
     elif intent_type == "set_trigger":
         set_trigger(state, player_id, intent["card_instance_id"])
+    elif intent_type == "override_card":
+        override_card(state, player_id, intent["target_card_instance_id"], intent["material_card_instance_id"])
     elif intent_type == "overclock_unit":
         overclock_unit(state, player_id, intent["card_instance_id"], intent["target_unit_id"])
     elif intent_type == "attack_player":
@@ -187,6 +189,23 @@ def state_digest(state: GameState) -> dict[str, Any]:
         "round_no": state.round_no,
         "turn_no": state.turn_no,
         "turn_player_id": state.turn_player_id,
+        "card_catalog": {
+            card_no: {
+                "category": card.category,
+                "color": card.color,
+                "name": card.name,
+                "cp": card.cp,
+            }
+            for card_no, card in sorted(state.card_catalog.items())
+        },
+        "card_instances": {
+            instance_id: {
+                "card_no": instance.card_no,
+                "owner_player_id": instance.owner_player_id,
+                "level": instance.level,
+            }
+            for instance_id, instance in sorted(state.card_instances.items())
+        },
         "players": players,
         "units": units,
     }

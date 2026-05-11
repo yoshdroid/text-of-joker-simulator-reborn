@@ -3,7 +3,7 @@ from __future__ import annotations
 from dataclasses import dataclass
 from typing import Protocol
 
-from tojs_reborn.engine.actions import drive_unit, overclock_unit, set_trigger
+from tojs_reborn.engine.actions import drive_unit, overclock_unit, override_card, set_trigger
 from tojs_reborn.engine.combat import attack_player, attack_unit
 from tojs_reborn.engine.legal_actions import list_legal_actions
 from tojs_reborn.engine.state import GameState
@@ -50,6 +50,8 @@ class MatchRunner:
             drive_unit(self.state, player_id, action["card_instance_id"])
         elif action_type == "set_trigger":
             set_trigger(self.state, player_id, action["card_instance_id"])
+        elif action_type == "override_card":
+            override_card(self.state, player_id, action["target_card_instance_id"], action["material_card_instance_id"])
         elif action_type == "overclock_unit":
             overclock_unit(self.state, player_id, action["card_instance_id"], action["target_unit_id"])
         elif action_type == "attack_player":

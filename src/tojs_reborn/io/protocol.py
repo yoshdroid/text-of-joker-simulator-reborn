@@ -72,5 +72,22 @@ def _visible_state(digest: dict[str, Any], viewer_player_id: str) -> dict[str, A
         if player_id != viewer_player_id:
             player["hand"] = {"count": len(player["hand"])}
             player["deck"] = {"count": len(player["deck"])}
-            player["trigger_zone"] = {"count": len(player["trigger_zone"])}
+            player["trigger_zone"] = _visible_trigger_zone(digest, player["trigger_zone"])
     return visible
+
+
+def _visible_trigger_zone(digest: dict[str, Any], card_instance_ids: list[str]) -> dict[str, Any]:
+    items = []
+    for card_instance_id in card_instance_ids:
+        card_no = digest["card_instances"][card_instance_id]["card_no"]
+        card = digest["card_catalog"][card_no]
+        item = {
+            "color": card["color"],
+            "revealed_card_no": None,
+        }
+        items.append(item)
+    return {
+        "count": len(card_instance_ids),
+        "colors": [item["color"] for item in items],
+        "items": items,
+    }

@@ -31,11 +31,18 @@ class ProtocolTest(unittest.TestCase):
     def test_public_state_hides_opponent_private_zones(self) -> None:
         state = create_game_state(self.catalog)
         opponent_card = state.create_card_instance("1-0-001", "P2")
+        trigger_card = state.create_card_instance("1-0-065", "P2")
         state.players["P2"].hand.add(opponent_card.instance_id)
+        state.players["P2"].trigger_zone.add(trigger_card.instance_id)
 
         message = public_state_message(state, "P1", request_id="s1")
 
         self.assertEqual(message["state"]["players"]["P2"]["hand"], {"count": 1})
+        self.assertEqual(message["state"]["players"]["P2"]["trigger_zone"]["count"], 1)
+        self.assertEqual(
+            message["state"]["players"]["P2"]["trigger_zone"]["colors"],
+            [self.catalog["1-0-065"].color],
+        )
 
     def test_match_runner_applies_first_legal_action(self) -> None:
         state = create_game_state(self.catalog)
