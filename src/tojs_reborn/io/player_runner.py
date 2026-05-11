@@ -18,6 +18,7 @@ from .protocol import (
     mulligan_selected_message,
     state_update_message,
 )
+from .views import strip_choice_decoration
 
 
 DEFAULT_RESPONSE_TIMEOUT_SECONDS = 0.5
@@ -145,17 +146,15 @@ class JsonLinePlayer:
                     )
                 )
             )
-        self.transport.write_line(
-            encode_message(
-                choice_request_message(
-                    request_id=request_id,
-                    player_id=player_id,
-                    choice=choice,
-                    legal_choices=legal_choices,
-                    state=state,
-                )
-            )
+        request = choice_request_message(
+            request_id=request_id,
+            player_id=player_id,
+            choice=choice,
+            legal_choices=legal_choices,
+            state=state,
         )
+        request_legal_choices = request["legal_choices"]
+        self.transport.write_line(encode_message(request))
         line = self.transport.read_line(self.timeout_seconds)
         if line is None:
             self.last_fallback_reason = "timeout"
@@ -172,10 +171,16 @@ class JsonLinePlayer:
             self.last_fallback_reason = "request_id_mismatch"
             return legal_choices[0]
         selected_choice = message.get("choice")
-        if not isinstance(selected_choice, dict) or selected_choice not in legal_choices:
+        if not isinstance(selected_choice, dict):
             self.last_fallback_reason = "illegal_choice"
             return legal_choices[0]
-        return selected_choice
+        if selected_choice in request_legal_choices:
+            return legal_choices[request_legal_choices.index(selected_choice)]
+        stripped_choice = strip_choice_decoration(selected_choice)
+        if stripped_choice in legal_choices:
+            return stripped_choice
+        self.last_fallback_reason = "illegal_choice"
+        return legal_choices[0]
 
     def choose_mulligan(self, player_id: str) -> bool:
         return self.choose_mulligan_with_state(player_id, state=None)

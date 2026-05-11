@@ -96,6 +96,33 @@ class ProtocolTest(unittest.TestCase):
         self.assertEqual(decode_message(encode_message(request))["type"], "choice_request")
         self.assertEqual(decode_message(encode_message(selected))["type"], "choice_selected")
 
+    def test_choice_request_includes_unit_target_display_when_state_is_available(self) -> None:
+        state = create_game_state(self.catalog)
+        card = state.create_card_instance("1-0-001", "P2")
+        unit = state.create_unit(card.instance_id)
+        unit.current_damage = 200
+        unit.bp_modifiers.append({"amount": 1000, "expires": "turn"})
+        state.players["P2"].battlefield.add(unit.unit_id)
+
+        request = choice_request_message(
+            request_id="c1",
+            player_id="P1",
+            choice={"type": "unit", "choice_id": "target", "required": True, "count": 1},
+            legal_choices=[{"unit_id": unit.unit_id}],
+            state=state,
+        )
+
+        legal_choice = request["legal_choices"][0]
+        self.assertEqual(request["display"]["label"], "対象ユニットを1体選択")
+        self.assertEqual(legal_choice["unit_id"], unit.unit_id)
+        self.assertIn("display", legal_choice)
+        self.assertEqual(legal_choice["target"]["card_no"], "1-0-001")
+        self.assertEqual(legal_choice["target"]["controller"], "P2")
+        self.assertEqual(legal_choice["target"]["base_bp"], self.catalog["1-0-001"].bp_by_level[0])
+        self.assertEqual(legal_choice["target"]["modified_bp"], 1000)
+        self.assertEqual(legal_choice["target"]["current_bp"], self.catalog["1-0-001"].bp_by_level[0] + 1000)
+        self.assertEqual(legal_choice["target"]["damage"], 200)
+
     def test_public_state_hides_opponent_private_zones(self) -> None:
         state = create_game_state(self.catalog)
         opponent_card = state.create_card_instance("1-0-001", "P2")
@@ -840,6 +867,32 @@ class ProtocolTest(unittest.TestCase):
         self.assertEqual(selected, legal_choices[1])
         request = decode_message(transport.written[0])
         self.assertEqual(request["type"], "choice_request")
+
+    def test_json_line_player_maps_decorated_choice_response_to_engine_choice(self) -> None:
+        state = create_game_state(self.catalog)
+        card = state.create_card_instance("1-0-001", "P2")
+        unit = state.create_unit(card.instance_id)
+        state.players["P2"].battlefield.add(unit.unit_id)
+        request = choice_request_message(
+            request_id="choice-1",
+            player_id="P1",
+            choice={"type": "unit", "choice_id": "target"},
+            legal_choices=[{"unit_id": unit.unit_id}],
+            state=state,
+        )
+        response = encode_choice_response(request["legal_choices"][0], request_id="choice-1", player_id="P1")
+        transport = MemoryTransport([response])
+        player = JsonLinePlayer(transport)
+
+        selected = player.choose_choice_with_state(
+            "P1",
+            request_id="choice-1",
+            choice={"type": "unit", "choice_id": "target"},
+            legal_choices=[{"unit_id": unit.unit_id}],
+            state=state,
+        )
+
+        self.assertEqual(selected, {"unit_id": unit.unit_id})
 
     def test_json_line_player_falls_back_on_invalid_choice_response(self) -> None:
         legal_choices = [{"unit_id": "u0001"}]

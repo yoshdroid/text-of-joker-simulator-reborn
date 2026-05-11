@@ -5,7 +5,7 @@ from typing import Any
 
 from tojs_reborn.engine.state import GameState
 
-from .views import build_private_view, build_public_state, state_revision
+from .views import build_private_view, build_public_state, decorate_choice_request, state_revision
 from tojs_reborn.engine.legal_actions import list_legal_actions
 
 
@@ -92,12 +92,17 @@ def choice_request_message(
     legal_choices: list[dict[str, Any]],
     state: GameState | None = None,
 ) -> dict[str, Any]:
+    request_choice = dict(choice)
+    request_legal_choices = list(legal_choices)
+    if state is not None:
+        request_choice, request_legal_choices = decorate_choice_request(state, player_id, choice, legal_choices)
     message = {
         "type": "choice_request",
         "request_id": request_id,
         "player_id": player_id,
-        "choice": choice,
-        "legal_choices": legal_choices,
+        "choice": request_choice,
+        "display": request_choice.get("display", {"label": "選択"}),
+        "legal_choices": request_legal_choices,
     }
     if state is not None:
         message["state_revision"] = state_revision(state)

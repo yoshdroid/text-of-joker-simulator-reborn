@@ -2,6 +2,7 @@ from __future__ import annotations
 
 from typing import Any
 
+from tojs_reborn.engine.rules import get_unit_base_bp, get_unit_bp, get_unit_modified_bp
 from tojs_reborn.engine.state import CardDefinition, GameState
 
 
@@ -38,6 +39,9 @@ def card_instance_public_view(state: GameState, card_instance_id: str) -> dict[s
 def unit_public_view(state: GameState, unit_id: str) -> dict[str, Any]:
     unit = state.units[unit_id]
     card = state.card_catalog[unit.card_no]
+    base_bp = get_unit_base_bp(state, unit)
+    modified_bp = get_unit_modified_bp(state, unit)
+    current_bp = get_unit_bp(state, unit)
     return {
         "unit_id": unit.unit_id,
         "card_instance_id": unit.card_instance_id,
@@ -49,6 +53,9 @@ def unit_public_view(state: GameState, unit_id: str) -> dict[str, Any]:
         "level": unit.level,
         "exhausted": unit.exhausted,
         "current_damage": unit.current_damage,
+        "base_bp": base_bp,
+        "modified_bp": modified_bp,
+        "current_bp": current_bp,
         "bp_modifiers": list(unit.bp_modifiers),
     }
 
@@ -60,6 +67,53 @@ def card_summary(card: CardDefinition, card_no: str) -> dict[str, Any]:
         "category": card.category,
         "color": card.color,
         "cp": card.cp,
+    }
+
+
+def decorate_choice_request(
+    state: GameState,
+    player_id: str,
+    choice: dict[str, Any],
+    legal_choices: list[dict[str, Any]],
+) -> tuple[dict[str, Any], list[dict[str, Any]]]:
+    decorated_choice = dict(choice)
+    decorated_choice.setdefault("count", 1)
+    decorated_choice.setdefault("required", True)
+    decorated_choice.setdefault("display", _choice_display(choice))
+    return decorated_choice, [decorate_legal_choice(state, player_id, item) for item in legal_choices]
+
+
+def decorate_legal_choice(state: GameState, player_id: str, legal_choice: dict[str, Any]) -> dict[str, Any]:
+    decorated = dict(legal_choice)
+    unit_id = legal_choice.get("unit_id")
+    if isinstance(unit_id, str) and unit_id in state.units:
+        target = unit_choice_target_view(state, player_id, unit_id)
+        decorated["target"] = target
+        decorated["display"] = {"label": _unit_choice_label(target)}
+    return decorated
+
+
+def strip_choice_decoration(choice: dict[str, Any]) -> dict[str, Any]:
+    return {key: value for key, value in choice.items() if key not in {"target", "display"}}
+
+
+def unit_choice_target_view(state: GameState, player_id: str, unit_id: str) -> dict[str, Any]:
+    unit = state.units[unit_id]
+    card = state.card_catalog[unit.card_no]
+    return {
+        "type": "unit",
+        "controller": unit.owner_player_id,
+        "is_owner": unit.owner_player_id == player_id,
+        "unit_id": unit.unit_id,
+        "card_instance_id": unit.card_instance_id,
+        "card_no": unit.card_no,
+        "card_name": card.name,
+        "level": unit.level,
+        "base_bp": get_unit_base_bp(state, unit),
+        "modified_bp": get_unit_modified_bp(state, unit),
+        "damage": unit.current_damage,
+        "current_bp": get_unit_bp(state, unit),
+        "exhausted": unit.exhausted,
     }
 
 
@@ -89,6 +143,22 @@ def _trigger_zone_view(state: GameState, player_id: str, viewer_player_id: str) 
         card = state.card_catalog[card_no]
         items.append({"color": card.color, "revealed_card_no": None, "revealed_name": None})
     return {"count": len(cards), "items": items}
+
+
+def _choice_display(choice: dict[str, Any]) -> dict[str, str]:
+    if choice.get("type") == "unit":
+        count = int(choice.get("count", 1))
+        return {"label": f"対象ユニットを{count}体選択"}
+    return {"label": "選択"}
+
+
+def _unit_choice_label(target: dict[str, Any]) -> str:
+    owner = target["controller"]
+    name = target["card_name"]
+    level = target["level"]
+    current_bp = target["current_bp"]
+    damage = target["damage"]
+    return f"{owner} {name} LV{level} BP{current_bp} DMG{damage}"
 
 
 def _card_instance_view(state: GameState, card_instance_id: str) -> dict[str, Any]:
