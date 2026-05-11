@@ -556,7 +556,9 @@ class EngineTest(unittest.TestCase):
 
         window = list_trigger_intercept_window(state, "P1", window="attack", cause_event_no=1)
 
-        self.assertEqual(window["pass_action"], {"type": "pass_window", "window": "attack"})
+        self.assertEqual(window["pass_action"]["type"], "pass_window")
+        self.assertEqual(window["pass_action"]["window"], "attack")
+        self.assertIn("display", window["pass_action"])
         self.assertEqual(window["candidates"][0]["card_instance_id"], trigger_card.instance_id)
 
     def test_trigger_window_forces_activation_turn_player_then_opponent(self) -> None:
@@ -651,7 +653,7 @@ class EngineTest(unittest.TestCase):
                 if action["type"] == "activate_intercept" and action["card_instance_id"] not in used:
                     used.add(action["card_instance_id"])
                     return action
-            return {"type": "pass_window", "window": "attack"}
+            return actions[-1]
 
         activated_count = process_intercept_window(state, "attack", cause_event.event_no, choose)
 
@@ -768,6 +770,7 @@ class EngineTest(unittest.TestCase):
 
     def test_legal_actions_include_drive_attack_set_trigger_and_override(self) -> None:
         state = create_game_state(self.catalog)
+        state.turn_no = 3
         state.turn_player_id = "P1"
         state.players["P1"].current_cp = 10
         unit_card = state.create_card_instance("1-0-001", "P1")
@@ -788,6 +791,42 @@ class EngineTest(unittest.TestCase):
         self.assertIn("override_card", action_types)
         self.assertIn("pass", action_types)
 
+    def test_first_player_cannot_attack_on_first_turn(self) -> None:
+        state = create_game_state(self.catalog)
+        state.turn_no = 1
+        state.turn_player_id = "P1"
+        attacker_card = state.create_card_instance("1-0-001", "P1")
+        attacker = state.create_unit(attacker_card.instance_id)
+        state.players["P1"].battlefield.add(attacker.unit_id)
+
+        actions = list_legal_actions(state, "P1")
+
+        self.assertNotIn("attack", [action["type"] for action in actions])
+
+    def test_attack_is_legal_after_first_player_first_turn(self) -> None:
+        state = create_game_state(self.catalog)
+        state.turn_no = 3
+        state.turn_player_id = "P1"
+        attacker_card = state.create_card_instance("1-0-001", "P1")
+        attacker = state.create_unit(attacker_card.instance_id)
+        state.players["P1"].battlefield.add(attacker.unit_id)
+
+        actions = list_legal_actions(state, "P1")
+
+        self.assertIn("attack", [action["type"] for action in actions])
+
+    def test_second_player_can_attack_on_their_first_turn(self) -> None:
+        state = create_game_state(self.catalog)
+        state.turn_no = 2
+        state.turn_player_id = "P2"
+        attacker_card = state.create_card_instance("1-0-001", "P2")
+        attacker = state.create_unit(attacker_card.instance_id)
+        state.players["P2"].battlefield.add(attacker.unit_id)
+
+        actions = list_legal_actions(state, "P2")
+
+        self.assertIn("attack", [action["type"] for action in actions])
+
     def test_block_actions_include_no_block_and_ready_blocker(self) -> None:
         state = create_game_state(self.catalog)
         attacker_card = state.create_card_instance("1-0-001", "P1")
@@ -799,11 +838,13 @@ class EngineTest(unittest.TestCase):
 
         actions = list_block_actions(state, "P2", attacker.unit_id)
 
-        self.assertEqual(actions[0], {"type": "no_block", "attacker_unit_id": attacker.unit_id})
-        self.assertIn(
-            {"type": "block", "attacker_unit_id": attacker.unit_id, "blocker_unit_id": blocker.unit_id},
-            actions,
-        )
+        self.assertEqual(actions[0]["type"], "no_block")
+        self.assertEqual(actions[0]["attacker_unit_id"], attacker.unit_id)
+        self.assertIn("display", actions[0])
+        block_actions = [action for action in actions if action["type"] == "block"]
+        self.assertEqual(block_actions[0]["attacker_unit_id"], attacker.unit_id)
+        self.assertEqual(block_actions[0]["blocker_unit_id"], blocker.unit_id)
+        self.assertIn("unit", block_actions[0])
 
 
 if __name__ == "__main__":

@@ -69,7 +69,8 @@ class ProtocolTest(unittest.TestCase):
 
         self.assertEqual(decoded["type"], "request_action")
         self.assertEqual(decoded["request_id"], "r1")
-        self.assertEqual(decoded["legal_actions"], [{"type": "pass"}])
+        self.assertEqual(decoded["legal_actions"][0]["type"], "pass")
+        self.assertIn("display", decoded["legal_actions"][0])
         self.assertIn("public_state", decoded)
         self.assertIn("private_view", decoded)
         self.assertEqual(decoded["state_revision"], 0)
@@ -167,6 +168,7 @@ class ProtocolTest(unittest.TestCase):
                 return next(action for action in legal_actions if action["type"] == "attack")
 
         state = create_game_state(self.catalog)
+        state.turn_no = 3
         attacker_card = state.create_card_instance("1-0-001", "P1")
         blocker_card = state.create_card_instance("1-0-001", "P2")
         attacker = state.create_unit(attacker_card.instance_id)
@@ -217,6 +219,7 @@ class ProtocolTest(unittest.TestCase):
         catalog = dict(self.catalog)
         catalog["T-INT-001"] = draw_window_card("T-INT-001", "intercept", "INTERCEPT_ATTACK")
         state = create_game_state(catalog)
+        state.turn_no = 3
         attacker_card = state.create_card_instance("1-0-001", "P1")
         intercept_card = state.create_card_instance("T-INT-001", "P1")
         draw_target = state.create_card_instance("1-0-004", "P1")
@@ -611,6 +614,19 @@ class ProtocolTest(unittest.TestCase):
         request = decode_message(transport.written[0])
         self.assertEqual(request["type"], "request_action")
         self.assertEqual(request["request_id"], "P1:action")
+
+    def test_legal_actions_include_display_and_machine_readable_card(self) -> None:
+        state = create_game_state(self.catalog)
+        state.players["P1"].current_cp = 1
+        card = state.create_card_instance("1-0-040", "P1")
+        state.players["P1"].hand.add(card.instance_id)
+
+        message = request_action_message(state, "P1", request_id="r1")
+        drive_action = next(action for action in message["legal_actions"] if action["type"] == "drive_unit")
+
+        self.assertEqual(drive_action["display"]["card_name"], self.catalog["1-0-040"].name)
+        self.assertEqual(drive_action["card"]["card_no"], "1-0-040")
+        self.assertIn("フィールドに出す", drive_action["display"]["label"])
 
     def test_json_line_player_sends_state_update_before_stateful_action_request(self) -> None:
         state = create_game_state(self.catalog)

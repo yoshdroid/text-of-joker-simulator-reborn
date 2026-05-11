@@ -7,6 +7,7 @@ from .events import EventSource, FactEvent
 from .resolver import EffectHandler
 from .rules import opponent_id
 from .state import AbilityDefinition, GameState, UnitState
+from tojs_reborn.io.views import card_instance_public_view
 
 
 WindowChoice = Callable[[str, list[dict[str, Any]]], dict[str, Any]]
@@ -50,7 +51,7 @@ def list_trigger_intercept_window(
         "player_id": player_id,
         "cause_event_no": cause_event_no,
         "candidates": candidates,
-        "pass_action": {"type": "pass_window", "window": window},
+        "pass_action": _pass_window_action(window),
     }
 
 
@@ -127,18 +128,19 @@ def process_intercept_window(
         selected = (
             choose_intercept(current_player_id, actions)
             if choose_intercept is not None
-            else {"type": "pass_window", "window": window}
+            else actions[-1]
         )
         if selected not in actions:
+            fallback = actions[-1]
             state.event_store.append(
                 "invalid_response",
                 round_no=state.round_no,
                 turn_no=state.turn_no,
                 actor_player_id=current_player_id,
                 cause_event_no=cause_event_no,
-                payload={"selected": selected, "fallback": {"type": "pass_window", "window": window}},
+                payload={"selected": selected, "fallback": fallback},
             )
-            selected = {"type": "pass_window", "window": window}
+            selected = fallback
         if selected["type"] == "activate_intercept":
             activated = _activate_card(
                 state,
@@ -325,10 +327,20 @@ def _list_intercept_actions(state: GameState, player_id: str, window: str, cause
                 "window": window,
                 "cause_event_no": cause_event.event_no,
                 "card_instance_id": card_instance_id,
+                "card": card_instance_public_view(state, card_instance_id),
+                "display": {"label": f"{card.name}を発動する"},
             }
         )
-    actions.append({"type": "pass_window", "window": window})
+    actions.append(_pass_window_action(window))
     return actions
+
+
+def _pass_window_action(window: str) -> dict[str, Any]:
+    return {
+        "type": "pass_window",
+        "window": window,
+        "display": {"label": "発動しない"},
+    }
 
 
 def _has_matching_card(
