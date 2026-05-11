@@ -33,6 +33,7 @@ class MatchResult:
     winner_player_id: str | None
     reason: str
     turn_count: int
+    error_player_id: str | None = None
 
 
 @dataclass
@@ -42,6 +43,9 @@ class MatchRunner:
     record_intents: bool = True
     intents: list[dict] = field(default_factory=list)
     _active_intent: dict | None = field(default=None, init=False, repr=False)
+    _fallback_counts: dict[str, int] = field(default_factory=dict, init=False, repr=False)
+    _max_fallbacks_per_player: int = field(default=3, init=False, repr=False)
+    _player_error_player_id: str | None = field(default=None, init=False, repr=False)
 
     def run_match(
         self,
@@ -49,7 +53,9 @@ class MatchRunner:
         max_turns: int = 20,
         max_actions_per_turn: int = 20,
         max_mulligans: int = 5,
+        max_fallbacks_per_player: int = 3,
     ) -> MatchResult:
+        self._max_fallbacks_per_player = max_fallbacks_per_player
         self.state.event_store.append(
             "match_started",
             round_no=self.state.round_no,
@@ -60,6 +66,7 @@ class MatchRunner:
                 "max_turns": max_turns,
                 "max_actions_per_turn": max_actions_per_turn,
                 "max_mulligans": max_mulligans,
+                "max_fallbacks_per_player": max_fallbacks_per_player,
             },
         )
         if self.record_intents:
@@ -70,9 +77,13 @@ class MatchRunner:
                     "max_turns": max_turns,
                     "max_actions_per_turn": max_actions_per_turn,
                     "max_mulligans": max_mulligans,
+                    "max_fallbacks_per_player": max_fallbacks_per_player,
                 }
             )
         self.run_mulligan_phase(max_mulligans=max_mulligans)
+        result = self._player_error_result(0)
+        if result is not None:
+            return self._finish_match(result)
 
         player_turn_counts = {player_id: 0 for player_id in self.state.players}
         turns_started = 0
@@ -109,6 +120,9 @@ class MatchRunner:
                     )
                 self.run_turn_action(player_id)
                 actions_taken += 1
+                result = self._player_error_result(turns_started)
+                if result is not None:
+                    return self._finish_match(result)
                 result = self._life_zero_result(turns_started)
                 if result is not None:
                     return self._finish_match(result)
@@ -161,12 +175,11 @@ class MatchRunner:
             do_mulligan = bool(choose(player_id)) if callable(choose) else False
         fallback_reason = getattr(player, "last_fallback_reason", None)
         if fallback_reason is not None:
-            self.state.event_store.append(
-                "player_response_fallback",
-                round_no=self.state.round_no,
-                turn_no=self.state.turn_no,
-                actor_player_id=player_id,
-                payload={"role": "mulligan", "reason": fallback_reason, "fallback": False},
+            self._record_player_response_fallback(
+                player_id,
+                role="mulligan",
+                reason=fallback_reason,
+                fallback=False,
             )
             try:
                 setattr(player, "last_fallback_reason", None)
@@ -287,12 +300,11 @@ class MatchRunner:
             response = player.choose_action(player_id, legal_actions)
         fallback_reason = getattr(player, "last_fallback_reason", None)
         if fallback_reason is not None:
-            self.state.event_store.append(
-                "player_response_fallback",
-                round_no=self.state.round_no,
-                turn_no=self.state.turn_no,
-                actor_player_id=player_id,
-                payload={"role": role, "reason": fallback_reason, "fallback": legal_actions[0]},
+            self._record_player_response_fallback(
+                player_id,
+                role=role,
+                reason=fallback_reason,
+                fallback=legal_actions[0],
             )
             try:
                 setattr(player, "last_fallback_reason", None)
@@ -344,12 +356,11 @@ class MatchRunner:
                 response = legal_choices[0]
         fallback_reason = getattr(player, "last_fallback_reason", None)
         if fallback_reason is not None:
-            self.state.event_store.append(
-                "player_response_fallback",
-                round_no=self.state.round_no,
-                turn_no=self.state.turn_no,
-                actor_player_id=player_id,
-                payload={"role": role, "reason": fallback_reason, "fallback": legal_choices[0]},
+            self._record_player_response_fallback(
+                player_id,
+                role=role,
+                reason=fallback_reason,
+                fallback=legal_choices[0],
             )
             try:
                 setattr(player, "last_fallback_reason", None)
@@ -373,6 +384,25 @@ class MatchRunner:
             )
             return legal_choices[0]
         return response
+
+    def _record_player_response_fallback(self, player_id: str, *, role: str, reason: str, fallback) -> None:
+        count = self._fallback_counts.get(player_id, 0) + 1
+        self._fallback_counts[player_id] = count
+        self.state.event_store.append(
+            "player_response_fallback",
+            round_no=self.state.round_no,
+            turn_no=self.state.turn_no,
+            actor_player_id=player_id,
+            payload={
+                "role": role,
+                "reason": reason,
+                "fallback": fallback,
+                "fallback_count": count,
+                "max_fallbacks_per_player": self._max_fallbacks_per_player,
+            },
+        )
+        if count >= self._max_fallbacks_per_player and self._player_error_player_id is None:
+            self._player_error_player_id = player_id
 
     def build_replay_record(self, initial_state: dict | None = None) -> dict:
         return build_replay_record(
@@ -399,6 +429,7 @@ class MatchRunner:
                 "winner_player_id": result.winner_player_id,
                 "reason": result.reason,
                 "turn_count": result.turn_count,
+                "error_player_id": result.error_player_id,
             },
         )
         if self.record_intents:
@@ -408,9 +439,20 @@ class MatchRunner:
                     "winner_player_id": result.winner_player_id,
                     "reason": result.reason,
                     "turn_count": result.turn_count,
+                    "error_player_id": result.error_player_id,
                 }
             )
         return result
+
+    def _player_error_result(self, turn_count: int) -> MatchResult | None:
+        if self._player_error_player_id is None:
+            return None
+        return MatchResult(
+            winner_player_id=opponent_id(self._player_error_player_id),
+            reason="player_error",
+            turn_count=turn_count,
+            error_player_id=self._player_error_player_id,
+        )
 
 
 @dataclass
@@ -458,6 +500,7 @@ def replay_match_record(card_catalog, replay_record_data: dict) -> GameState:
                     "max_turns": intent.get("max_turns"),
                     "max_actions_per_turn": intent.get("max_actions_per_turn"),
                     "max_mulligans": intent.get("max_mulligans"),
+                    "max_fallbacks_per_player": intent.get("max_fallbacks_per_player"),
                 },
             )
         elif intent["type"] == "mulligan":
@@ -502,6 +545,7 @@ def replay_match_record(card_catalog, replay_record_data: dict) -> GameState:
                     "winner_player_id": intent.get("winner_player_id"),
                     "reason": intent.get("reason"),
                     "turn_count": intent.get("turn_count"),
+                    "error_player_id": intent.get("error_player_id"),
                 },
             )
         else:

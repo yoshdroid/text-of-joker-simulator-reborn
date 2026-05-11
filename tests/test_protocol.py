@@ -972,6 +972,30 @@ class ProtocolTest(unittest.TestCase):
         self.assertEqual(len(fallback_events), 1)
         self.assertEqual(fallback_events[0].payload["reason"], "timeout")
 
+    def test_match_runner_ends_player_error_after_fallback_limit(self) -> None:
+        deck1 = parse_decklist({"cards": [{"card_no": "1-0-040", "count": 4}]}, self.catalog)
+        deck2 = parse_decklist({"cards": [{"card_no": "1-0-001", "count": 4}]}, self.catalog)
+        state = setup_match_state(
+            self.catalog,
+            {"P1": deck1, "P2": deck2},
+            config=MatchSetupConfig(seed=12),
+        )
+        runner = MatchRunner(
+            state,
+            players={"P1": JsonLinePlayer(MemoryTransport([None])), "P2": FirstLegalPlayer()},
+        )
+
+        result = runner.run_match(max_turns=1, max_actions_per_turn=1, max_fallbacks_per_player=1)
+
+        self.assertEqual(result.reason, "player_error")
+        self.assertEqual(result.error_player_id, "P1")
+        self.assertEqual(result.winner_player_id, "P2")
+        fallback_event = next(event for event in state.event_store.events if event.type == "player_response_fallback")
+        self.assertEqual(fallback_event.payload["fallback_count"], 1)
+        self.assertEqual(fallback_event.payload["max_fallbacks_per_player"], 1)
+        match_ended = state.event_store.events[-1]
+        self.assertEqual(match_ended.payload["error_player_id"], "P1")
+
     def test_match_runner_passes_state_to_json_line_player(self) -> None:
         legal_actions = [{"type": "pass"}]
         response = encode_action_response(legal_actions[0], request_id="P1:action", player_id="P1")
@@ -1092,6 +1116,16 @@ class ProtocolTest(unittest.TestCase):
         process_player = start_process_player(f'"{sys.executable}" -m tojs_reborn.io.sample_player --mode first')
         try:
             self.assertEqual(process_player.choose_action("P1", legal_actions), legal_actions[1])
+        finally:
+            process_player.close()
+
+    def test_process_player_reports_process_closed(self) -> None:
+        legal_actions = [{"type": "pass"}]
+        process_player = start_process_player(f'"{sys.executable}" -c "pass"')
+        try:
+            process_player.process.wait(timeout=5)
+            self.assertEqual(process_player.choose_action("P1", legal_actions), legal_actions[0])
+            self.assertEqual(process_player.last_fallback_reason, "process_closed")
         finally:
             process_player.close()
 

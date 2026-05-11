@@ -20,7 +20,12 @@ class ProcessJsonLinePlayer:
         self.player.last_fallback_reason = value
 
     def choose_action(self, player_id: str, legal_actions: list[dict]) -> dict:
-        return self.player.choose_action(player_id, legal_actions)
+        if self._process_is_closed():
+            self.player.last_fallback_reason = "process_closed"
+            return legal_actions[0]
+        response = self.player.choose_action(player_id, legal_actions)
+        self._mark_process_closed_fallback()
+        return response
 
     def choose_action_with_state(
         self,
@@ -30,12 +35,17 @@ class ProcessJsonLinePlayer:
         state,
         request_context: dict | None = None,
     ) -> dict:
-        return self.player.choose_action_with_state(
+        if self._process_is_closed():
+            self.player.last_fallback_reason = "process_closed"
+            return legal_actions[0]
+        response = self.player.choose_action_with_state(
             player_id,
             legal_actions,
             state=state,
             request_context=request_context,
         )
+        self._mark_process_closed_fallback()
+        return response
 
     def choose_choice(
         self,
@@ -45,12 +55,17 @@ class ProcessJsonLinePlayer:
         choice: dict,
         legal_choices: list[dict],
     ) -> dict:
-        return self.player.choose_choice(
+        if self._process_is_closed():
+            self.player.last_fallback_reason = "process_closed"
+            return legal_choices[0]
+        response = self.player.choose_choice(
             player_id,
             request_id=request_id,
             choice=choice,
             legal_choices=legal_choices,
         )
+        self._mark_process_closed_fallback()
+        return response
 
     def choose_choice_with_state(
         self,
@@ -61,19 +76,41 @@ class ProcessJsonLinePlayer:
         legal_choices: list[dict],
         state,
     ) -> dict:
-        return self.player.choose_choice_with_state(
+        if self._process_is_closed():
+            self.player.last_fallback_reason = "process_closed"
+            return legal_choices[0]
+        response = self.player.choose_choice_with_state(
             player_id,
             request_id=request_id,
             choice=choice,
             legal_choices=legal_choices,
             state=state,
         )
+        self._mark_process_closed_fallback()
+        return response
 
     def choose_mulligan(self, player_id: str) -> bool:
-        return self.player.choose_mulligan(player_id)
+        if self._process_is_closed():
+            self.player.last_fallback_reason = "process_closed"
+            return False
+        response = self.player.choose_mulligan(player_id)
+        self._mark_process_closed_fallback()
+        return response
 
     def choose_mulligan_with_state(self, player_id: str, *, state) -> bool:
-        return self.player.choose_mulligan_with_state(player_id, state=state)
+        if self._process_is_closed():
+            self.player.last_fallback_reason = "process_closed"
+            return False
+        response = self.player.choose_mulligan_with_state(player_id, state=state)
+        self._mark_process_closed_fallback()
+        return response
+
+    def _mark_process_closed_fallback(self) -> None:
+        if self.player.last_fallback_reason == "timeout" and self.process.poll() is not None:
+            self.player.last_fallback_reason = "process_closed"
+
+    def _process_is_closed(self) -> bool:
+        return self.process.poll() is not None
 
     def close(self) -> None:
         if self.process.poll() is None:
