@@ -351,7 +351,7 @@ class EngineTest(unittest.TestCase):
         with self.assertRaises(ValueError):
             drive_unit(state, "P1", happaloid.instance_id)
 
-    def test_shiranui_optional_attack_cost_discards_selected_hand_card_and_modifies_bp(self) -> None:
+    def test_shiranui_attack_cost_discards_selected_hand_card_and_modifies_bp(self) -> None:
         state = create_game_state(self.catalog)
         attacker_card = state.create_card_instance("1-0-010", "P1")
         first_cost_card = state.create_card_instance("1-0-040", "P1")
@@ -370,33 +370,33 @@ class EngineTest(unittest.TestCase):
             return {"card_instance_id": selected_cost_card.instance_id}
 
         before_bp = get_unit_bp(state, attacker)
-        declare_attack(state, "P1", attacker.unit_id, lambda *_args: True, choose_cost)
+        declare_attack(state, "P1", attacker.unit_id, ability_cost_choice=choose_cost)
 
         self.assertEqual(state.players["P1"].hand.cards, [first_cost_card.instance_id])
         self.assertEqual(state.players["P1"].discard_pile.cards, [selected_cost_card.instance_id])
         self.assertEqual(get_unit_bp(state, attacker), before_bp + 4000)
         event_types = [event.type for event in state.event_store.events]
+        self.assertNotIn("optional_ability", [event.payload.get("type") for event in state.event_store.events])
         self.assertIn("ability_cost_paid", event_types)
         self.assertIn("ability_resolved", event_types)
 
-    def test_shiranui_optional_attack_can_pass_without_cost_or_bp_modifier(self) -> None:
+    def test_shiranui_attack_without_enough_hand_cost_fails_without_bp_modifier(self) -> None:
         state = create_game_state(self.catalog)
         attacker_card = state.create_card_instance("1-0-010", "P1")
-        cost_card = state.create_card_instance("1-0-040", "P1")
         state.players["P1"].hand.add(attacker_card.instance_id)
-        state.players["P1"].hand.add(cost_card.instance_id)
         state.players["P1"].current_cp = 10
         attacker = drive_unit(state, "P1", attacker_card.instance_id)
 
         before_bp = get_unit_bp(state, attacker)
-        declare_attack(state, "P1", attacker.unit_id, lambda *_args: False)
+        declare_attack(state, "P1", attacker.unit_id)
 
-        self.assertEqual(state.players["P1"].hand.cards, [cost_card.instance_id])
+        self.assertEqual(state.players["P1"].hand.cards, [])
         self.assertEqual(state.players["P1"].discard_pile.cards, [])
         self.assertEqual(get_unit_bp(state, attacker), before_bp)
         self.assertNotIn("ability_cost_paid", [event.type for event in state.event_store.events])
+        self.assertIn("ability_cost_failed", [event.type for event in state.event_store.events])
 
-    def test_fox_commando_optional_oc_cost_discards_two_and_draws_two(self) -> None:
+    def test_fox_commando_oc_cost_discards_two_and_draws_two(self) -> None:
         state = create_game_state(self.catalog)
         base_card = state.create_card_instance("1-0-041", "P1", level=2)
         material_card = state.create_card_instance("1-0-041", "P1")
@@ -414,7 +414,7 @@ class EngineTest(unittest.TestCase):
         def choose_cost(_state, _source_unit, _ability, _request_event, _step, _legal_choices):
             return {"card_instance_ids": [first_cost.instance_id, second_cost.instance_id]}
 
-        overclock_unit(state, "P1", material_card.instance_id, unit.unit_id, lambda *_args: True, choose_cost)
+        overclock_unit(state, "P1", material_card.instance_id, unit.unit_id, ability_cost_choice=choose_cost)
 
         self.assertEqual(set(state.players["P1"].discard_pile.cards), {first_cost.instance_id, second_cost.instance_id})
         self.assertEqual(state.players["P1"].hand.cards, [draw_one.instance_id, draw_two.instance_id])

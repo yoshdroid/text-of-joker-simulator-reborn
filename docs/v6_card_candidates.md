@@ -29,16 +29,16 @@ v6 では、現在の engine が持つ能力処理を横断的に確認しつつ
 
 ## 3. v6 で追加したい新規カード枠
 
-### 3.1 optional unit ability
+### 3.1 cost 付き unit ability
 
 目的:
-unit の `optional: true` を、intercept ではなく battlefield unit で検証する。
+「そうした場合」系の cost 支払い能力を、battlefield unit で検証する。
+不知火伍式とフォクスコマンドーは、手札枚数が足りているとき強制的に発動し、cost 対象だけを player が選ぶ。
 
 必要な仕様:
 
-- optional unit ability の効果文上の「してもよい」相当の表現を Excel から確認する。
-- 発動しない選択をした場合、以後同じ原因イベントで再確認するかを決める。
-    再確認する。
+- cost を支払える場合、「使う / 使わない」は選ばせず、cost 対象のみ `choice_request` で選ばせる。
+- cost を支払えない場合、`ability_cost_failed` を記録し、後続効果は解決しない。
 
 ### 3.2 複数 target / target 条件
 
@@ -84,17 +84,17 @@ selector が 1 つだけの前提を崩し、子プログラムに十分な対�
 
 1. 既存 supported カードの仕様テストを増やす。
 2. v6 用 decklist を作り、match CLI と replay viewer で確認しやすくする。
-3. optional unit ability の候補カードを Excel から 1 枚選び、mapping と engine テストを追加する。
+3. cost 付き unit ability の候補カードを Excel から選び、mapping と engine テストを追加する。
 4. 複数 target または target 条件を持つカードを 1 枚追加する。
 5. discard pile / deck search / reveal のどれか 1 系統を選び、公開情報 schema を先に決める。
 
 ## 5. 追加で確認したい仕様
 
-- optional unit ability の候補カードをどれにするか。
+- cost 付き unit ability の候補カードをどれにするか。
     1-0-010 不知火伍式 
     1-0-041 フォクスコマンドー
-    v6 最初の実装対象は 1-0-010 不知火伍式 とする。
-    フォクスコマンドーは「手札2枚を選ぶ」複数 cost choice の検証カードとして後続に回す。
+    どちらも「使う / 使わない」は選ばせず、手札枚数が足りていれば強制発動する。
+    不知火伍式は手札1枚、フォクスコマンドーは手札2枚の cost choice 検証カードとする。
 - deck search / reveal の private / public view の境界。
     デッキ内のカード状態はエンジンのみ把握し、プレイヤーが中を見れるのは一部効果のみ。
     まだこの効果を必要とするカードは提示していない。

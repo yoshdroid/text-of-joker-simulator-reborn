@@ -522,7 +522,7 @@ class ProtocolTest(unittest.TestCase):
             ["turn_action", "optional_ability"],
         )
 
-    def test_match_runner_optional_cost_choice_replays(self) -> None:
+    def test_match_runner_forced_cost_choice_replays(self) -> None:
         class AttackUseCostPlayer(FirstLegalPlayer):
             def __init__(self, cost_card_instance_id: str) -> None:
                 self.cost_card_instance_id = cost_card_instance_id
@@ -534,10 +534,6 @@ class ProtocolTest(unittest.TestCase):
                 return legal_actions[0]
 
             def choose_choice(self, player_id: str, *, request_id: str, choice: dict, legal_choices: list[dict]) -> dict:
-                if choice["type"] == "optional_ability":
-                    for legal_choice in legal_choices:
-                        if legal_choice["type"] == "use_ability":
-                            return legal_choice
                 if choice["type"] == "cost_payment":
                     return {"card_instance_id": self.cost_card_instance_id}
                 return legal_choices[0]
@@ -564,9 +560,10 @@ class ProtocolTest(unittest.TestCase):
         self.assertEqual(state.players["P1"].discard_pile.cards, [selected_cost.instance_id])
         self.assertEqual(replayed.event_store.to_list(), state.event_store.to_list())
         self.assertIn("ability_cost_paid", [event.type for event in state.event_store.events])
+        self.assertNotIn("optional_ability", [event.payload.get("type") for event in state.event_store.events])
         self.assertEqual(
             [choice["role"] for choice in record["intents"][0]["choices"]],
-            ["turn_action", "optional_ability", "cost_payment", "block_action"],
+            ["turn_action", "cost_payment", "block_action"],
         )
 
     def test_match_cli_runs_sample_match_and_writes_replay(self) -> None:

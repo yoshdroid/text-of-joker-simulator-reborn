@@ -137,7 +137,7 @@
           "source_text": "このユニットがアタックした時、あなたは手札を１枚選んで捨てる。そうした場合、ターン終了時までこのユニットのＢＰを＋４０００する。",
           "status": "supported",
           "timing": "SELF_ATK",
-          "optional": true,
+          "optional": false,
           "priority": {
             "band": "unit",
             "order": "source_only"
@@ -317,7 +317,7 @@
           "source_text": "このユニットがオーバークロックした時、あなたは手札を２枚選んで捨てる。そうした場合、あなたはカードを２枚引く。",
           "status": "supported",
           "timing": "SELF_OC",
-          "optional": true,
+          "optional": false,
           "priority": {
             "band": "unit",
             "order": "source_only"
