@@ -12,7 +12,9 @@ if SRC_PATH.exists():
 
 from tests.test_engine import build_catalog, draw_window_card
 from tojs_reborn.engine.state import create_game_state
+from tojs_reborn.io.decklist import parse_decklist
 from tojs_reborn.io.match_runner import FirstLegalPlayer, MatchRunner, replay_match_record, snapshot_match_initial_state
+from tojs_reborn.io.match_setup import MatchSetupConfig, setup_match_state
 from tojs_reborn.io.player_runner import (
     JsonLinePlayer,
     TextIOJsonLineTransport,
@@ -253,6 +255,45 @@ class ProtocolTest(unittest.TestCase):
 
         self.assertEqual(replayed.event_store.to_list(), state.event_store.to_list())
         self.assertIn("invalid_response", [event.type for event in state.event_store.events])
+
+    def test_match_runner_runs_full_match_to_max_turns(self) -> None:
+        deck1 = parse_decklist({"cards": [{"card_no": "1-0-040", "count": 4}]}, self.catalog)
+        deck2 = parse_decklist({"cards": [{"card_no": "1-0-001", "count": 4}]}, self.catalog)
+        state = setup_match_state(
+            self.catalog,
+            {"P1": deck1, "P2": deck2},
+            config=MatchSetupConfig(seed=3),
+        )
+        runner = MatchRunner(state, players={"P1": FirstLegalPlayer(), "P2": FirstLegalPlayer()})
+
+        result = runner.run_match(max_turns=2, max_actions_per_turn=10)
+
+        self.assertEqual(result.reason, "max_turns")
+        self.assertEqual(result.turn_count, 2)
+        self.assertIn(result.winner_player_id, {"P1", "P2", None})
+        event_types = [event.type for event in state.event_store.events]
+        self.assertEqual(event_types[0], "match_started")
+        self.assertIn("turn_started", event_types)
+        self.assertEqual(event_types[-1], "match_ended")
+
+    def test_full_match_replay_record_replays_match_events(self) -> None:
+        deck1 = parse_decklist({"cards": [{"card_no": "1-0-040", "count": 4}]}, self.catalog)
+        deck2 = parse_decklist({"cards": [{"card_no": "1-0-001", "count": 4}]}, self.catalog)
+        state = setup_match_state(
+            self.catalog,
+            {"P1": deck1, "P2": deck2},
+            config=MatchSetupConfig(seed=4),
+        )
+        initial_state = snapshot_match_initial_state(state)
+        runner = MatchRunner(state, players={"P1": FirstLegalPlayer(), "P2": FirstLegalPlayer()})
+
+        runner.run_match(max_turns=2, max_actions_per_turn=10)
+        record = runner.build_replay_record(initial_state)
+        replayed = replay_match_record(self.catalog, record)
+
+        self.assertEqual(replayed.event_store.to_list(), state.event_store.to_list())
+        self.assertEqual(record["intents"][0]["type"], "match_started")
+        self.assertEqual(record["intents"][-1]["type"], "match_ended")
 
     def test_json_line_player_uses_valid_action_response(self) -> None:
         legal_actions = [{"type": "pass"}, {"type": "drive_unit", "card_instance_id": "c0001"}]
