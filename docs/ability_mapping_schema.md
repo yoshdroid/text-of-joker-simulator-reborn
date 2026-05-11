@@ -98,6 +98,15 @@ deferred    構造化済みだが、エンジン未実装または今回対象�
 
 初期 M1-M3 では、対象 unit 9 枚以外を `deferred` として扱ってよい。
 
+## `source_text` / `notes`
+
+`supported` の ability は、Excel の自然言語記述との対応を追跡できるように、原則として次のどちらかを持つ。
+
+- `source_text`: Excel 側の能力本文を転記する。
+- `notes`: Excel 本文が空、または本文だけでは説明しづらい場合の手動メモ。
+
+normalizer は `source_text` と `notes` の両方が空の `supported` ability を warning として報告する。
+
 ## `timing`
 
 初期案では、自然言語の主語と契機を組み合わせた短いコードを使う。
@@ -132,6 +141,10 @@ SELF_OC
 SELF_ATK
 SELF_BLOCK
 SELF_TURN_END
+TRIGGER_ANY
+TRIGGER_<EVENT_TYPE>
+INTERCEPT_ANY
+INTERCEPT_<WINDOW>
 ```
 
 変換後の `cards.normalized.json` では、必要に応じてエンジン内部イベント名へ展開してよい。
@@ -143,6 +156,25 @@ SELF_CIP -> unit_entered where source_unit == ability_source_unit
 YOUR_CIP -> unit_entered where source_unit.owner == ability_owner and source_unit != ability_source_unit
 RIVAL_CIP -> unit_entered where source_unit.owner != ability_owner
 ```
+
+`TRIGGER_<EVENT_TYPE>` は、原因イベントの `type` を大文字化した値と対応する。
+
+例:
+
+```text
+TRIGGER_UNIT_ENTERED -> unit_entered 発生後に確認する trigger
+TRIGGER_CARDS_DRAWN -> cards_drawn 発生後に確認する trigger
+```
+
+`INTERCEPT_<WINDOW>` は、engine が開いた intercept window 名と対応する。
+
+例:
+
+```text
+INTERCEPT_ATTACK -> attack window で発動確認する intercept
+```
+
+任意実行 trigger は現時点では存在しない。trigger は timing が一致した場合、強制発動する。
 
 ### CIP 収集順
 

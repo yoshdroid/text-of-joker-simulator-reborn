@@ -27,6 +27,11 @@ KNOWN_TIMINGS = {
     "INTERCEPT_ATTACK",
 }
 
+KNOWN_TIMING_PREFIXES = (
+    "TRIGGER_",
+    "INTERCEPT_",
+)
+
 KNOWN_EFFECTS = {
     "change_cp",
     "deal_damage_to_unit",
@@ -206,8 +211,18 @@ def _validate_supported_ability(
         return
     if status != "supported":
         return
+    if not ability.get("source_text") and not ability.get("notes"):
+        issues.append(
+            NormalizationIssue(
+                severity="warning",
+                code="missing_source_reference",
+                message="supported abilities should include source_text or notes",
+                card_no=card_no,
+                ability_key=ability_key,
+            )
+        )
     timing = ability.get("timing")
-    if timing not in KNOWN_TIMINGS:
+    if not _is_known_timing(timing):
         issues.append(
             NormalizationIssue(
                 severity="error",
@@ -258,6 +273,14 @@ def _validate_supported_ability(
                     ability_key=ability_key,
                 )
             )
+
+
+def _is_known_timing(timing: Any) -> bool:
+    if not isinstance(timing, str):
+        return False
+    if timing in KNOWN_TIMINGS:
+        return True
+    return any(timing.startswith(prefix) and timing != prefix for prefix in KNOWN_TIMING_PREFIXES)
 
 
 def _build_report(
