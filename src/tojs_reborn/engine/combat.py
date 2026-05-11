@@ -188,7 +188,13 @@ def destroy_lethal_units(state: GameState, units: list[UnitState], cause_event_n
         _destroy_unit(state, unit, cause_event_no)
 
 
-def _destroy_unit(state: GameState, unit: UnitState, cause_event_no: int) -> None:
+def destroy_unit(state: GameState, unit: UnitState, cause_event_no: int, *, reason: str = "effect") -> None:
+    if unit.unit_id not in state.units:
+        return
+    _destroy_unit(state, unit, cause_event_no, reason=reason)
+
+
+def _destroy_unit(state: GameState, unit: UnitState, cause_event_no: int, *, reason: str = "battle") -> None:
     player = state.players[unit.owner_player_id]
     player.battlefield.remove(unit.unit_id)
     player.discard_pile.add(unit.card_instance_id)
@@ -212,7 +218,7 @@ def _destroy_unit(state: GameState, unit: UnitState, cause_event_no: int) -> Non
         actor_player_id=unit.owner_player_id,
         cause_event_no=cause_event_no,
         source=_unit_source(unit),
-        payload={"reason": "battle"},
+        payload={"reason": reason},
     )
     resolve_unit_destroyed(state, unit, destroyed_event, get_effect_handlers())
     del state.units[unit.unit_id]

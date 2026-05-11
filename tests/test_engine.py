@@ -537,6 +537,46 @@ class EngineTest(unittest.TestCase):
         self.assertIn("effect_fizzled", [event.type for event in state.event_store.events])
         self.assertNotIn("damage_dealt", [event.type for event in state.event_store.events])
 
+    def test_don_pelotzanno_oc_destroys_level_two_or_higher_rival_unit(self) -> None:
+        state = create_game_state(self.catalog)
+        base_card = state.create_card_instance("1-0-030", "P1", level=2)
+        material_card = state.create_card_instance("1-0-030", "P1")
+        level_one_card = state.create_card_instance("1-0-040", "P2", level=1)
+        level_two_card = state.create_card_instance("1-0-048", "P2", level=2)
+        source_unit = state.create_unit(base_card.instance_id)
+        level_one = state.create_unit(level_one_card.instance_id)
+        level_two = state.create_unit(level_two_card.instance_id)
+        state.players["P1"].battlefield.add(source_unit.unit_id)
+        state.players["P1"].hand.add(material_card.instance_id)
+        state.players["P2"].battlefield.add(level_one.unit_id)
+        state.players["P2"].battlefield.add(level_two.unit_id)
+
+        overclock_unit(state, "P1", material_card.instance_id, source_unit.unit_id)
+
+        self.assertIn(level_one.unit_id, state.units)
+        self.assertNotIn(level_two.unit_id, state.units)
+        self.assertEqual(state.players["P2"].discard_pile.cards, [level_two.card_instance_id])
+        destroyed_events = [event for event in state.event_store.events if event.type == "unit_destroyed"]
+        self.assertEqual(destroyed_events[-1].payload["reason"], "effect")
+
+    def test_don_pelotzanno_oc_resolves_and_fizzles_without_level_two_target(self) -> None:
+        state = create_game_state(self.catalog)
+        base_card = state.create_card_instance("1-0-030", "P1", level=2)
+        material_card = state.create_card_instance("1-0-030", "P1")
+        level_one_card = state.create_card_instance("1-0-040", "P2", level=1)
+        source_unit = state.create_unit(base_card.instance_id)
+        level_one = state.create_unit(level_one_card.instance_id)
+        state.players["P1"].battlefield.add(source_unit.unit_id)
+        state.players["P1"].hand.add(material_card.instance_id)
+        state.players["P2"].battlefield.add(level_one.unit_id)
+
+        overclock_unit(state, "P1", material_card.instance_id, source_unit.unit_id)
+
+        self.assertIn(level_one.unit_id, state.units)
+        self.assertIn("ability_resolved", [event.type for event in state.event_store.events])
+        self.assertIn("effect_fizzled", [event.type for event in state.event_store.events])
+        self.assertNotIn("unit_destroyed", [event.type for event in state.event_store.events])
+
     def test_simultaneous_destroyed_self_pig_resolves_turn_player_first(self) -> None:
         state = create_game_state(self.catalog)
         state.turn_player_id = "P1"

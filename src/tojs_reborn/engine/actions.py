@@ -14,6 +14,7 @@ def get_effect_handlers():
         "deal_life_damage": _handle_deal_life_damage,
         "discard_from_hand": _handle_discard_from_hand,
         "destroy_trigger_zone_card": _handle_destroy_trigger_zone_card,
+        "destroy_unit": _handle_destroy_unit,
         "draw_card_by_category": _handle_draw_card_by_category,
         "draw_cards": _handle_draw_cards,
         "modify_bp": _handle_modify_bp,
@@ -709,6 +710,22 @@ def _handle_destroy_trigger_zone_card(
             "reason": "effect",
         },
     )
+
+
+def _handle_destroy_unit(
+    state: GameState,
+    unit: UnitState,
+    ability: AbilityDefinition,
+    ability_event: FactEvent,
+    step: dict,
+) -> None:
+    target = _resolve_unit_target_for_effect(state, unit, ability, ability_event, step.get("target"))
+    if target is None:
+        _append_effect_fizzled(state, unit.owner_player_id, ability_event, step, "no_valid_target")
+        return
+    from .combat import destroy_unit
+
+    destroy_unit(state, target, ability_event.event_no, reason="effect")
 
 
 def _resolve_unit_target(
