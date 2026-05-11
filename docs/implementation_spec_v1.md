@@ -777,6 +777,14 @@ replay record は次を持つ。
 - `no_block` 選択時は player attack damage を行う。
 - 既存 `attack_unit` はテスト補助または互換 API として残すか、段階的に置き換える。
 
+実装状況:
+
+- 最小実装済み。
+- legal action は `attack` を返し、`attack_unit` は返さない。
+- `list_block_actions` は `no_block` と ready blocker の `block` を返す。
+- `MatchRunner` は `attack` 選択後に defender の block action を取得する。
+- 既存 `attack_player` / `attack_unit` は互換 API として残す。
+
 ### V1-C: hand override / LV 管理
 
 現在の `overclock_unit` / `unit_stack` 仮実装を置き換える。

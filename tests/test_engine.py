@@ -12,7 +12,7 @@ from tojs_reborn.cardpool.normalizer import normalize_cardpool
 from tojs_reborn.engine.actions import draw_cards, drive_unit, override_card, set_trigger
 from tojs_reborn.engine.combat import attack_player, attack_unit, destroy_lethal_units
 from tojs_reborn.engine.events import EventStore
-from tojs_reborn.engine.legal_actions import list_legal_actions
+from tojs_reborn.engine.legal_actions import list_block_actions, list_legal_actions
 from tojs_reborn.engine.replay import (
     build_replay_record,
     replay_record,
@@ -585,10 +585,27 @@ class EngineTest(unittest.TestCase):
         action_types = {action["type"] for action in list_legal_actions(state, "P1")}
 
         self.assertIn("drive_unit", action_types)
-        self.assertIn("attack_player", action_types)
+        self.assertIn("attack", action_types)
         self.assertIn("set_trigger", action_types)
         self.assertIn("override_card", action_types)
         self.assertIn("pass", action_types)
+
+    def test_block_actions_include_no_block_and_ready_blocker(self) -> None:
+        state = create_game_state(self.catalog)
+        attacker_card = state.create_card_instance("1-0-001", "P1")
+        blocker_card = state.create_card_instance("1-0-001", "P2")
+        attacker = state.create_unit(attacker_card.instance_id)
+        blocker = state.create_unit(blocker_card.instance_id)
+        state.players["P1"].battlefield.add(attacker.unit_id)
+        state.players["P2"].battlefield.add(blocker.unit_id)
+
+        actions = list_block_actions(state, "P2", attacker.unit_id)
+
+        self.assertEqual(actions[0], {"type": "no_block", "attacker_unit_id": attacker.unit_id})
+        self.assertIn(
+            {"type": "block", "attacker_unit_id": attacker.unit_id, "blocker_unit_id": blocker.unit_id},
+            actions,
+        )
 
 
 if __name__ == "__main__":

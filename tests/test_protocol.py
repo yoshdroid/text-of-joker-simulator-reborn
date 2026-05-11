@@ -59,6 +59,28 @@ class ProtocolTest(unittest.TestCase):
         self.assertEqual(selected["type"], "drive_unit")
         self.assertEqual(len(state.players["P1"].battlefield.units), 1)
 
+    def test_match_runner_requests_defender_block_after_attack(self) -> None:
+        class PassPlayer:
+            def choose_action(self, player_id: str, legal_actions: list[dict]) -> dict:
+                if legal_actions and legal_actions[0]["type"] == "no_block":
+                    return legal_actions[0]
+                return next(action for action in legal_actions if action["type"] == "attack")
+
+        state = create_game_state(self.catalog)
+        attacker_card = state.create_card_instance("1-0-001", "P1")
+        blocker_card = state.create_card_instance("1-0-001", "P2")
+        attacker = state.create_unit(attacker_card.instance_id)
+        blocker = state.create_unit(blocker_card.instance_id)
+        state.players["P1"].battlefield.add(attacker.unit_id)
+        state.players["P2"].battlefield.add(blocker.unit_id)
+        runner = MatchRunner(state, players={"P1": PassPlayer(), "P2": PassPlayer()})
+
+        selected = runner.run_turn_action("P1")
+
+        self.assertEqual(selected["type"], "attack")
+        self.assertEqual(state.players["P2"].life, 6)
+        self.assertNotIn("battle_started", [event.type for event in state.event_store.events])
+
 
 if __name__ == "__main__":
     unittest.main()

@@ -8,6 +8,44 @@ from .state import GameState, UnitState
 
 
 def attack_player(state: GameState, player_id: str, attacker_unit_id: str) -> None:
+    attack_event = declare_attack(state, player_id, attacker_unit_id)
+    resolve_unblocked_attack(state, attack_event.event_no)
+
+
+def declare_attack(state: GameState, player_id: str, attacker_unit_id: str):
+    attacker = _get_owned_unit(state, player_id, attacker_unit_id)
+    action_event = _declare_attack(state, player_id, attacker)
+    resolve_unit_attacked(state, attacker, action_event, get_effect_handlers())
+    return action_event
+
+
+def resolve_unblocked_attack(state: GameState, attack_event_no: int) -> None:
+    attack_event = state.event_store.events[attack_event_no - 1]
+    if attack_event.type != "action_declared" or attack_event.payload.get("action") != "attack":
+        raise ValueError(f"event is not an attack declaration: {attack_event_no}")
+    attacker_unit_id = attack_event.payload["attacker_unit_id"]
+    attacker = state.units[attacker_unit_id]
+    opponent = state.players[opponent_id(attacker.owner_player_id)]
+    before_life = opponent.life
+    opponent.life -= 1
+    state.event_store.append(
+        "life_changed",
+        round_no=state.round_no,
+        turn_no=state.turn_no,
+        actor_player_id=attacker.owner_player_id,
+        cause_event_no=attack_event.event_no,
+        source=_unit_source(attacker),
+        payload={
+            "player_id": opponent.player_id,
+            "before_life": before_life,
+            "after_life": opponent.life,
+            "amount": -1,
+            "reason": "player_attack",
+        },
+    )
+
+
+def attack_player_legacy(state: GameState, player_id: str, attacker_unit_id: str) -> None:
     attacker = _get_owned_unit(state, player_id, attacker_unit_id)
     action_event = _declare_attack(state, player_id, attacker)
     resolve_unit_attacked(state, attacker, action_event, get_effect_handlers())
@@ -32,18 +70,22 @@ def attack_player(state: GameState, player_id: str, attacker_unit_id: str) -> No
 
 
 def attack_unit(state: GameState, player_id: str, attacker_unit_id: str, blocker_unit_id: str) -> None:
-    attacker = _get_owned_unit(state, player_id, attacker_unit_id)
-    blocker = _get_owned_unit(state, opponent_id(player_id), blocker_unit_id)
-    action_event = _declare_attack(state, player_id, attacker)
-    resolve_unit_attacked(state, attacker, action_event, get_effect_handlers())
-    block_event = declare_block(state, opponent_id(player_id), blocker.unit_id, attacker.unit_id, action_event.event_no)
-    resolve_unit_blocked(state, blocker, block_event, get_effect_handlers())
+    action_event = declare_attack(state, player_id, attacker_unit_id)
+    declare_block(state, opponent_id(player_id), blocker_unit_id, attacker_unit_id, action_event.event_no)
+
+
+def resolve_blocked_battle(state: GameState, block_event_no: int) -> None:
+    block_event = state.event_store.events[block_event_no - 1]
+    if block_event.type != "block_declared":
+        raise ValueError(f"event is not a block declaration: {block_event_no}")
+    attacker = state.units[block_event.payload["attacker_unit_id"]]
+    blocker = state.units[block_event.payload["blocker_unit_id"]]
     battle_event = state.event_store.append(
         "battle_started",
         round_no=state.round_no,
         turn_no=state.turn_no,
-        actor_player_id=player_id,
-        cause_event_no=action_event.event_no,
+        actor_player_id=attacker.owner_player_id,
+        cause_event_no=block_event.event_no,
         source=_unit_source(attacker),
         payload={"attacker_unit_id": attacker.unit_id, "blocker_unit_id": blocker.unit_id},
     )
@@ -61,7 +103,7 @@ def declare_block(
     cause_event_no: int,
 ):
     blocker = _get_owned_unit(state, player_id, blocker_unit_id)
-    return state.event_store.append(
+    block_event = state.event_store.append(
         "block_declared",
         round_no=state.round_no,
         turn_no=state.turn_no,
@@ -70,6 +112,9 @@ def declare_block(
         source=_unit_source(blocker),
         payload={"blocker_unit_id": blocker_unit_id, "attacker_unit_id": attacker_unit_id},
     )
+    resolve_unit_blocked(state, blocker, block_event, get_effect_handlers())
+    resolve_blocked_battle(state, block_event.event_no)
+    return block_event
 
 
 def _declare_attack(state: GameState, player_id: str, attacker: UnitState):

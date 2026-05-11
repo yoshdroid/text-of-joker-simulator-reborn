@@ -18,6 +18,22 @@ def list_legal_actions(state: GameState, player_id: str) -> list[dict[str, Any]]
     return actions
 
 
+def list_block_actions(state: GameState, defender_player_id: str, attacker_unit_id: str) -> list[dict[str, Any]]:
+    actions: list[dict[str, Any]] = [{"type": "no_block", "attacker_unit_id": attacker_unit_id}]
+    player = state.players[defender_player_id]
+    for unit_id in player.battlefield.units:
+        unit = state.units.get(unit_id)
+        if unit is not None and not unit.exhausted:
+            actions.append(
+                {
+                    "type": "block",
+                    "attacker_unit_id": attacker_unit_id,
+                    "blocker_unit_id": unit_id,
+                }
+            )
+    return actions
+
+
 def _drive_actions(state: GameState, player_id: str) -> list[dict[str, Any]]:
     player = state.players[player_id]
     actions = []
@@ -70,14 +86,5 @@ def _attack_actions(state: GameState, player_id: str) -> list[dict[str, Any]]:
         unit = state.units.get(unit_id)
         if unit is None or unit.exhausted:
             continue
-        actions.append({"type": "attack_player", "attacker_unit_id": unit_id})
-        for blocker_unit_id in rival.battlefield.units:
-            if blocker_unit_id in state.units:
-                actions.append(
-                    {
-                        "type": "attack_unit",
-                        "attacker_unit_id": unit_id,
-                        "blocker_unit_id": blocker_unit_id,
-                    }
-                )
+        actions.append({"type": "attack", "attacker_unit_id": unit_id, "defender_player_id": rival.player_id})
     return actions
