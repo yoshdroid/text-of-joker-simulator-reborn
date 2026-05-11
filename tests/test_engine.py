@@ -590,6 +590,50 @@ class EngineTest(unittest.TestCase):
             [p1_trigger.instance_id, p2_trigger.instance_id, p1_second_trigger.instance_id],
         )
 
+    def test_display_stand_trigger_draws_after_owner_unit_enters(self) -> None:
+        state = create_game_state(self.catalog)
+        state.turn_player_id = "P1"
+        trigger_card = state.create_card_instance("1-0-062", "P1")
+        entering = state.create_card_instance("1-0-001", "P1")
+        draw_target = state.create_card_instance("1-0-004", "P1")
+        state.players["P1"].trigger_zone.add(trigger_card.instance_id)
+        state.players["P1"].hand.add(entering.instance_id)
+        state.players["P1"].deck.cards.append(draw_target.instance_id)
+        state.players["P1"].current_cp = 1
+
+        drive_unit(state, "P1", entering.instance_id)
+        from tojs_reborn.engine.windows import process_windows_for_events
+
+        process_windows_for_events(state, 1)
+
+        self.assertEqual(state.players["P1"].trigger_zone.cards, [])
+        self.assertEqual(state.players["P1"].discard_pile.cards, [trigger_card.instance_id])
+        self.assertEqual(state.players["P1"].hand.cards, [draw_target.instance_id])
+        self.assertIn("trigger_activated", [event.type for event in state.event_store.events])
+
+    def test_new_armor_trigger_fires_and_draws_zero_when_no_intercept_in_deck(self) -> None:
+        state = create_game_state(self.catalog)
+        state.turn_player_id = "P1"
+        trigger_card = state.create_card_instance("1-0-061", "P1")
+        entering = state.create_card_instance("1-0-001", "P1")
+        non_intercept = state.create_card_instance("1-0-004", "P1")
+        state.players["P1"].trigger_zone.add(trigger_card.instance_id)
+        state.players["P1"].hand.add(entering.instance_id)
+        state.players["P1"].deck.cards.append(non_intercept.instance_id)
+        state.players["P1"].current_cp = 1
+
+        drive_unit(state, "P1", entering.instance_id)
+        from tojs_reborn.engine.windows import process_windows_for_events
+
+        process_windows_for_events(state, 1)
+
+        self.assertEqual(state.players["P1"].trigger_zone.cards, [])
+        self.assertEqual(state.players["P1"].discard_pile.cards, [trigger_card.instance_id])
+        self.assertEqual(state.players["P1"].hand.cards, [])
+        cards_drawn = [event for event in state.event_store.events if event.type == "cards_drawn"][-1]
+        self.assertEqual(cards_drawn.payload["count"], 0)
+        self.assertEqual(state.players["P1"].deck.cards, [non_intercept.instance_id])
+
     def test_intercept_window_activates_selected_card_then_closes_after_two_passes(self) -> None:
         catalog = dict(self.catalog)
         catalog["T-INT-001"] = draw_window_card("T-INT-001", "intercept", "INTERCEPT_ATTACK")

@@ -128,6 +128,61 @@
         }
       ]
     },
+    "1-0-061": {
+      "card_name": "新品の鎧",
+      "abilities": [
+        {
+          "ability_key": "1-0-061:a1",
+          "ability_name": "新品の鎧",
+          "source_text": "あなたのユニットがフィールドに出た時、あなたはインターセプトカードを１枚引く。",
+          "status": "supported",
+          "timing": "TRIGGER_UNIT_ENTERED",
+          "optional": false,
+          "priority": {
+            "band": "trigger",
+            "order": "left_to_right"
+          },
+          "condition": null,
+          "cost_steps": [],
+          "selector": null,
+          "effect_steps": [
+            {
+              "effect": "draw_card_by_category",
+              "player": "owner",
+              "category": "intercept",
+              "count": 1
+            }
+          ]
+        }
+      ]
+    },
+    "1-0-062": {
+      "card_name": "何でも屋の陳列台",
+      "abilities": [
+        {
+          "ability_key": "1-0-062:a1",
+          "ability_name": "何でも屋の陳列台",
+          "source_text": "あなたのユニットがフィールドに出た時、あなたはカードを１枚引く。",
+          "status": "supported",
+          "timing": "TRIGGER_UNIT_ENTERED",
+          "optional": false,
+          "priority": {
+            "band": "trigger",
+            "order": "left_to_right"
+          },
+          "condition": null,
+          "cost_steps": [],
+          "selector": null,
+          "effect_steps": [
+            {
+              "effect": "draw_cards",
+              "player": "owner",
+              "count": 1
+            }
+          ]
+        }
+      ]
+    },
     "1-0-027": {
       "card_name": "ミイラくん",
       "abilities": [

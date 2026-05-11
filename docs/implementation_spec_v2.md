@@ -302,6 +302,13 @@ v1 で合成カードとして確認した window / selector / effect を実カ�
 - `ability_mapping.json` の該当カードが `supported` になっている。
 - normalized JSON に期待する ability が出力される。
 
+実装状況:
+
+- `何でも屋の陳列台` を `TRIGGER_UNIT_ENTERED` / `draw_cards` として supported 化する。
+- `新品の鎧` を `TRIGGER_UNIT_ENTERED` / `draw_card_by_category: intercept` として supported 化する。
+- trigger が発動後 discard pile へ移動することを仕様テストで確認する。
+- search-draw 対象が deck にない場合でも trigger は発動済みになり、0枚 draw として記録することを確認する。
+
 ### V2-C: match runner replay
 
 目的:

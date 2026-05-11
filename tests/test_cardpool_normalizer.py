@@ -33,13 +33,22 @@ class CardpoolNormalizerTest(unittest.TestCase):
         ability = happaloid["abilities"][0]
 
         self.assertEqual(report["errors"], [])
-        self.assertEqual(report["supported_ability_count"], 12)
+        self.assertEqual(report["supported_ability_count"], 14)
         self.assertEqual(happaloid["name"], "ハッパロイド")
         self.assertEqual(ability["status"], "supported")
         self.assertEqual(ability["timing"], "SELF_CIP")
         self.assertEqual(
             ability["effect_steps"],
             [{"effect": "draw_cards", "player": "owner", "count": 1}],
+        )
+        display_stand = card_by_no["1-0-062"]["abilities"][0]
+        new_armor = card_by_no["1-0-061"]["abilities"][0]
+        self.assertEqual(display_stand["timing"], "TRIGGER_UNIT_ENTERED")
+        self.assertEqual(display_stand["effect_steps"], [{"effect": "draw_cards", "player": "owner", "count": 1}])
+        self.assertEqual(new_armor["timing"], "TRIGGER_UNIT_ENTERED")
+        self.assertEqual(
+            new_armor["effect_steps"],
+            [{"effect": "draw_card_by_category", "player": "owner", "category": "intercept", "count": 1}],
         )
 
     def test_normalize_cardpool_accepts_window_timing_prefixes(self) -> None:
