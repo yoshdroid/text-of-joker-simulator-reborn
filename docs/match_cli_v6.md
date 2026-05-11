@@ -19,6 +19,7 @@ python -m tojs_reborn.io.replay_viewer --cards carddata/generated/cards.normaliz
 - `1-0-010` 不知火伍式: attack 時の強制 cost choice。
 - `1-0-047` ダルタニャン: CIP で CP+2、attack 時に 1 draw。
 - `1-0-016` 金色の狛犬: OC 時に相手ユニットの行動権を消費する。
+- `1-0-017` 湖畔のアリエ: CIP 時に相手ユニットの行動権を消費する。
 - `1-0-003` バク・ダルマン: 相手全ユニット対象。
 - `1-0-005` ヘルハウンド: 相手 trigger zone のランダム破壊。
 - `1-0-033` ヴァイパー: 捨札のユニットをランダムに手札へ戻す。

@@ -725,6 +725,42 @@ class EngineTest(unittest.TestCase):
         self.assertIn("effect_fizzled", [event.type for event in state.event_store.events])
         self.assertNotIn("unit_action_consumed", [event.type for event in state.event_store.events])
 
+    def test_kohan_no_arie_cip_consumes_ready_rival_unit_action(self) -> None:
+        state = create_game_state(self.catalog)
+        source_card = state.create_card_instance("1-0-017", "P1")
+        ready_card = state.create_card_instance("1-0-001", "P2")
+        exhausted_card = state.create_card_instance("1-0-004", "P2")
+        ready = state.create_unit(ready_card.instance_id)
+        exhausted = state.create_unit(exhausted_card.instance_id)
+        exhausted.exhausted = True
+        state.players["P1"].current_cp = 10
+        state.players["P1"].hand.add(source_card.instance_id)
+        state.players["P2"].battlefield.add(exhausted.unit_id)
+        state.players["P2"].battlefield.add(ready.unit_id)
+
+        drive_unit(state, "P1", source_card.instance_id)
+
+        self.assertTrue(ready.exhausted)
+        self.assertTrue(exhausted.exhausted)
+        self.assertIn("unit_action_consumed", [event.type for event in state.event_store.events])
+        choice_requests = [event for event in state.event_store.events if event.type == "choice_requested"]
+        self.assertEqual(choice_requests[-1].payload["candidate_unit_ids"], [ready.unit_id])
+
+    def test_kohan_no_arie_cip_fizzles_without_ready_rival_unit(self) -> None:
+        state = create_game_state(self.catalog)
+        source_card = state.create_card_instance("1-0-017", "P1")
+        exhausted_card = state.create_card_instance("1-0-004", "P2")
+        exhausted = state.create_unit(exhausted_card.instance_id)
+        exhausted.exhausted = True
+        state.players["P1"].current_cp = 10
+        state.players["P1"].hand.add(source_card.instance_id)
+        state.players["P2"].battlefield.add(exhausted.unit_id)
+
+        drive_unit(state, "P1", source_card.instance_id)
+
+        self.assertIn("effect_fizzled", [event.type for event in state.event_store.events])
+        self.assertNotIn("unit_action_consumed", [event.type for event in state.event_store.events])
+
     def test_kerol_kid_oc_reduces_rival_unit_base_bp_permanently(self) -> None:
         state = create_game_state(self.catalog)
         source_card = state.create_card_instance("1-0-042", "P1")

@@ -231,6 +231,39 @@
         }
       ]
     },
+    "1-0-017": {
+      "card_name": "湖畔のアリエ",
+      "abilities": [
+        {
+          "ability_key": "1-0-017:a1",
+          "ability_name": "ウェイト",
+          "source_text": "このユニットがフィールドに出た時、対戦相手のユニットを１体選ぶ。それの行動権を消費する。",
+          "status": "supported",
+          "timing": "SELF_CIP",
+          "optional": false,
+          "priority": {
+            "band": "unit",
+            "order": "source_only"
+          },
+          "condition": null,
+          "cost_steps": [],
+          "selector": {
+            "id": "target",
+            "type": "unit",
+            "controller": "rival",
+            "count": 1,
+            "required": true,
+            "exhausted": false
+          },
+          "effect_steps": [
+            {
+              "effect": "consume_action",
+              "target": "target"
+            }
+          ]
+        }
+      ]
+    },
     "1-0-018": {
       "card_name": "ヤシオノトクリ",
       "abilities": [
