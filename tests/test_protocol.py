@@ -572,6 +572,79 @@ class ProtocolTest(unittest.TestCase):
         self.assertIn("P1 life=7 cp=0 hand=0 deck=0 discard=0", lines[4])
         self.assertIn("u0001:", lines[4])
 
+    def test_replay_viewer_applies_mulligan_and_filters_output(self) -> None:
+        replay_record = {
+            "initial_state": {
+                "card_instances": {
+                    "c0001": {"card_no": "1-0-040", "owner_player_id": "P1", "level": 1},
+                    "c0002": {"card_no": "1-0-001", "owner_player_id": "P1", "level": 1},
+                    "c0003": {"card_no": "1-0-004", "owner_player_id": "P1", "level": 1},
+                    "c0004": {"card_no": "1-0-005", "owner_player_id": "P1", "level": 1},
+                },
+                "players": {
+                    "P1": {
+                        "life": 7,
+                        "current_cp": 0,
+                        "deck": ["c0003", "c0004"],
+                        "hand": ["c0001", "c0002"],
+                        "battlefield": [],
+                        "trigger_zone": [],
+                        "discard_pile": [],
+                    }
+                },
+                "units": {},
+            },
+            "events": [
+                {
+                    "event_no": 1,
+                    "type": "mulligan_requested",
+                    "round_no": 1,
+                    "turn_no": 1,
+                    "actor_player_id": "P1",
+                    "cause_event_no": None,
+                    "source": {"card_no": None, "card_instance_id": None, "unit_id": None, "ability_id": None},
+                    "payload": {"attempt": 1},
+                },
+                {
+                    "event_no": 2,
+                    "type": "mulligan_performed",
+                    "round_no": 1,
+                    "turn_no": 1,
+                    "actor_player_id": "P1",
+                    "cause_event_no": None,
+                    "source": {"card_no": None, "card_instance_id": None, "unit_id": None, "ability_id": None},
+                    "payload": {
+                        "attempt": 1,
+                        "returned_card_instance_ids": ["c0001", "c0002"],
+                        "deck_card_instance_ids_after_shuffle": ["c0004", "c0001", "c0003", "c0002"],
+                        "drawn_card_instance_ids": ["c0004", "c0001"],
+                        "hand_card_instance_ids": ["c0004", "c0001"],
+                        "deck_card_instance_ids": ["c0003", "c0002"],
+                    },
+                },
+                {
+                    "event_no": 3,
+                    "type": "match_ended",
+                    "round_no": 1,
+                    "turn_no": 1,
+                    "actor_player_id": None,
+                    "cause_event_no": None,
+                    "source": {"card_no": None, "card_instance_id": None, "unit_id": None, "ability_id": None},
+                    "payload": {"winner_player_id": None, "reason": "test", "turn_count": 0},
+                },
+            ],
+        }
+
+        lines = format_replay_events(
+            replay_record,
+            card_catalog=self.catalog,
+            event_types={"match_ended"},
+            only_state=True,
+        )
+
+        self.assertEqual(lines[0], "     state:")
+        self.assertIn("P1 life=7 cp=0 hand=2 deck=2 discard=0", lines[1])
+
     def test_replay_viewer_cli_prints_match_cli_replay(self) -> None:
         output_dir = ROOT / "test_output" / "replay_viewer"
         output_dir.mkdir(parents=True, exist_ok=True)

@@ -15,12 +15,20 @@ def run_replay_viewer_cli(argv: Sequence[str] | None = None) -> int:
     parser.add_argument("--replay", required=True)
     parser.add_argument("--cards", default="carddata/generated/cards.normalized.json")
     parser.add_argument("--no-payload", action="store_true")
+    parser.add_argument("--event-type", action="append", dest="event_types")
+    parser.add_argument("--only-state", action="store_true")
     args = parser.parse_args(argv)
 
     try:
         replay_record = json.loads(Path(args.replay).read_text(encoding="utf-8"))
         card_catalog = _load_optional_card_catalog(args.cards)
-        for line in format_replay_events(replay_record, card_catalog=card_catalog, include_payload=not args.no_payload):
+        for line in format_replay_events(
+            replay_record,
+            card_catalog=card_catalog,
+            include_payload=not args.no_payload,
+            event_types=set(args.event_types) if args.event_types else None,
+            only_state=args.only_state,
+        ):
             print(line)
     except (FileNotFoundError, ValueError, KeyError, json.JSONDecodeError) as exc:
         print(f"replay viewer failed: {exc}", file=sys.stderr)
@@ -33,6 +41,8 @@ def format_replay_events(
     *,
     card_catalog: dict[str, CardDefinition] | None = None,
     include_payload: bool = True,
+    event_types: set[str] | None = None,
+    only_state: bool = False,
 ) -> list[str]:
     events = replay_record.get("events")
     if not isinstance(events, list):
@@ -42,15 +52,18 @@ def format_replay_events(
     lines: list[str] = []
     for event in events:
         viewer_state.apply_event(event)
-        lines.append(
-            format_event_line(
-            event,
-            card_catalog=card_catalog or {},
-            instance_card_nos=instance_card_nos,
-            include_payload=include_payload,
+        event_type = event.get("type")
+        should_show_event = event_types is None or event_type in event_types
+        if should_show_event and not only_state:
+            lines.append(
+                format_event_line(
+                    event,
+                    card_catalog=card_catalog or {},
+                    instance_card_nos=instance_card_nos,
+                    include_payload=include_payload,
+                )
             )
-        )
-        if event.get("type") in {"turn_ended", "match_ended"}:
+        if event_type in {"turn_ended", "match_ended"} and should_show_event:
             lines.extend(viewer_state.format_state_lines(card_catalog=card_catalog or {}, instance_card_nos=instance_card_nos))
     return lines
 
@@ -157,6 +170,10 @@ class ReplayViewerState:
             unit_id = (event.get("source") or {}).get("unit_id")
             if isinstance(unit_id, str):
                 self.unit_levels[unit_id] = int(payload.get("after_level", self.unit_levels.get(unit_id, 1)))
+        elif event_type == "mulligan_performed" and isinstance(actor, str):
+            player = self._player(actor)
+            player.hand = list(payload.get("hand_card_instance_ids") or [])
+            player.deck = list(payload.get("deck_card_instance_ids") or [])
 
     def format_state_lines(
         self,
