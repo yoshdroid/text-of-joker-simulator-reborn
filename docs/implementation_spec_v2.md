@@ -329,6 +329,12 @@ v1 で合成カードとして確認した window / selector / effect を実カ�
 - 1ターン以上の match runner 実行を replay できる。
 - event log と final state が一致する。
 
+実装状況:
+
+- `MatchRunner` は `match_turn_action` intent として turn action / block action / window action の response 列を記録する。
+- `replay_match_record` は記録された response 列を使って match runner を再実行する。
+- window choice と不正応答 fallback を含む replay テストを追加する。
+
 ### V2-D: protocol の対戦用整備
 
 目的:

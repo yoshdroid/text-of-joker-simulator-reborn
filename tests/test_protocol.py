@@ -10,7 +10,7 @@ if SRC_PATH.exists():
 
 from tests.test_engine import build_catalog, draw_window_card
 from tojs_reborn.engine.state import create_game_state
-from tojs_reborn.io.match_runner import FirstLegalPlayer, MatchRunner
+from tojs_reborn.io.match_runner import FirstLegalPlayer, MatchRunner, replay_match_record, snapshot_match_initial_state
 from tojs_reborn.io.protocol import decode_message, encode_message, public_state_message, request_action_message
 
 
@@ -164,6 +164,45 @@ class ProtocolTest(unittest.TestCase):
 
         self.assertEqual(state.players["P1"].trigger_zone.cards, [intercept_card.instance_id])
         self.assertNotIn("intercept_activated", [event.type for event in state.event_store.events])
+
+    def test_match_runner_replay_record_replays_window_choices(self) -> None:
+        state = create_game_state(self.catalog, seed=7)
+        state.turn_player_id = "P1"
+        state.players["P1"].current_cp = 1
+        unit_card = state.create_card_instance("1-0-001", "P1")
+        intercept_card = state.create_card_instance("1-0-097", "P1")
+        state.players["P1"].hand.add(unit_card.instance_id)
+        state.players["P1"].trigger_zone.add(intercept_card.instance_id)
+        initial_state = snapshot_match_initial_state(state)
+        runner = MatchRunner(state, players={"P1": FirstLegalPlayer(), "P2": FirstLegalPlayer()})
+
+        runner.run_turn_action("P1")
+        record = runner.build_replay_record(initial_state)
+        replayed = replay_match_record(self.catalog, record)
+
+        self.assertEqual(replayed.event_store.to_list(), state.event_store.to_list())
+        self.assertEqual(record["intents"][0]["type"], "match_turn_action")
+        self.assertEqual(
+            [choice["role"] for choice in record["intents"][0]["choices"]],
+            ["turn_action", "window_action", "window_action", "window_action"],
+        )
+
+    def test_match_runner_replay_preserves_invalid_response_fallback(self) -> None:
+        class InvalidPlayer:
+            def choose_action(self, player_id: str, legal_actions: list[dict]) -> dict:
+                return {"type": "not_legal"}
+
+        state = create_game_state(self.catalog)
+        state.turn_player_id = "P1"
+        initial_state = snapshot_match_initial_state(state)
+        runner = MatchRunner(state, players={"P1": InvalidPlayer(), "P2": InvalidPlayer()})
+
+        runner.run_turn_action("P1")
+        record = runner.build_replay_record(initial_state)
+        replayed = replay_match_record(self.catalog, record)
+
+        self.assertEqual(replayed.event_store.to_list(), state.event_store.to_list())
+        self.assertIn("invalid_response", [event.type for event in state.event_store.events])
 
 
 if __name__ == "__main__":
