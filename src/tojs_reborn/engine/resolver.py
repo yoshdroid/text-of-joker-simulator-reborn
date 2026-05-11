@@ -10,6 +10,10 @@ EffectHandler = Callable[
     [GameState, UnitState, AbilityDefinition, FactEvent, dict],
     None,
 ]
+OptionalAbilityChoice = Callable[
+    [GameState, UnitState, AbilityDefinition, FactEvent],
+    bool,
+]
 
 
 def resolve_unit_entered(
@@ -17,6 +21,7 @@ def resolve_unit_entered(
     entering_unit: UnitState,
     cause_event: FactEvent,
     effect_handlers: dict[str, EffectHandler],
+    optional_ability_choice: OptionalAbilityChoice | None = None,
 ) -> None:
     _resolve_supported_abilities(
         state,
@@ -24,6 +29,7 @@ def resolve_unit_entered(
         "SELF_CIP",
         cause_event,
         effect_handlers,
+        optional_ability_choice,
     )
 
     owner = state.players[entering_unit.owner_player_id]
@@ -36,6 +42,7 @@ def resolve_unit_entered(
             "YOUR_CIP",
             cause_event,
             effect_handlers,
+            optional_ability_choice,
         )
 
     opponent_id = _opponent_id(entering_unit.owner_player_id)
@@ -47,6 +54,7 @@ def resolve_unit_entered(
             "RIVAL_CIP",
             cause_event,
             effect_handlers,
+            optional_ability_choice,
         )
 
 
@@ -55,6 +63,7 @@ def resolve_unit_destroyed(
     destroyed_unit: UnitState,
     cause_event: FactEvent,
     effect_handlers: dict[str, EffectHandler],
+    optional_ability_choice: OptionalAbilityChoice | None = None,
 ) -> None:
     _resolve_supported_abilities(
         state,
@@ -62,6 +71,7 @@ def resolve_unit_destroyed(
         "SELF_PIG",
         cause_event,
         effect_handlers,
+        optional_ability_choice,
     )
 
 
@@ -70,6 +80,7 @@ def resolve_unit_attacked(
     attacking_unit: UnitState,
     cause_event: FactEvent,
     effect_handlers: dict[str, EffectHandler],
+    optional_ability_choice: OptionalAbilityChoice | None = None,
 ) -> None:
     _resolve_supported_abilities(
         state,
@@ -77,6 +88,7 @@ def resolve_unit_attacked(
         "SELF_ATK",
         cause_event,
         effect_handlers,
+        optional_ability_choice,
     )
 
 
@@ -85,6 +97,7 @@ def resolve_unit_blocked(
     blocking_unit: UnitState,
     cause_event: FactEvent,
     effect_handlers: dict[str, EffectHandler],
+    optional_ability_choice: OptionalAbilityChoice | None = None,
 ) -> None:
     _resolve_supported_abilities(
         state,
@@ -92,6 +105,7 @@ def resolve_unit_blocked(
         "SELF_BLOCK",
         cause_event,
         effect_handlers,
+        optional_ability_choice,
     )
 
 
@@ -100,6 +114,7 @@ def resolve_turn_ended(
     player_id: str,
     cause_event: FactEvent,
     effect_handlers: dict[str, EffectHandler],
+    optional_ability_choice: OptionalAbilityChoice | None = None,
 ) -> None:
     for unit_id in list(state.players[player_id].battlefield.units):
         if unit_id in state.units:
@@ -109,6 +124,7 @@ def resolve_turn_ended(
                 "SELF_TURN_END",
                 cause_event,
                 effect_handlers,
+                optional_ability_choice,
             )
 
 
@@ -117,6 +133,7 @@ def resolve_unit_overclocked(
     unit: UnitState,
     cause_event: FactEvent,
     effect_handlers: dict[str, EffectHandler],
+    optional_ability_choice: OptionalAbilityChoice | None = None,
 ) -> None:
     _resolve_supported_abilities(
         state,
@@ -124,6 +141,7 @@ def resolve_unit_overclocked(
         "SELF_OC",
         cause_event,
         effect_handlers,
+        optional_ability_choice,
     )
 
 
@@ -133,6 +151,7 @@ def _resolve_supported_abilities(
     timing: str,
     cause_event: FactEvent,
     effect_handlers: dict[str, EffectHandler],
+    optional_ability_choice: OptionalAbilityChoice | None = None,
 ) -> None:
     card = state.card_catalog[ability_source_unit.card_no]
     for ability in card.abilities:
@@ -144,6 +163,14 @@ def _resolve_supported_abilities(
         if isinstance(selector, dict) and selector.get("type") == "unit":
             if not _has_unit_target(state, ability_source_unit, selector):
                 continue
+        if ability.optional and not _choose_optional_ability(
+            state,
+            ability_source_unit,
+            ability,
+            cause_event,
+            optional_ability_choice,
+        ):
+            continue
         ability_event = state.event_store.append(
             "ability_resolved",
             round_no=state.round_no,
@@ -159,12 +186,65 @@ def _resolve_supported_abilities(
             payload={
                 "ability_name": ability.name,
                 "timing": ability.timing,
+                "optional": ability.optional,
             },
         )
         for step in ability.effect_steps:
             handler = effect_handlers.get(str(step.get("effect")))
             if handler is not None:
                 handler(state, ability_source_unit, ability, ability_event, step)
+
+
+def _choose_optional_ability(
+    state: GameState,
+    ability_source_unit: UnitState,
+    ability: AbilityDefinition,
+    cause_event: FactEvent,
+    optional_ability_choice: OptionalAbilityChoice | None,
+) -> bool:
+    request_event = state.event_store.append(
+        "choice_requested",
+        round_no=state.round_no,
+        turn_no=state.turn_no,
+        actor_player_id=ability_source_unit.owner_player_id,
+        cause_event_no=cause_event.event_no,
+        source=EventSource(
+            card_no=ability_source_unit.card_no,
+            card_instance_id=ability_source_unit.card_instance_id,
+            unit_id=ability_source_unit.unit_id,
+            ability_id=ability.ability_id,
+        ),
+        payload={
+            "type": "optional_ability",
+            "ability_id": ability.ability_id,
+            "ability_name": ability.name,
+            "legal_choices": [
+                {"type": "pass_ability", "ability_id": ability.ability_id},
+                {"type": "use_ability", "ability_id": ability.ability_id},
+            ],
+        },
+    )
+    use_ability = bool(optional_ability_choice(state, ability_source_unit, ability, request_event)) if optional_ability_choice else False
+    state.event_store.append(
+        "choice_selected",
+        round_no=state.round_no,
+        turn_no=state.turn_no,
+        actor_player_id=ability_source_unit.owner_player_id,
+        cause_event_no=request_event.event_no,
+        source=EventSource(
+            card_no=ability_source_unit.card_no,
+            card_instance_id=ability_source_unit.card_instance_id,
+            unit_id=ability_source_unit.unit_id,
+            ability_id=ability.ability_id,
+        ),
+        payload={
+            "type": "optional_ability",
+            "ability_id": ability.ability_id,
+            "choice": "use_ability" if use_ability else "pass_ability",
+            "fallback": "pass_ability" if optional_ability_choice is None else None,
+        },
+    )
+    return use_ability
 
 
 def _condition_matches(state: GameState, ability_source_unit: UnitState, ability: AbilityDefinition) -> bool:

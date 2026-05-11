@@ -9,7 +9,7 @@ from tojs_reborn.engine.combat import declare_attack, declare_block, resolve_unb
 from tojs_reborn.engine.legal_actions import list_block_actions, list_legal_actions
 from tojs_reborn.engine.replay import build_replay_record, snapshot_initial_state, state_from_snapshot
 from tojs_reborn.engine.rules import opponent_id
-from tojs_reborn.engine.state import GameState
+from tojs_reborn.engine.state import AbilityDefinition, GameState, UnitState
 from tojs_reborn.engine.turn import end_turn, start_turn
 from tojs_reborn.engine.windows import process_windows_for_events
 
@@ -194,7 +194,7 @@ class MatchRunner:
         first_event_no = len(self.state.event_store.events) + 1
         action_type = action["type"]
         if action_type == "drive_unit":
-            drive_unit(self.state, player_id, action["card_instance_id"])
+            drive_unit(self.state, player_id, action["card_instance_id"], self._choose_optional_ability)
             self._process_windows_from(first_event_no)
         elif action_type == "set_trigger":
             set_trigger(self.state, player_id, action["card_instance_id"])
@@ -203,10 +203,16 @@ class MatchRunner:
             override_card(self.state, player_id, action["target_card_instance_id"], action["material_card_instance_id"])
             self._process_windows_from(first_event_no)
         elif action_type == "overclock_unit":
-            overclock_unit(self.state, player_id, action["card_instance_id"], action["target_unit_id"])
+            overclock_unit(
+                self.state,
+                player_id,
+                action["card_instance_id"],
+                action["target_unit_id"],
+                self._choose_optional_ability,
+            )
             self._process_windows_from(first_event_no)
         elif action_type == "attack":
-            attack_event = declare_attack(self.state, player_id, action["attacker_unit_id"])
+            attack_event = declare_attack(self.state, player_id, action["attacker_unit_id"], self._choose_optional_ability)
             self._process_windows_from(attack_event.event_no)
             defender_player_id = action["defender_player_id"]
             block_actions = list_block_actions(self.state, defender_player_id, action["attacker_unit_id"])
@@ -219,6 +225,7 @@ class MatchRunner:
                     selected_block["blocker_unit_id"],
                     selected_block["attacker_unit_id"],
                     attack_event.event_no,
+                    self._choose_optional_ability,
                 )
                 self._process_windows_from(block_first_event_no)
             else:
@@ -226,7 +233,7 @@ class MatchRunner:
                 resolve_unblocked_attack(self.state, attack_event.event_no)
                 self._process_windows_from(damage_first_event_no)
         elif action_type == "pass":
-            end_turn(self.state, player_id)
+            end_turn(self.state, player_id, self._choose_optional_ability)
             self._process_windows_from(first_event_no)
         else:
             raise ValueError(f"unknown action type: {action_type}")
@@ -236,6 +243,31 @@ class MatchRunner:
 
     def _choose_window_action(self, player_id: str, legal_actions: list[dict]) -> dict:
         return self._choose_action(player_id, legal_actions, role="window_action")
+
+    def _choose_optional_ability(
+        self,
+        state: GameState,
+        source_unit: UnitState,
+        ability: AbilityDefinition,
+        request_event,
+    ) -> bool:
+        legal_choices = [
+            {"type": "pass_ability", "ability_id": ability.ability_id},
+            {"type": "use_ability", "ability_id": ability.ability_id},
+        ]
+        selected = self._choose_choice(
+            source_unit.owner_player_id,
+            request_id=f"optional:{request_event.event_no}:{ability.ability_id}",
+            choice={
+                "type": "optional_ability",
+                "ability_id": ability.ability_id,
+                "source_unit_id": source_unit.unit_id or None,
+                "source_card_instance_id": source_unit.card_instance_id,
+            },
+            legal_choices=legal_choices,
+            role="optional_ability",
+        )
+        return selected["type"] == "use_ability"
 
     def _choose_action(self, player_id: str, legal_actions: list[dict], *, role: str) -> dict:
         player = self.players[player_id]
@@ -283,6 +315,63 @@ class MatchRunner:
                 payload={"selected": response, "fallback": legal_actions[0]},
             )
             return legal_actions[0]
+        return response
+
+    def _choose_choice(
+        self,
+        player_id: str,
+        *,
+        request_id: str,
+        choice: dict,
+        legal_choices: list[dict],
+        role: str,
+    ) -> dict:
+        player = self.players[player_id]
+        choose_with_state = getattr(player, "choose_choice_with_state", None)
+        if callable(choose_with_state):
+            response = choose_with_state(
+                player_id,
+                request_id=request_id,
+                choice=choice,
+                legal_choices=legal_choices,
+                state=self.state,
+            )
+        else:
+            choose = getattr(player, "choose_choice", None)
+            if callable(choose):
+                response = choose(player_id, request_id=request_id, choice=choice, legal_choices=legal_choices)
+            else:
+                response = legal_choices[0]
+        fallback_reason = getattr(player, "last_fallback_reason", None)
+        if fallback_reason is not None:
+            self.state.event_store.append(
+                "player_response_fallback",
+                round_no=self.state.round_no,
+                turn_no=self.state.turn_no,
+                actor_player_id=player_id,
+                payload={"role": role, "reason": fallback_reason, "fallback": legal_choices[0]},
+            )
+            try:
+                setattr(player, "last_fallback_reason", None)
+            except AttributeError:
+                pass
+        if self._active_intent is not None:
+            self._active_intent["choices"].append(
+                {
+                    "player_id": player_id,
+                    "role": role,
+                    "response": response,
+                }
+            )
+        if response not in legal_choices:
+            self.state.event_store.append(
+                "invalid_response",
+                round_no=self.state.round_no,
+                turn_no=self.state.turn_no,
+                actor_player_id=player_id,
+                payload={"selected": response, "fallback": legal_choices[0], "role": role},
+            )
+            return legal_choices[0]
         return response
 
     def build_replay_record(self, initial_state: dict | None = None) -> dict:
@@ -335,6 +424,20 @@ class ScriptedChoicePlayer:
         choice = self.choices[self.index]
         self.index += 1
         return choice["response"]
+
+    def choose_choice(
+        self,
+        player_id: str,
+        *,
+        request_id: str,
+        choice: dict,
+        legal_choices: list[dict],
+    ) -> dict:
+        if self.index >= len(self.choices):
+            return legal_choices[0]
+        scripted_choice = self.choices[self.index]
+        self.index += 1
+        return scripted_choice["response"]
 
 
 def replay_match_record(card_catalog, replay_record_data: dict) -> GameState:

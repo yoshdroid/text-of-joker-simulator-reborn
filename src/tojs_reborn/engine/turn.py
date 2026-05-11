@@ -2,7 +2,7 @@ from __future__ import annotations
 
 from .actions import draw_cards, get_effect_handlers
 from .events import EventSource
-from .resolver import resolve_turn_ended
+from .resolver import OptionalAbilityChoice, resolve_turn_ended
 from .rules import opponent_id
 from .state import GameState
 
@@ -49,7 +49,11 @@ def start_turn(state: GameState, player_id: str, *, draw_count: int = 1, cp: int
     )
 
 
-def end_turn(state: GameState, player_id: str) -> None:
+def end_turn(
+    state: GameState,
+    player_id: str,
+    optional_ability_choice: OptionalAbilityChoice | None = None,
+) -> None:
     if state.turn_player_id != player_id:
         raise ValueError(f"not turn player: {player_id}")
     turn_event = state.event_store.append(
@@ -58,7 +62,7 @@ def end_turn(state: GameState, player_id: str) -> None:
         turn_no=state.turn_no,
         actor_player_id=player_id,
     )
-    resolve_turn_ended(state, player_id, turn_event, get_effect_handlers())
+    resolve_turn_ended(state, player_id, turn_event, get_effect_handlers(), optional_ability_choice)
     _expire_turn_modifiers(state, turn_event.event_no)
     if player_id == "P2":
         state.round_no += 1

@@ -14,7 +14,7 @@ if SRC_PATH.exists():
     sys.path.insert(0, str(SRC_PATH))
 
 from tests.test_engine import build_catalog, draw_window_card
-from tojs_reborn.engine.state import create_game_state
+from tojs_reborn.engine.state import AbilityDefinition, CardDefinition, create_game_state
 from tojs_reborn.io.decklist import parse_decklist
 from tojs_reborn.io.gui_view_model import build_gui_view_model, find_card_image
 from tojs_reborn.io.match_runner import FirstLegalPlayer, MatchRunner, replay_match_record, snapshot_match_initial_state
@@ -57,6 +57,31 @@ class MemoryTransport:
         if not self.responses:
             return None
         return self.responses.pop(0)
+
+
+def optional_draw_unit(card_no: str) -> CardDefinition:
+    return CardDefinition(
+        card_no=card_no,
+        category="unit",
+        color="test",
+        name="Optional Draw Unit",
+        cp=1,
+        bp_by_level=(1, 1, 1),
+        abilities=(
+            AbilityDefinition(
+                ability_id=f"{card_no}:a1",
+                name="optional draw",
+                status="supported",
+                timing="SELF_CIP",
+                optional=True,
+                effect_steps=({"effect": "draw_cards", "player": "owner", "count": 1},),
+                raw={
+                    "selector": None,
+                    "condition": None,
+                },
+            ),
+        ),
+    )
 
 
 class ProtocolTest(unittest.TestCase):
@@ -445,6 +470,57 @@ class ProtocolTest(unittest.TestCase):
         mulligan_intents = [intent for intent in record["intents"] if intent["type"] == "mulligan"]
         self.assertEqual([intent["do_mulligan"] for intent in mulligan_intents], [True, False, False])
         self.assertIn("mulligan_performed", [event.type for event in state.event_store.events])
+
+    def test_optional_unit_ability_passes_by_default_when_engine_called_directly(self) -> None:
+        catalog = dict(self.catalog)
+        catalog["T-OPT-001"] = optional_draw_unit("T-OPT-001")
+        state = create_game_state(catalog)
+        optional_card = state.create_card_instance("T-OPT-001", "P1")
+        draw_target = state.create_card_instance("1-0-001", "P1")
+        state.players["P1"].hand.add(optional_card.instance_id)
+        state.players["P1"].deck.cards.append(draw_target.instance_id)
+        state.players["P1"].current_cp = 1
+
+        from tojs_reborn.engine.actions import drive_unit
+
+        drive_unit(state, "P1", optional_card.instance_id)
+
+        event_types = [event.type for event in state.event_store.events]
+        self.assertIn("choice_requested", event_types)
+        self.assertIn("choice_selected", event_types)
+        self.assertNotIn("ability_resolved", event_types)
+        self.assertEqual(state.players["P1"].hand.cards, [])
+
+    def test_match_runner_optional_unit_ability_choice_replays(self) -> None:
+        class UseOptionalPlayer(FirstLegalPlayer):
+            def choose_choice(self, player_id: str, *, request_id: str, choice: dict, legal_choices: list[dict]) -> dict:
+                for legal_choice in legal_choices:
+                    if legal_choice["type"] == "use_ability":
+                        return legal_choice
+                return legal_choices[0]
+
+        catalog = dict(self.catalog)
+        catalog["T-OPT-001"] = optional_draw_unit("T-OPT-001")
+        state = create_game_state(catalog, seed=11)
+        optional_card = state.create_card_instance("T-OPT-001", "P1")
+        draw_target = state.create_card_instance("1-0-001", "P1")
+        state.players["P1"].hand.add(optional_card.instance_id)
+        state.players["P1"].deck.cards.append(draw_target.instance_id)
+        state.players["P1"].current_cp = 1
+        initial_state = snapshot_match_initial_state(state)
+        runner = MatchRunner(state, players={"P1": UseOptionalPlayer(), "P2": FirstLegalPlayer()})
+
+        runner.run_turn_action("P1")
+        record = runner.build_replay_record(initial_state)
+        replayed = replay_match_record(catalog, record)
+
+        self.assertEqual(state.players["P1"].hand.cards, [draw_target.instance_id])
+        self.assertEqual(replayed.event_store.to_list(), state.event_store.to_list())
+        self.assertIn("ability_resolved", [event.type for event in state.event_store.events])
+        self.assertEqual(
+            [choice["role"] for choice in record["intents"][0]["choices"]],
+            ["turn_action", "optional_ability"],
+        )
 
     def test_match_cli_runs_sample_match_and_writes_replay(self) -> None:
         output_dir = ROOT / "test_output" / "match_cli"
