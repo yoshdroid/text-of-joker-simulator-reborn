@@ -103,6 +103,36 @@ class EngineTest(unittest.TestCase):
         self.assertEqual(state.players["P1"].hand.cards, [card.instance_id])
         self.assertEqual([event.type for event in state.event_store.events], ["card_moved", "cards_drawn"])
 
+    def test_draw_cards_refreshes_empty_deck_from_initial_deck_registration(self) -> None:
+        state = create_game_state(self.catalog, seed=1)
+        old_discard = state.create_card_instance("1-0-001", "P1")
+        state.players["P1"].discard_pile.add(old_discard.instance_id)
+        state.players["P1"].initial_deck_card_nos = ["1-0-001", "1-0-004"]
+
+        drawn = draw_cards(state, "P1", 1)
+
+        self.assertEqual(len(drawn), 1)
+        self.assertEqual(state.players["P1"].discard_pile.cards, [])
+        self.assertEqual(len(state.players["P1"].deck.cards), 1)
+        event_types = [event.type for event in state.event_store.events]
+        self.assertEqual(event_types[0], "deck_refreshed")
+        self.assertEqual(event_types[-1], "cards_drawn")
+
+    def test_draw_card_by_category_after_refresh_can_draw_zero_cards(self) -> None:
+        state = create_game_state(self.catalog, seed=1)
+        state.players["P1"].initial_deck_card_nos = ["1-0-001"]
+        crow_card = state.create_card_instance("1-0-029", "P1")
+        crow = state.create_unit(crow_card.instance_id)
+        state.players["P1"].battlefield.add(crow.unit_id)
+        state.turn_player_id = "P1"
+        crow.current_damage = 1
+
+        destroy_lethal_units(state, [crow], cause_event_no=0)
+
+        cards_drawn = [event for event in state.event_store.events if event.type == "cards_drawn"][-1]
+        self.assertEqual(cards_drawn.payload["count"], 0)
+        self.assertIn("deck_refreshed", [event.type for event in state.event_store.events])
+
     def test_drive_happaloid_resolves_self_cip_draw(self) -> None:
         state = create_game_state(self.catalog)
         happaloid = state.create_card_instance("1-0-040", "P1")

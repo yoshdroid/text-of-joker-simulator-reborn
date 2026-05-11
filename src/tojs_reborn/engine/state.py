@@ -58,6 +58,7 @@ class AgentInfo:
     player_id: str
     life: int = 7
     current_cp: int = 0
+    initial_deck_card_nos: list[str] = field(default_factory=list)
     deck: Deck = field(default_factory=Deck)
     hand: Hand = field(default_factory=Hand)
     battlefield: BattleField = field(default_factory=BattleField)

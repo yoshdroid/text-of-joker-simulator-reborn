@@ -91,6 +91,7 @@ def snapshot_initial_state(state: GameState) -> dict[str, Any]:
             player_id: {
                 "life": player.life,
                 "current_cp": player.current_cp,
+                "initial_deck_card_nos": list(player.initial_deck_card_nos),
                 "deck": list(player.deck.cards),
                 "hand": list(player.hand.cards),
                 "battlefield": list(player.battlefield.units),
@@ -141,6 +142,7 @@ def state_from_snapshot(
         player = state.players[player_id]
         player.life = int(item["life"])
         player.current_cp = int(item["current_cp"])
+        player.initial_deck_card_nos = list(item.get("initial_deck_card_nos", []))
         player.deck.cards = list(item["deck"])
         player.hand.cards = list(item["hand"])
         player.battlefield.units = list(item["battlefield"])
@@ -166,6 +168,7 @@ def state_digest(state: GameState) -> dict[str, Any]:
         players[player_id] = {
             "life": player.life,
             "current_cp": player.current_cp,
+            "initial_deck_card_nos": list(player.initial_deck_card_nos),
             "deck": list(player.deck.cards),
             "hand": list(player.hand.cards),
             "battlefield": list(player.battlefield.units),

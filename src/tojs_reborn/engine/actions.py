@@ -31,6 +31,8 @@ def draw_cards(
     player = state.players[player_id]
     drawn: list[str] = []
     for _ in range(count):
+        if not player.deck.cards:
+            _refresh_deck(state, player_id, cause_event_no=cause_event_no, source=source)
         card_instance_id = player.deck.draw_top()
         if card_instance_id is None:
             break
@@ -66,6 +68,45 @@ def draw_cards(
         },
     )
     return drawn
+
+
+def _refresh_deck(
+    state: GameState,
+    player_id: str,
+    *,
+    cause_event_no: int | None,
+    source: EventSource | None,
+) -> None:
+    player = state.players[player_id]
+    if player.deck.cards:
+        return
+    before_discard = list(player.discard_pile.cards)
+    refreshed_cards: list[str] = []
+    if player.initial_deck_card_nos:
+        card_nos = list(player.initial_deck_card_nos)
+        state.rng.shuffle(card_nos)
+        for card_no in card_nos:
+            refreshed_cards.append(state.create_card_instance(card_no, player_id).instance_id)
+    elif player.discard_pile.cards:
+        refreshed_cards = list(player.discard_pile.cards)
+        state.rng.shuffle(refreshed_cards)
+    else:
+        return
+    player.discard_pile.cards = []
+    player.deck.cards = refreshed_cards
+    state.event_store.append(
+        "deck_refreshed",
+        round_no=state.round_no,
+        turn_no=state.turn_no,
+        actor_player_id=player_id,
+        cause_event_no=cause_event_no,
+        source=source or EventSource(),
+        payload={
+            "from_discard_card_instance_ids": before_discard,
+            "initial_deck_card_nos": list(player.initial_deck_card_nos),
+            "deck_card_instance_ids": list(refreshed_cards),
+        },
+    )
 
 
 def drive_unit(state: GameState, player_id: str, card_instance_id: str) -> UnitState:
@@ -713,6 +754,8 @@ def _handle_draw_card_by_category(
     count = int(step.get("count", 1))
     drawn: list[str] = []
     for _ in range(count):
+        if not player.deck.cards:
+            _refresh_deck(state, unit.owner_player_id, cause_event_no=ability_event.event_no, source=ability_event.source)
         matched_index = None
         for index, card_instance_id in enumerate(player.deck.cards):
             card_no = state.card_instances[card_instance_id].card_no

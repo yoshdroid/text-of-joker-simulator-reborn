@@ -827,6 +827,15 @@ draw 時に deck が空の場合、discard pile から deck refresh する。
 - refresh 後に draw を継続する。
 - search-draw で対象カテゴリが存在しない場合は、trigger は発動済みとして処理し、効果結果は0枚とする。
 
+実装状況:
+
+- 最小実装済み。
+- `AgentInfo.initial_deck_card_nos` がある場合、それをシャッフルして新しい card instance として deck に復活させる。
+- `initial_deck_card_nos` が未設定のテスト状態では、互換動作として discard pile の card instance をシャッフルして deck に戻す。
+- refresh 時に discard pile は空にする。
+- `deck_refreshed` イベントを記録する。
+- search-draw は refresh 後に対象カテゴリが存在しない場合、0枚 draw として `cards_drawn` を記録する。
+
 ## まだ確認したい仕様
 
 実装は進められるが、次の詳細は後続で確認したい。
