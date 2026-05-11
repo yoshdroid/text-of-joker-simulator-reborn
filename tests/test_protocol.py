@@ -28,14 +28,18 @@ from tojs_reborn.io.player_runner import (
 from tojs_reborn.io.process_player import start_process_player
 from tojs_reborn.io.replay_cli import run_replay_cli
 from tojs_reborn.io.replay_viewer import format_replay_events, run_replay_viewer_cli
+from tojs_reborn.io.views import build_private_view, build_public_state
 from tojs_reborn.io.protocol import (
     action_selected_message,
     choice_request_message,
     choice_selected_message,
     decode_message,
     encode_message,
+    mulligan_selected_message,
     public_state_message,
     request_action_message,
+    request_mulligan_message,
+    state_update_message,
 )
 
 
@@ -66,6 +70,9 @@ class ProtocolTest(unittest.TestCase):
         self.assertEqual(decoded["type"], "request_action")
         self.assertEqual(decoded["request_id"], "r1")
         self.assertEqual(decoded["legal_actions"], [{"type": "pass"}])
+        self.assertIn("public_state", decoded)
+        self.assertIn("private_view", decoded)
+        self.assertEqual(decoded["state_revision"], 0)
 
     def test_json_lines_protocol_round_trips_action_selected(self) -> None:
         message = action_selected_message({"type": "pass"}, request_id="r1", player_id="P1")
@@ -96,12 +103,46 @@ class ProtocolTest(unittest.TestCase):
 
         message = public_state_message(state, "P1", request_id="s1")
 
-        self.assertEqual(message["state"]["players"]["P2"]["hand"], {"count": 1})
-        self.assertEqual(message["state"]["players"]["P2"]["trigger_zone"]["count"], 1)
+        self.assertEqual(message["public_state"]["players"]["P2"]["hand_count"], 1)
+        self.assertEqual(message["public_state"]["players"]["P2"]["deck_count"], 0)
+        self.assertNotIn("hand", message["public_state"]["players"]["P2"])
+        self.assertEqual(message["public_state"]["players"]["P2"]["trigger_zone"]["count"], 1)
         self.assertEqual(
-            message["state"]["players"]["P2"]["trigger_zone"]["colors"],
-            [self.catalog["1-0-065"].color],
+            message["public_state"]["players"]["P2"]["trigger_zone"]["items"][0]["color"],
+            self.catalog["1-0-065"].color,
         )
+        self.assertIsNone(message["public_state"]["players"]["P2"]["trigger_zone"]["items"][0]["revealed_card_no"])
+
+    def test_views_include_own_private_hand_and_trigger_zone(self) -> None:
+        state = create_game_state(self.catalog)
+        hand_card = state.create_card_instance("1-0-040", "P1")
+        trigger_card = state.create_card_instance("1-0-097", "P1")
+        state.players["P1"].hand.add(hand_card.instance_id)
+        state.players["P1"].trigger_zone.add(trigger_card.instance_id)
+
+        public_state = build_public_state(state, "P1")
+        private_view = build_private_view(state, "P1")
+
+        self.assertEqual(public_state["players"]["P1"]["hand_count"], 1)
+        self.assertEqual(private_view["hand"][0]["card_no"], "1-0-040")
+        self.assertEqual(private_view["hand"][0]["name"], self.catalog["1-0-040"].name)
+        self.assertEqual(private_view["hand"][0]["category"], "unit")
+        self.assertEqual(private_view["hand"][0]["cp"], 1)
+        self.assertEqual(private_view["trigger_zone"][0]["card_no"], "1-0-097")
+
+    def test_state_update_and_mulligan_messages_round_trip(self) -> None:
+        state = create_game_state(self.catalog)
+
+        state_update = decode_message(encode_message(state_update_message(state, "P1", request_id="s1")))
+        mulligan_request = decode_message(encode_message(request_mulligan_message(state, "P1", request_id="m1")))
+        mulligan_selected = decode_message(
+            encode_message(mulligan_selected_message(request_id="m1", player_id="P1", do_mulligan=False))
+        )
+
+        self.assertEqual(state_update["type"], "state_update")
+        self.assertIn("private_view", mulligan_request)
+        self.assertEqual(mulligan_selected["type"], "mulligan_selected")
+        self.assertFalse(mulligan_selected["do_mulligan"])
 
     def test_match_runner_applies_first_legal_action(self) -> None:
         state = create_game_state(self.catalog)

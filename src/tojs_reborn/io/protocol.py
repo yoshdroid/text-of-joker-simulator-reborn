@@ -3,9 +3,10 @@ from __future__ import annotations
 import json
 from typing import Any
 
-from tojs_reborn.engine.legal_actions import list_legal_actions
-from tojs_reborn.engine.replay import state_digest
 from tojs_reborn.engine.state import GameState
+
+from .views import build_private_view, build_public_state, state_revision
+from tojs_reborn.engine.legal_actions import list_legal_actions
 
 
 KNOWN_MESSAGE_TYPES = {
@@ -15,6 +16,8 @@ KNOWN_MESSAGE_TYPES = {
     "action_selected",
     "choice_request",
     "choice_selected",
+    "request_mulligan",
+    "mulligan_selected",
     "error",
     "game_over",
 }
@@ -41,20 +44,33 @@ def validate_message(message: dict[str, Any]) -> None:
 
 
 def public_state_message(state: GameState, player_id: str, *, request_id: str) -> dict[str, Any]:
-    digest = state_digest(state)
+    public_state = build_public_state(state, player_id)
+    private_view = build_private_view(state, player_id)
     return {
         "type": "state_update",
         "request_id": request_id,
         "player_id": player_id,
-        "state": _visible_state(digest, player_id),
+        "state_revision": state_revision(state),
+        "public_state": public_state,
+        "private_view": private_view,
+        "state": public_state,
     }
 
 
+def state_update_message(state: GameState, player_id: str, *, request_id: str) -> dict[str, Any]:
+    return public_state_message(state, player_id, request_id=request_id)
+
+
 def request_action_message(state: GameState, player_id: str, *, request_id: str) -> dict[str, Any]:
+    public_state = build_public_state(state, player_id)
+    private_view = build_private_view(state, player_id)
     return {
         "type": "request_action",
         "request_id": request_id,
         "player_id": player_id,
+        "state_revision": state_revision(state),
+        "public_state": public_state,
+        "private_view": private_view,
         "legal_actions": list_legal_actions(state, player_id),
     }
 
@@ -74,14 +90,20 @@ def choice_request_message(
     player_id: str,
     choice: dict[str, Any],
     legal_choices: list[dict[str, Any]],
+    state: GameState | None = None,
 ) -> dict[str, Any]:
-    return {
+    message = {
         "type": "choice_request",
         "request_id": request_id,
         "player_id": player_id,
         "choice": choice,
         "legal_choices": legal_choices,
     }
+    if state is not None:
+        message["state_revision"] = state_revision(state)
+        message["public_state"] = build_public_state(state, player_id)
+        message["private_view"] = build_private_view(state, player_id)
+    return message
 
 
 def choice_selected_message(choice: dict[str, Any], *, request_id: str, player_id: str) -> dict[str, Any]:
@@ -101,28 +123,21 @@ def game_over_message(winner_player_id: str | None, *, request_id: str) -> dict[
     }
 
 
-def _visible_state(digest: dict[str, Any], viewer_player_id: str) -> dict[str, Any]:
-    visible = json.loads(json.dumps(digest, ensure_ascii=False))
-    for player_id, player in visible["players"].items():
-        if player_id != viewer_player_id:
-            player["hand"] = {"count": len(player["hand"])}
-            player["deck"] = {"count": len(player["deck"])}
-            player["trigger_zone"] = _visible_trigger_zone(digest, player["trigger_zone"])
-    return visible
-
-
-def _visible_trigger_zone(digest: dict[str, Any], card_instance_ids: list[str]) -> dict[str, Any]:
-    items = []
-    for card_instance_id in card_instance_ids:
-        card_no = digest["card_instances"][card_instance_id]["card_no"]
-        card = digest["card_catalog"][card_no]
-        item = {
-            "color": card["color"],
-            "revealed_card_no": None,
-        }
-        items.append(item)
+def request_mulligan_message(state: GameState, player_id: str, *, request_id: str) -> dict[str, Any]:
     return {
-        "count": len(card_instance_ids),
-        "colors": [item["color"] for item in items],
-        "items": items,
+        "type": "request_mulligan",
+        "request_id": request_id,
+        "player_id": player_id,
+        "state_revision": state_revision(state),
+        "public_state": build_public_state(state, player_id),
+        "private_view": build_private_view(state, player_id),
+    }
+
+
+def mulligan_selected_message(*, request_id: str, player_id: str, do_mulligan: bool) -> dict[str, Any]:
+    return {
+        "type": "mulligan_selected",
+        "request_id": request_id,
+        "player_id": player_id,
+        "do_mulligan": do_mulligan,
     }
