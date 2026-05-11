@@ -10,6 +10,7 @@ def get_effect_handlers():
     return {
         "change_cp": _handle_change_cp,
         "deal_damage_to_unit": _handle_deal_damage_to_unit,
+        "deal_damage_to_units": _handle_deal_damage_to_units,
         "deal_life_damage": _handle_deal_life_damage,
         "discard_from_hand": _handle_discard_from_hand,
         "destroy_trigger_zone_card": _handle_destroy_trigger_zone_card,
@@ -529,6 +530,30 @@ def _handle_deal_damage_to_unit(
     )
 
 
+def _handle_deal_damage_to_units(
+    state: GameState,
+    unit: UnitState,
+    ability: AbilityDefinition,
+    ability_event: FactEvent,
+    step: dict,
+) -> None:
+    targets = _resolve_unit_targets_for_effect(state, unit, ability, ability_event, step.get("target"))
+    if not targets:
+        _append_effect_fizzled(state, unit.owner_player_id, ability_event, step, "no_valid_target")
+        return
+    for target in list(targets):
+        if target.unit_id not in state.units:
+            continue
+        deal_damage_to_unit(
+            state,
+            unit,
+            target,
+            int(step.get("amount", 0)),
+            cause_event_no=ability_event.event_no,
+            source=ability_event.source,
+        )
+
+
 def _handle_deal_life_damage(
     state: GameState,
     unit: UnitState,
@@ -760,6 +785,34 @@ def _resolve_unit_target_for_effect(
         },
     )
     return state.units[chosen_unit_id]
+
+
+def _resolve_unit_targets_for_effect(
+    state: GameState,
+    source_unit: UnitState,
+    ability: AbilityDefinition,
+    _ability_event: FactEvent,
+    target_ref,
+) -> list[UnitState]:
+    selector = ability.raw.get("selector")
+    if not isinstance(selector, dict):
+        target = _resolve_unit_target(state, source_unit, target_ref)
+        return [] if target is None else [target]
+    if target_ref != selector.get("id") or selector.get("type") != "unit":
+        target = _resolve_unit_target(state, source_unit, target_ref, selector)
+        return [] if target is None else [target]
+    controller = selector.get("controller")
+    if controller == "rival":
+        player_id = opponent_id(source_unit.owner_player_id)
+    elif controller == "owner":
+        player_id = source_unit.owner_player_id
+    else:
+        player_id = source_unit.owner_player_id
+    candidates = _unit_candidates_for_selector(state, player_id, selector)
+    count = selector.get("count", 1)
+    if count == "all":
+        return candidates
+    return candidates[: int(count)]
 
 
 def _unit_candidates_for_selector(state: GameState, player_id: str, selector: dict) -> list[UnitState]:

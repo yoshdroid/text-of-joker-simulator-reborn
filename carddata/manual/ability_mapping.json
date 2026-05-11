@@ -35,6 +35,39 @@
         }
       ]
     },
+    "1-0-003": {
+      "card_name": "バク・ダルマン",
+      "abilities": [
+        {
+          "ability_key": "1-0-003:a1",
+          "ability_name": "ドッカーンッ！",
+          "source_text": "このユニットがオーバークロックした時、対戦相手の全てのユニットに３０００ダメージを与える。",
+          "status": "supported",
+          "timing": "SELF_OC",
+          "optional": false,
+          "priority": {
+            "band": "unit",
+            "order": "source_only"
+          },
+          "condition": null,
+          "cost_steps": [],
+          "selector": {
+            "id": "targets",
+            "type": "unit",
+            "controller": "rival",
+            "count": "all",
+            "required": false
+          },
+          "effect_steps": [
+            {
+              "effect": "deal_damage_to_units",
+              "target": "targets",
+              "amount": 3000
+            }
+          ]
+        }
+      ]
+    },
     "1-0-004": {
       "card_name": "ランサー",
       "abilities": [
