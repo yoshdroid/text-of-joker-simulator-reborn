@@ -466,6 +466,6 @@ OC処理により行動権回復と攻撃可能になる。例外は先攻で 1�
 
 ```text
 python -m unittest -v
-Ran 41 tests
+Ran 58 tests
 OK
 ```
