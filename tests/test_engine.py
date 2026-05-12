@@ -297,6 +297,47 @@ class EngineTest(unittest.TestCase):
         self.assertIn("effect_fizzled", [event.type for event in state.event_store.events])
         self.assertNotIn("damage_dealt", [event.type for event in state.event_store.events])
 
+    def test_kitsune_attack_consumes_ready_rival_unit_action(self) -> None:
+        state = create_game_state(self.catalog)
+        state.turn_no = 3
+        attacker_card = state.create_card_instance("1-0-025", "P1")
+        ready_card = state.create_card_instance("1-0-001", "P2")
+        exhausted_card = state.create_card_instance("1-0-004", "P2")
+        attacker = state.create_unit(attacker_card.instance_id)
+        ready = state.create_unit(ready_card.instance_id)
+        exhausted = state.create_unit(exhausted_card.instance_id)
+        exhausted.exhausted = True
+        state.players["P1"].battlefield.add(attacker.unit_id)
+        state.players["P2"].battlefield.add(exhausted.unit_id)
+        state.players["P2"].battlefield.add(ready.unit_id)
+
+        declare_attack(state, "P1", attacker.unit_id)
+
+        self.assertTrue(attacker.exhausted)
+        self.assertTrue(ready.exhausted)
+        self.assertTrue(exhausted.exhausted)
+        self.assertIn("unit_action_consumed", [event.type for event in state.event_store.events])
+        choice_requests = [event for event in state.event_store.events if event.type == "choice_requested"]
+        self.assertEqual(choice_requests[-1].payload["candidate_unit_ids"], [ready.unit_id])
+
+    def test_kitsune_attack_fizzles_without_ready_rival_unit(self) -> None:
+        state = create_game_state(self.catalog)
+        state.turn_no = 3
+        attacker_card = state.create_card_instance("1-0-025", "P1")
+        exhausted_card = state.create_card_instance("1-0-004", "P2")
+        attacker = state.create_unit(attacker_card.instance_id)
+        exhausted = state.create_unit(exhausted_card.instance_id)
+        exhausted.exhausted = True
+        state.players["P1"].battlefield.add(attacker.unit_id)
+        state.players["P2"].battlefield.add(exhausted.unit_id)
+
+        declare_attack(state, "P1", attacker.unit_id)
+
+        self.assertTrue(attacker.exhausted)
+        self.assertIn("ability_resolved", [event.type for event in state.event_store.events])
+        self.assertIn("effect_fizzled", [event.type for event in state.event_store.events])
+        self.assertNotIn("unit_action_consumed", [event.type for event in state.event_store.events])
+
     def test_raguel_cip_deals_damage_to_all_exhausted_rival_units_only(self) -> None:
         state = create_game_state(self.catalog)
         ready_card = state.create_card_instance("1-0-048", "P2")

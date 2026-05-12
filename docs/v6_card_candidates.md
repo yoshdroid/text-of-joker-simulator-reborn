@@ -25,6 +25,7 @@ v6 では、現在の engine が持つ能力処理を横断的に確認しつつ
 | `1-0-045` | リーフィア | block 時 BP modifier、turn duration 解除 |
 | `1-0-047` | ダルタニャン | CIP CP 変化、attack 時 draw、同一カード複数 ability |
 | `1-0-024` | 雷龍 | CIP 時の行動済ユニット対象、7000 damage、destroy / PIG 連携 |
+| `1-0-025` | 九尾の妖狐 | attack 時の対象選択、行動権消費、evolve attack ability |
 | `1-0-061` | 新品の鎧 | trigger window、trigger 強制発動、category draw |
 | `1-0-097` | 追い風 | intercept window、optional pass/use、CP 変化 |
 | `1-0-099` | ハウリング | intercept optional、draw 2、choice / replay 表示 |
