@@ -1496,6 +1496,22 @@ class EngineTest(unittest.TestCase):
             ["1-0-044:a1"],
         )
 
+    def test_raimal_indomitable_keyword_recovers_exhausted_source_unit_at_turn_end(self) -> None:
+        state = create_game_state(self.catalog)
+        state.turn_player_id = "P1"
+        raimal_card = state.create_card_instance("1-0-021", "P1")
+        raimal = state.create_unit(raimal_card.instance_id)
+        raimal.exhausted = True
+        state.players["P1"].battlefield.add(raimal.unit_id)
+
+        end_turn(state, "P1")
+
+        self.assertFalse(raimal.exhausted)
+        self.assertEqual(
+            [event.source.ability_id for event in state.event_store.events if event.type == "ability_resolved"],
+            ["1-0-021:a1"],
+        )
+
     def test_hand_override_levels_card_and_level3_drive_resolves_self_oc_after_cip(self) -> None:
         state = create_game_state(self.catalog)
         state.turn_player_id = "P1"
