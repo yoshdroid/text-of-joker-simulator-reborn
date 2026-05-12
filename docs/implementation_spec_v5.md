@@ -417,6 +417,8 @@ v5 では、本体統合 UI は扱わない。
 - 初期 GUI は観戦・デバッグ用途とし、選択操作は `--mode first/pass` による自動応答にする。
 - JPG 表示には Pillow を使う。Pillow がない場合は画像枠に card_no / card_name を表示して継続する。
 - `--no-window` は GUI を開けない環境で protocol 応答だけを確認するためのモードとする。
+- match runner はイベント発生後に各子プログラムへ追加の `state_update` を送れる。
+- `--event-delay-seconds` はイベントごとの追加 `state_update` 送信後に待ち時間を入れ、GUI 上で進行を視認しやすくする。
 
 初期実装では、GUI 起動そのものを自動テスト対象にしない。
 代わりに、state JSON から GUI 表示用 view model を作る処理を分離し、unit test する。

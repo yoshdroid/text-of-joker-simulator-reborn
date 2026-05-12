@@ -64,6 +64,12 @@ class JsonLinePlayer:
     def choose_action(self, player_id: str, legal_actions: list[dict]) -> dict:
         return self.choose_action_with_state(player_id, legal_actions, state=None)
 
+    def send_state_update(self, player_id: str, *, state: GameState, request_id: str, event: dict | None = None) -> None:
+        message = state_update_message(state, player_id, request_id=request_id)
+        if event is not None:
+            message["event"] = event
+        self.transport.write_line(encode_message(message))
+
     def choose_action_with_state(
         self,
         player_id: str,

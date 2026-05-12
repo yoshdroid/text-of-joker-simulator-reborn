@@ -983,6 +983,51 @@ class ProtocolTest(unittest.TestCase):
         self.assertIn("private_view", request)
         self.assertEqual(request["private_view"]["hand"][0]["card_no"], "1-0-040")
 
+    def test_json_line_player_can_send_event_state_update_without_waiting_response(self) -> None:
+        state = create_game_state(self.catalog)
+        transport = MemoryTransport()
+        player = JsonLinePlayer(transport)
+
+        player.send_state_update(
+            "P1",
+            state=state,
+            request_id="P1:event:1",
+            event={"event_no": 1, "type": "match_started"},
+        )
+
+        message = decode_message(transport.written[0])
+        self.assertEqual(message["type"], "state_update")
+        self.assertEqual(message["request_id"], "P1:event:1")
+        self.assertEqual(message["event"]["type"], "match_started")
+
+    def test_match_runner_publishes_state_update_per_event(self) -> None:
+        class WatchingPassPlayer:
+            def __init__(self) -> None:
+                self.event_nos: list[int] = []
+
+            def send_state_update(self, player_id, *, state, request_id, event=None) -> None:
+                self.event_nos.append(event["event_no"])
+
+            def choose_mulligan(self, player_id) -> bool:
+                return False
+
+            def choose_action(self, player_id, legal_actions):
+                for action in legal_actions:
+                    if action["type"] == "pass":
+                        return action
+                return legal_actions[0]
+
+        state = create_game_state(self.catalog)
+        p1 = WatchingPassPlayer()
+        p2 = WatchingPassPlayer()
+        runner = MatchRunner(state, players={"P1": p1, "P2": p2})
+
+        runner.run_match(max_turns=1, max_actions_per_turn=1)
+
+        event_nos = [event.event_no for event in state.event_store.events]
+        self.assertEqual(p1.event_nos, event_nos)
+        self.assertEqual(p2.event_nos, event_nos)
+
     def test_json_line_player_sends_request_action_context(self) -> None:
         state = create_game_state(self.catalog)
         legal_actions = [{"type": "pass_window", "window": "attack", "cause_event_no": 12}]

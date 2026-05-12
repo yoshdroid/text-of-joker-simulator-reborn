@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 import inspect
+import time
 from dataclasses import dataclass, field
 from typing import Protocol
 
@@ -46,6 +47,7 @@ class MatchRunner:
     _fallback_counts: dict[str, int] = field(default_factory=dict, init=False, repr=False)
     _max_fallbacks_per_player: int = field(default=3, init=False, repr=False)
     _player_error_player_id: str | None = field(default=None, init=False, repr=False)
+    _published_event_count: int = field(default=0, init=False, repr=False)
 
     def run_match(
         self,
@@ -54,6 +56,7 @@ class MatchRunner:
         max_actions_per_turn: int = 20,
         max_mulligans: int = 5,
         max_fallbacks_per_player: int = 3,
+        event_delay_seconds: float = 0.0,
     ) -> MatchResult:
         self._max_fallbacks_per_player = max_fallbacks_per_player
         self.state.event_store.append(
@@ -69,6 +72,7 @@ class MatchRunner:
                 "max_fallbacks_per_player": max_fallbacks_per_player,
             },
         )
+        self._publish_event_updates(event_delay_seconds=event_delay_seconds)
         if self.record_intents:
             self.intents.append(
                 {
@@ -81,9 +85,10 @@ class MatchRunner:
                 }
             )
         self.run_mulligan_phase(max_mulligans=max_mulligans)
+        self._publish_event_updates(event_delay_seconds=event_delay_seconds)
         result = self._player_error_result(0)
         if result is not None:
-            return self._finish_match(result)
+            return self._finish_match(result, event_delay_seconds=event_delay_seconds)
 
         player_turn_counts = {player_id: 0 for player_id in self.state.players}
         turns_started = 0
@@ -94,6 +99,7 @@ class MatchRunner:
             draw_count = _turn_draw_count(player_id, player_turn_counts[player_id])
             cp = _turn_cp(player_id, player_turn_counts[player_id])
             start_turn(self.state, player_id, draw_count=draw_count, cp=cp)
+            self._publish_event_updates(event_delay_seconds=event_delay_seconds)
             if self.record_intents:
                 self.intents.append(
                     {
@@ -106,7 +112,7 @@ class MatchRunner:
 
             result = self._life_zero_result(turns_started)
             if result is not None:
-                return self._finish_match(result)
+                return self._finish_match(result, event_delay_seconds=event_delay_seconds)
 
             actions_taken = 0
             while self.state.turn_player_id == player_id:
@@ -116,23 +122,26 @@ class MatchRunner:
                             winner_player_id=_winner_by_life(self.state),
                             reason="max_actions_per_turn",
                             turn_count=turns_started,
-                        )
+                        ),
+                        event_delay_seconds=event_delay_seconds,
                     )
                 self.run_turn_action(player_id)
+                self._publish_event_updates(event_delay_seconds=event_delay_seconds)
                 actions_taken += 1
                 result = self._player_error_result(turns_started)
                 if result is not None:
-                    return self._finish_match(result)
+                    return self._finish_match(result, event_delay_seconds=event_delay_seconds)
                 result = self._life_zero_result(turns_started)
                 if result is not None:
-                    return self._finish_match(result)
+                    return self._finish_match(result, event_delay_seconds=event_delay_seconds)
 
         return self._finish_match(
             MatchResult(
                 winner_player_id=_winner_by_life(self.state),
                 reason="max_turns",
                 turn_count=turns_started,
-            )
+            ),
+            event_delay_seconds=event_delay_seconds,
         )
 
     def run_turn_action(self, player_id: str) -> dict:
@@ -444,7 +453,7 @@ class MatchRunner:
             return MatchResult(winner_player_id=None, reason="life_zero", turn_count=turn_count)
         return MatchResult(winner_player_id=opponent_id(defeated[0]), reason="life_zero", turn_count=turn_count)
 
-    def _finish_match(self, result: MatchResult) -> MatchResult:
+    def _finish_match(self, result: MatchResult, *, event_delay_seconds: float = 0.0) -> MatchResult:
         self.state.event_store.append(
             "match_ended",
             round_no=self.state.round_no,
@@ -467,6 +476,7 @@ class MatchRunner:
                     "error_player_id": result.error_player_id,
                 }
             )
+        self._publish_event_updates(event_delay_seconds=event_delay_seconds)
         return result
 
     def _player_error_result(self, turn_count: int) -> MatchResult | None:
@@ -478,6 +488,23 @@ class MatchRunner:
             turn_count=turn_count,
             error_player_id=self._player_error_player_id,
         )
+
+    def _publish_event_updates(self, *, event_delay_seconds: float) -> None:
+        while self._published_event_count < len(self.state.event_store.events):
+            event = self.state.event_store.events[self._published_event_count]
+            event_data = event.to_dict()
+            for player_id, player in self.players.items():
+                send_state_update = getattr(player, "send_state_update", None)
+                if callable(send_state_update):
+                    send_state_update(
+                        player_id,
+                        state=self.state,
+                        request_id=f"{player_id}:event:{event.event_no}",
+                        event=event_data,
+                    )
+            self._published_event_count += 1
+            if event_delay_seconds > 0:
+                time.sleep(event_delay_seconds)
 
 
 @dataclass

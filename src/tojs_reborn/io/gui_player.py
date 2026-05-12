@@ -51,6 +51,8 @@ def run_protocol_loop(*, mode: str, images_dir: str | Path | None, model_queue: 
             continue
         model = build_model_from_message(message, images_dir)
         if model is not None and model_queue is not None:
+            if isinstance(message.get("event"), dict):
+                model["event"] = message["event"]
             model_queue.put(model)
         if message.get("type") == "game_over":
             break
@@ -100,6 +102,7 @@ class TkGui:
             text=(
                 f"player={model.get('player_id')} round={model.get('round_no')} "
                 f"turn={model.get('turn_no')} turn_player={model.get('turn_player_id')}"
+                f"{self._event_status(model.get('event'))}"
             )
         )
         self._section("Opponent Battlefield", model.get("opponent", {}).get("battlefield", []))
@@ -139,6 +142,12 @@ class TkGui:
     def _load_image(self, image_path: str | None) -> Any | None:
         if not image_path:
             return None
+
+    @staticmethod
+    def _event_status(event: Any) -> str:
+        if not isinstance(event, dict):
+            return ""
+        return f" | event#{event.get('event_no')} {event.get('type')}"
         try:
             from PIL import Image, ImageTk
         except ModuleNotFoundError:

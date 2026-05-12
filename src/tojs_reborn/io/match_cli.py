@@ -34,6 +34,7 @@ def run_match_cli(argv: Sequence[str] | None = None) -> int:
     parser.add_argument("--seed", type=int, default=0)
     parser.add_argument("--max-turns", type=int, default=20)
     parser.add_argument("--max-actions-per-turn", type=int, default=20)
+    parser.add_argument("--event-delay-seconds", type=float, default=0.0)
     parser.add_argument("--replay")
     parser.add_argument("--verify-replay", action="store_true")
     parser.add_argument("--strict-deck-rule", action="store_true")
@@ -52,7 +53,11 @@ def run_match_cli(argv: Sequence[str] | None = None) -> int:
         try:
             initial_state = snapshot_match_initial_state(state)
             runner = MatchRunner(state, players=players)
-            result = runner.run_match(max_turns=args.max_turns, max_actions_per_turn=args.max_actions_per_turn)
+            result = runner.run_match(
+                max_turns=args.max_turns,
+                max_actions_per_turn=args.max_actions_per_turn,
+                event_delay_seconds=args.event_delay_seconds,
+            )
             replay_record = runner.build_replay_record(initial_state)
         finally:
             for player in players.values():

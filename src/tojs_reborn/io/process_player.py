@@ -27,6 +27,12 @@ class ProcessJsonLinePlayer:
         self._mark_process_closed_fallback()
         return response
 
+    def send_state_update(self, player_id: str, *, state, request_id: str, event: dict | None = None) -> None:
+        if self._process_is_closed():
+            return
+        self.player.send_state_update(player_id, state=state, request_id=request_id, event=event)
+        self._mark_process_closed_fallback()
+
     def choose_action_with_state(
         self,
         player_id: str,

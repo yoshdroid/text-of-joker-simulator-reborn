@@ -253,8 +253,14 @@ match CLI から呼ぶ場合の想定:
 python -m tojs_reborn.io.match_cli --cards carddata/generated/cards.normalized.json --deck1 decklists/sample_p1.json --deck2 decklists/sample_p2.json --p1 "cmd:python -m tojs_reborn.io.gui_player --images carddata/images" --p2 sample:pass --replay test_output/replay.json --verify-replay
 ```
 
+GUI で進行を視認したい場合は、イベントごとの `state_update` に待ち時間を入れる:
+
+```powershell
+python -m tojs_reborn.io.match_cli --cards carddata/generated/cards.normalized.json --deck1 decklists/v6_p1.json --deck2 decklists/v6_p2.json --p1 "cmd:python -m tojs_reborn.io.gui_player --images carddata/images --mode pass" --p2 sample:first --seed 6 --max-turns 4 --event-delay-seconds 0.4 --replay test_output/gui_player_replay.json --verify-replay
+```
+
 自動テストや GUI を開けない環境では `--no-window` を使う:
 
 ```powershell
-python -m tojs_reborn.io.match_cli --cards carddata/generated/cards.normalized.json --deck1 decklists/v6_p1.json --deck2 decklists/v6_p2.json --p1 "cmd:python -m tojs_reborn.io.gui_player --no-window --mode pass --images carddata/images" --p2 sample:first --seed 6 --max-turns 4 --replay test_output/gui_player_replay.json --verify-replay
+python -m tojs_reborn.io.match_cli --cards carddata/generated/cards.normalized.json --deck1 decklists/v6_p1.json --deck2 decklists/v6_p2.json --p1 "cmd:python -m tojs_reborn.io.gui_player --no-window --mode pass --images carddata/images" --p2 sample:first --seed 6 --max-turns 4 --event-delay-seconds 0.01 --replay test_output/gui_player_replay.json --verify-replay
 ```
