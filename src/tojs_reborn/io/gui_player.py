@@ -71,13 +71,14 @@ class TkGui:
         self.root.title(title)
         self.root.geometry("1120x760")
         self.card_width = card_width
-        self.image_refs: list[Any] = []
+        self.card_height = int(self.card_width * 1.45)
+        self.image_cache: dict[tuple[str, int], Any] = {}
         self.frame = tk.Frame(self.root, bg="#20242a")
         self.frame.pack(fill=tk.BOTH, expand=True)
         self.status = tk.Label(self.frame, text="waiting for state...", bg="#20242a", fg="#f3f5f7", anchor="w")
         self.status.pack(fill=tk.X, padx=10, pady=8)
-        self.body = tk.Frame(self.frame, bg="#20242a")
-        self.body.pack(fill=tk.BOTH, expand=True)
+        self.canvas = tk.Canvas(self.frame, bg="#20242a", highlightthickness=0)
+        self.canvas.pack(fill=tk.BOTH, expand=True)
         self.root.bind_all("<Escape>", lambda _event: self.root.destroy())
 
     def run(self, model_queue: queue.Queue[dict[str, Any]]) -> None:
@@ -96,8 +97,7 @@ class TkGui:
         self.root.after(100, lambda: self._poll(model_queue))
 
     def render(self, model: dict[str, Any]) -> None:
-        next_body = self.tk.Frame(self.frame, bg="#20242a")
-        next_image_refs: list[Any] = []
+        self.canvas.delete("all")
         self.status.configure(
             text=(
                 f"player={model.get('player_id')} round={model.get('round_no')} "
@@ -105,57 +105,67 @@ class TkGui:
                 f"{self._event_status(model.get('event'))}"
             )
         )
-        self._section(next_body, next_image_refs, "Opponent Battlefield", model.get("opponent", {}).get("battlefield", []))
-        self._section(next_body, next_image_refs, "Own Battlefield", model.get("own", {}).get("battlefield", []))
-        self._section(next_body, next_image_refs, "Own Trigger Zone", model.get("own", {}).get("trigger_zone", []))
-        self._section(next_body, next_image_refs, "Own Hand", model.get("own", {}).get("hand", []))
-        old_body = self.body
-        self.body = next_body
-        self.image_refs = next_image_refs
-        self.body.pack(fill=self.tk.BOTH, expand=True)
-        old_body.destroy()
+        y = 12
+        y = self._section(y, "Opponent Battlefield", model.get("opponent", {}).get("battlefield", []))
+        y = self._section(y, "Own Battlefield", model.get("own", {}).get("battlefield", []))
+        y = self._section(y, "Own Trigger Zone", model.get("own", {}).get("trigger_zone", []))
+        self._section(y, "Own Hand", model.get("own", {}).get("hand", []))
 
-    def _section(self, parent: Any, image_refs: list[Any], title: str, tiles: list[dict[str, Any]]) -> None:
-        label = self.tk.Label(parent, text=title, bg="#20242a", fg="#f3f5f7", anchor="w")
-        label.pack(fill=self.tk.X, padx=10, pady=(8, 2))
-        row = self.tk.Frame(parent, bg="#20242a")
-        row.pack(fill=self.tk.X, padx=10)
+    def _section(self, y: int, title: str, tiles: list[dict[str, Any]]) -> int:
+        self.canvas.create_text(10, y, anchor="nw", fill="#f3f5f7", font=("TkDefaultFont", 10, "bold"), text=title)
+        row_y = y + 22
         if not tiles:
-            empty = self.tk.Label(row, text="(empty)", bg="#20242a", fg="#9aa3ad")
-            empty.pack(side=self.tk.LEFT, padx=4, pady=4)
-            return
+            self.canvas.create_text(14, row_y + 8, anchor="nw", fill="#9aa3ad", text="(empty)")
+            return row_y + 34
+        x = 10
         for tile in tiles:
-            self._tile(row, image_refs, tile)
+            self._tile(x, row_y, tile)
+            x += self.card_width + 10
+        return row_y + self.card_height + 18
 
-    def _tile(self, parent: Any, image_refs: list[Any], tile: dict[str, Any]) -> None:
-        box = self.tk.Frame(parent, width=self.card_width, height=int(self.card_width * 1.45), bg="#343b44", bd=1, relief=self.tk.SOLID)
-        box.pack(side=self.tk.LEFT, padx=4, pady=4)
-        box.pack_propagate(False)
+    def _tile(self, x: int, y: int, tile: dict[str, Any]) -> None:
+        outline = "#e1e7ee" if tile.get("kind") == "unit" and not tile.get("exhausted") else "#5f6975"
+        self.canvas.create_rectangle(x, y, x + self.card_width, y + self.card_height, fill="#343b44", outline=outline)
         image = self._load_image(tile.get("image_path"))
         if image is not None:
-            image_label = self.tk.Label(box, image=image, bg="#343b44")
-            image_label.pack(fill=self.tk.BOTH, expand=True)
-            image_refs.append(image)
+            self.canvas.create_image(x, y, anchor="nw", image=image)
         else:
             text = f"{tile.get('card_no')}\n{tile.get('name') or ''}"
             if tile.get("kind") == "unit":
                 text += f"\nLv{tile.get('level')} BP{tile.get('current_bp')}"
                 if tile.get("exhausted"):
                     text += "\nEXHAUSTED"
-            self.tk.Label(box, text=text, bg="#343b44", fg="#f3f5f7", wraplength=self.card_width - 8).pack(fill=self.tk.BOTH, expand=True)
+            self.canvas.create_text(
+                x + self.card_width // 2,
+                y + self.card_height // 2,
+                anchor="center",
+                fill="#f3f5f7",
+                width=self.card_width - 8,
+                text=text,
+            )
+        if tile.get("kind") == "unit":
+            label = f"Lv{tile.get('level')} BP{tile.get('current_bp')}"
+            if tile.get("exhausted"):
+                label += " EX"
+            self.canvas.create_rectangle(x + 2, y + self.card_height - 22, x + self.card_width - 2, y + self.card_height - 2, fill="#111820", outline="")
+            self.canvas.create_text(x + 6, y + self.card_height - 19, anchor="nw", fill="#f3f5f7", font=("TkDefaultFont", 8), text=label)
 
     def _load_image(self, image_path: str | None) -> Any | None:
         if not image_path:
             return None
+        cache_key = (image_path, self.card_width)
+        if cache_key in self.image_cache:
+            return self.image_cache[cache_key]
         try:
             from PIL import Image, ImageTk
         except ModuleNotFoundError:
             return None
         try:
             image = Image.open(image_path)
-            height = max(1, int(self.card_width * image.height / image.width))
-            image = image.resize((self.card_width, height))
-            return ImageTk.PhotoImage(image)
+            image = image.resize((self.card_width, self.card_height))
+            photo = ImageTk.PhotoImage(image)
+            self.image_cache[cache_key] = photo
+            return photo
         except OSError:
             return None
 
