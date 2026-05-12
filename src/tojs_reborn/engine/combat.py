@@ -195,6 +195,20 @@ def destroy_unit(state: GameState, unit: UnitState, cause_event_no: int, *, reas
     _destroy_unit(state, unit, cause_event_no, reason=reason)
 
 
+def destroy_units(state: GameState, units: list[UnitState], cause_event_no: int, *, reason: str = "effect") -> None:
+    battlefield_order = _battlefield_order(state)
+    destroyed_units = [unit for unit in units if unit.unit_id in state.units]
+    destroyed_units.sort(
+        key=lambda unit: (
+            0 if unit.owner_player_id == state.turn_player_id else 1,
+            battlefield_order.get(unit.unit_id, 9999),
+        )
+    )
+    for unit in destroyed_units:
+        if unit.unit_id in state.units:
+            _destroy_unit(state, unit, cause_event_no, reason=reason)
+
+
 def _destroy_unit(state: GameState, unit: UnitState, cause_event_no: int, *, reason: str = "battle") -> None:
     player = state.players[unit.owner_player_id]
     destroyed_event = state.event_store.append(

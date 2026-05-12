@@ -338,6 +338,51 @@ class EngineTest(unittest.TestCase):
         self.assertIn("effect_fizzled", [event.type for event in state.event_store.events])
         self.assertNotIn("unit_action_consumed", [event.type for event in state.event_store.events])
 
+    def test_bishamon_cip_destroys_all_other_units_turn_player_first(self) -> None:
+        state = create_game_state(self.catalog)
+        state.turn_player_id = "P1"
+        p1_first_card = state.create_card_instance("1-0-028", "P1")
+        p1_second_card = state.create_card_instance("1-0-027", "P1")
+        p2_card = state.create_card_instance("1-0-029", "P2")
+        p1_first = state.create_unit(p1_first_card.instance_id)
+        p1_second = state.create_unit(p1_second_card.instance_id)
+        p2_unit = state.create_unit(p2_card.instance_id)
+        state.players["P1"].battlefield.add(p1_first.unit_id)
+        state.players["P1"].battlefield.add(p1_second.unit_id)
+        state.players["P2"].battlefield.add(p2_unit.unit_id)
+        entering_card = state.create_card_instance("1-0-026", "P1")
+        state.players["P1"].hand.add(entering_card.instance_id)
+        state.players["P1"].current_cp = 10
+
+        bishamon = drive_unit(state, "P1", entering_card.instance_id)
+
+        self.assertIn(bishamon.unit_id, state.units)
+        self.assertNotIn(p1_first.unit_id, state.units)
+        self.assertNotIn(p1_second.unit_id, state.units)
+        self.assertNotIn(p2_unit.unit_id, state.units)
+        destroyed_events = [event for event in state.event_store.events if event.type == "unit_destroyed"]
+        self.assertEqual(
+            [event.source.unit_id for event in destroyed_events],
+            [p1_first.unit_id, p1_second.unit_id, p2_unit.unit_id],
+        )
+        self.assertEqual(
+            [event.payload["reason"] for event in destroyed_events],
+            ["effect", "effect", "effect"],
+        )
+
+    def test_bishamon_cip_fizzles_when_no_other_units(self) -> None:
+        state = create_game_state(self.catalog)
+        entering_card = state.create_card_instance("1-0-026", "P1")
+        state.players["P1"].hand.add(entering_card.instance_id)
+        state.players["P1"].current_cp = 10
+
+        bishamon = drive_unit(state, "P1", entering_card.instance_id)
+
+        self.assertIn(bishamon.unit_id, state.units)
+        self.assertIn("ability_resolved", [event.type for event in state.event_store.events])
+        self.assertIn("effect_fizzled", [event.type for event in state.event_store.events])
+        self.assertNotIn("unit_destroyed", [event.type for event in state.event_store.events])
+
     def test_raguel_cip_deals_damage_to_all_exhausted_rival_units_only(self) -> None:
         state = create_game_state(self.catalog)
         ready_card = state.create_card_instance("1-0-048", "P2")

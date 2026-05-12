@@ -514,6 +514,31 @@
         }
       ]
     },
+    "1-0-026": {
+      "card_name": "戦神・毘沙門",
+      "abilities": [
+        {
+          "ability_key": "1-0-026:a1",
+          "ability_name": "戦神の怒号",
+          "source_text": "このユニットがフィールドに出た時、このユニット以外の全てのユニットを破壊する。",
+          "status": "supported",
+          "timing": "SELF_CIP",
+          "optional": false,
+          "priority": {
+            "band": "unit",
+            "order": "source_only"
+          },
+          "condition": null,
+          "cost_steps": [],
+          "selector": null,
+          "effect_steps": [
+            {
+              "effect": "destroy_all_other_units"
+            }
+          ]
+        }
+      ]
+    },
     "1-0-027": {
       "card_name": "ミイラくん",
       "abilities": [

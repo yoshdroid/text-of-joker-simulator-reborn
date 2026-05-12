@@ -29,3 +29,4 @@ python -m tojs_reborn.io.replay_viewer --cards carddata/generated/cards.normaliz
 - `1-0-019` ジャンプー: 相手ユニットを手札へ戻す。手札7枚時は捨札へ送る。
 - `1-0-024` 雷龍: CIP 時に相手の行動済ユニット1体へ 7000 ダメージ。
 - `1-0-025` 九尾の妖狐: attack 時に相手ユニットの行動権を消費する。
+- `1-0-026` 戦神・毘沙門: CIP 時に自身以外の全ユニットを破壊する。
