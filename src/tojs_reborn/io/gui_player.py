@@ -78,6 +78,7 @@ class TkGui:
         self.status.pack(fill=tk.X, padx=10, pady=8)
         self.body = tk.Frame(self.frame, bg="#20242a")
         self.body.pack(fill=tk.BOTH, expand=True)
+        self.root.bind_all("<Escape>", lambda _event: self.root.destroy())
 
     def run(self, model_queue: queue.Queue[dict[str, Any]]) -> None:
         self.root.after(100, lambda: self._poll(model_queue))
@@ -95,9 +96,8 @@ class TkGui:
         self.root.after(100, lambda: self._poll(model_queue))
 
     def render(self, model: dict[str, Any]) -> None:
-        for child in self.body.winfo_children():
-            child.destroy()
-        self.image_refs.clear()
+        next_body = self.tk.Frame(self.frame, bg="#20242a")
+        next_image_refs: list[Any] = []
         self.status.configure(
             text=(
                 f"player={model.get('player_id')} round={model.get('round_no')} "
@@ -105,24 +105,29 @@ class TkGui:
                 f"{self._event_status(model.get('event'))}"
             )
         )
-        self._section("Opponent Battlefield", model.get("opponent", {}).get("battlefield", []))
-        self._section("Own Battlefield", model.get("own", {}).get("battlefield", []))
-        self._section("Own Trigger Zone", model.get("own", {}).get("trigger_zone", []))
-        self._section("Own Hand", model.get("own", {}).get("hand", []))
+        self._section(next_body, next_image_refs, "Opponent Battlefield", model.get("opponent", {}).get("battlefield", []))
+        self._section(next_body, next_image_refs, "Own Battlefield", model.get("own", {}).get("battlefield", []))
+        self._section(next_body, next_image_refs, "Own Trigger Zone", model.get("own", {}).get("trigger_zone", []))
+        self._section(next_body, next_image_refs, "Own Hand", model.get("own", {}).get("hand", []))
+        old_body = self.body
+        self.body = next_body
+        self.image_refs = next_image_refs
+        self.body.pack(fill=self.tk.BOTH, expand=True)
+        old_body.destroy()
 
-    def _section(self, title: str, tiles: list[dict[str, Any]]) -> None:
-        label = self.tk.Label(self.body, text=title, bg="#20242a", fg="#f3f5f7", anchor="w")
+    def _section(self, parent: Any, image_refs: list[Any], title: str, tiles: list[dict[str, Any]]) -> None:
+        label = self.tk.Label(parent, text=title, bg="#20242a", fg="#f3f5f7", anchor="w")
         label.pack(fill=self.tk.X, padx=10, pady=(8, 2))
-        row = self.tk.Frame(self.body, bg="#20242a")
+        row = self.tk.Frame(parent, bg="#20242a")
         row.pack(fill=self.tk.X, padx=10)
         if not tiles:
             empty = self.tk.Label(row, text="(empty)", bg="#20242a", fg="#9aa3ad")
             empty.pack(side=self.tk.LEFT, padx=4, pady=4)
             return
         for tile in tiles:
-            self._tile(row, tile)
+            self._tile(row, image_refs, tile)
 
-    def _tile(self, parent: Any, tile: dict[str, Any]) -> None:
+    def _tile(self, parent: Any, image_refs: list[Any], tile: dict[str, Any]) -> None:
         box = self.tk.Frame(parent, width=self.card_width, height=int(self.card_width * 1.45), bg="#343b44", bd=1, relief=self.tk.SOLID)
         box.pack(side=self.tk.LEFT, padx=4, pady=4)
         box.pack_propagate(False)
@@ -130,7 +135,7 @@ class TkGui:
         if image is not None:
             image_label = self.tk.Label(box, image=image, bg="#343b44")
             image_label.pack(fill=self.tk.BOTH, expand=True)
-            self.image_refs.append(image)
+            image_refs.append(image)
         else:
             text = f"{tile.get('card_no')}\n{tile.get('name') or ''}"
             if tile.get("kind") == "unit":
