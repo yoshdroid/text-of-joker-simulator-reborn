@@ -24,6 +24,7 @@ v6 では、現在の engine が持つ能力処理を横断的に確認しつつ
 | `1-0-043` | グラインドビートル | CP 変化、同一カード複数 ability、条件付き draw |
 | `1-0-045` | リーフィア | block 時 BP modifier、turn duration 解除 |
 | `1-0-047` | ダルタニャン | CIP CP 変化、attack 時 draw、同一カード複数 ability |
+| `1-0-024` | 雷龍 | CIP 時の行動済ユニット対象、7000 damage、destroy / PIG 連携 |
 | `1-0-061` | 新品の鎧 | trigger window、trigger 強制発動、category draw |
 | `1-0-097` | 追い風 | intercept window、optional pass/use、CP 変化 |
 | `1-0-099` | ハウリング | intercept optional、draw 2、choice / replay 表示 |
@@ -70,6 +71,17 @@ selector が 1 つだけの前提を崩し、子プログラムに十分な対�
 - 戻される側の手札が 7 枚未満なら hand に移動する。
 - 戻される側の手札が 7 枚以上なら hand ではなく discard pile に移動する。
 - 同名カード同士を重ねて clock up できるのは hand 内だけであり、battlefield unit に素材カードは重ねない。
+
+### 3.2.2 進化ユニットの暫定扱い
+
+確認用カードは 1-0-024 雷龍 とする。
+
+必要な仕様:
+
+- v6 時点では `evolve` カードも battlefield に出る unit として扱う。
+- 進化元指定、進化元への重ね置き、進化固有の summon rule は未実装。
+- `drive_unit` / legal action は `unit` と `evolve` を場に出せる。
+- 進化固有ルールを扱う段階で、現在の暫定実装を置き換える。
 
 ### 3.3 discard pile / deck search / reveal
 

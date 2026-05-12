@@ -56,7 +56,7 @@ def _drive_actions(state: GameState, player_id: str) -> list[dict[str, Any]]:
     for card_instance_id in player.hand.cards:
         card_no = state.card_instances[card_instance_id].card_no
         card = state.card_catalog[card_no]
-        if card.category == "unit" and player.current_cp >= (card.cp or 0):
+        if card.category in {"unit", "evolve"} and player.current_cp >= (card.cp or 0):
             actions.append(
                 {
                     "type": "drive_unit",

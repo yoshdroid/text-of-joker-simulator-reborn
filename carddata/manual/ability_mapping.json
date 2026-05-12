@@ -447,6 +447,40 @@
         }
       ]
     },
+    "1-0-024": {
+      "card_name": "雷龍",
+      "abilities": [
+        {
+          "ability_key": "1-0-024:a1",
+          "ability_name": "サンダーボルト",
+          "source_text": "このユニットがフィールドに出た時、対戦相手の行動済ユニットを１体選ぶ。それに７０００ダメージを与える。",
+          "status": "supported",
+          "timing": "SELF_CIP",
+          "optional": false,
+          "priority": {
+            "band": "unit",
+            "order": "source_only"
+          },
+          "condition": null,
+          "cost_steps": [],
+          "selector": {
+            "id": "target",
+            "type": "unit",
+            "controller": "rival",
+            "count": 1,
+            "required": true,
+            "exhausted": true
+          },
+          "effect_steps": [
+            {
+              "effect": "deal_damage_to_unit",
+              "target": "target",
+              "amount": 7000
+            }
+          ]
+        }
+      ]
+    },
     "1-0-027": {
       "card_name": "ミイラくん",
       "abilities": [

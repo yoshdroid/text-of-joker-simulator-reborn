@@ -258,6 +258,45 @@ class EngineTest(unittest.TestCase):
         self.assertIn("effect_fizzled", [event.type for event in state.event_store.events])
         self.assertNotIn("damage_dealt", [event.type for event in state.event_store.events])
 
+    def test_rairyu_cip_deals_7000_damage_to_exhausted_rival_unit(self) -> None:
+        state = create_game_state(self.catalog)
+        ready_card = state.create_card_instance("1-0-040", "P2")
+        exhausted_card = state.create_card_instance("1-0-048", "P2")
+        ready_unit = state.create_unit(ready_card.instance_id)
+        exhausted_unit = state.create_unit(exhausted_card.instance_id)
+        exhausted_unit.exhausted = True
+        state.players["P2"].battlefield.add(ready_unit.unit_id)
+        state.players["P2"].battlefield.add(exhausted_unit.unit_id)
+        entering_card = state.create_card_instance("1-0-024", "P1")
+        state.players["P1"].hand.add(entering_card.instance_id)
+        state.players["P1"].current_cp = 10
+
+        drive_unit(state, "P1", entering_card.instance_id)
+
+        self.assertIn(exhausted_card.instance_id, state.players["P2"].discard_pile.cards)
+        self.assertIn(ready_unit.unit_id, state.units)
+        self.assertNotIn(exhausted_unit.unit_id, state.units)
+        damage_events = [event for event in state.event_store.events if event.type == "damage_dealt"]
+        self.assertEqual(damage_events[-1].payload["amount"], 7000)
+        self.assertEqual(damage_events[-1].payload["target_unit_id"], exhausted_unit.unit_id)
+        choice_requests = [event for event in state.event_store.events if event.type == "choice_requested"]
+        self.assertEqual(choice_requests[-1].payload["candidate_unit_ids"], [exhausted_unit.unit_id])
+
+    def test_rairyu_cip_fizzles_without_exhausted_rival_unit(self) -> None:
+        state = create_game_state(self.catalog)
+        ready_card = state.create_card_instance("1-0-040", "P2")
+        ready_unit = state.create_unit(ready_card.instance_id)
+        state.players["P2"].battlefield.add(ready_unit.unit_id)
+        entering_card = state.create_card_instance("1-0-024", "P1")
+        state.players["P1"].hand.add(entering_card.instance_id)
+        state.players["P1"].current_cp = 10
+
+        drive_unit(state, "P1", entering_card.instance_id)
+
+        self.assertIn("ability_resolved", [event.type for event in state.event_store.events])
+        self.assertIn("effect_fizzled", [event.type for event in state.event_store.events])
+        self.assertNotIn("damage_dealt", [event.type for event in state.event_store.events])
+
     def test_raguel_cip_deals_damage_to_all_exhausted_rival_units_only(self) -> None:
         state = create_game_state(self.catalog)
         ready_card = state.create_card_instance("1-0-048", "P2")

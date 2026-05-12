@@ -126,7 +126,7 @@ def drive_unit(
     player = state.players[player_id]
     instance = state.card_instances[card_instance_id]
     card = state.card_catalog[instance.card_no]
-    if card.category != "unit":
+    if card.category not in {"unit", "evolve"}:
         raise ValueError(f"cannot drive non-unit card: {instance.card_no}")
     if state.turn_player_id != player_id:
         raise ValueError(f"not turn player: {player_id}")
