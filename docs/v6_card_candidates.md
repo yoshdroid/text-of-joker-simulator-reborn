@@ -89,6 +89,9 @@ selector が 1 つだけの前提を崩し、子プログラムに十分な対�
 - 進化 unit は登場直後の attack restriction を持たず、進化元が未行動なら同じ turn に攻撃できる。
 - 進化 unit は進化元 unit の行動権状態を引き継ぐ。
 - Lv.3 の進化カードを drive した場合は、登場後に OC として扱い、行動済みを引き継いでいても行動権を回復する。
+- battlefield に出せる unit 上限はデフォルト 5 体とする。
+- 通常 unit は自分の battlefield が 5 体のとき drive できない。
+- 進化 unit は進化元と入れ替わるため、自分の battlefield が 5 体でも drive できる。
 
 確認用カード:
 

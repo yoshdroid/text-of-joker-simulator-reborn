@@ -4,6 +4,7 @@ from .state import GameState, UnitState
 
 
 MAX_HAND_SIZE = 7
+MAX_BATTLEFIELD_UNITS = 5
 
 
 def opponent_id(player_id: str) -> str:

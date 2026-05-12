@@ -2,7 +2,7 @@ from __future__ import annotations
 
 from typing import Any
 
-from .rules import opponent_id
+from .rules import MAX_BATTLEFIELD_UNITS, opponent_id
 from .state import GameState
 from tojs_reborn.io.views import card_instance_public_view, unit_public_view
 
@@ -56,7 +56,11 @@ def _drive_actions(state: GameState, player_id: str) -> list[dict[str, Any]]:
     for card_instance_id in player.hand.cards:
         card_no = state.card_instances[card_instance_id].card_no
         card = state.card_catalog[card_no]
-        if card.category == "unit" and player.current_cp >= (card.cp or 0):
+        if (
+            card.category == "unit"
+            and player.current_cp >= (card.cp or 0)
+            and len(player.battlefield.units) < MAX_BATTLEFIELD_UNITS
+        ):
             actions.append(
                 {
                     "type": "drive_unit",

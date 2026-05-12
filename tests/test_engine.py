@@ -396,6 +396,49 @@ class EngineTest(unittest.TestCase):
         declare_attack(state, "P1", rairyu.unit_id)
         self.assertTrue(rairyu.exhausted)
 
+    def test_battlefield_unit_limit_blocks_normal_unit_drive_at_five_units(self) -> None:
+        state = create_game_state(self.catalog)
+        state.turn_player_id = "P1"
+        state.players["P1"].current_cp = 10
+        for _index in range(5):
+            self._add_battlefield_unit(state, "P1", "1-0-040")
+        entering_card = state.create_card_instance("1-0-040", "P1")
+        state.players["P1"].hand.add(entering_card.instance_id)
+
+        actions = [
+            action
+            for action in list_legal_actions(state, "P1")
+            if action["type"] == "drive_unit" and action["card_instance_id"] == entering_card.instance_id
+        ]
+
+        self.assertEqual(actions, [])
+        with self.assertRaisesRegex(ValueError, "battlefield unit limit"):
+            drive_unit(state, "P1", entering_card.instance_id)
+        self.assertEqual(len(state.players["P1"].battlefield.units), 5)
+        self.assertIn(entering_card.instance_id, state.players["P1"].hand.cards)
+
+    def test_battlefield_unit_limit_allows_evolve_drive_at_five_units(self) -> None:
+        state = create_game_state(self.catalog)
+        state.turn_player_id = "P1"
+        state.players["P1"].current_cp = 10
+        _base_card, base_unit = self._add_battlefield_unit(state, "P1", "1-0-021")
+        for _index in range(4):
+            self._add_battlefield_unit(state, "P1", "1-0-040")
+        entering_card = state.create_card_instance("1-0-024", "P1")
+        state.players["P1"].hand.add(entering_card.instance_id)
+
+        actions = [
+            action
+            for action in list_legal_actions(state, "P1")
+            if action["type"] == "drive_unit" and action["card_instance_id"] == entering_card.instance_id
+        ]
+        rairyu = drive_unit(state, "P1", entering_card.instance_id, evolve_target_unit_id=base_unit.unit_id)
+
+        self.assertEqual([action["evolve_target_unit_id"] for action in actions], [base_unit.unit_id])
+        self.assertEqual(len(state.players["P1"].battlefield.units), 5)
+        self.assertIn(rairyu.unit_id, state.players["P1"].battlefield.units)
+        self.assertNotIn(base_unit.unit_id, state.players["P1"].battlefield.units)
+
     def test_kitsune_attack_consumes_ready_rival_unit_action(self) -> None:
         state = create_game_state(self.catalog)
         state.turn_no = 3

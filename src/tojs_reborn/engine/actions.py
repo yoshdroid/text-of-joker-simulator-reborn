@@ -1,7 +1,7 @@
 from __future__ import annotations
 
 from .events import EventSource, FactEvent
-from .rules import MAX_HAND_SIZE, get_unit_base_bp, get_unit_bp, opponent_id
+from .rules import MAX_BATTLEFIELD_UNITS, MAX_HAND_SIZE, get_unit_base_bp, get_unit_bp, opponent_id
 from .resolver import AbilityCostChoice, OptionalAbilityChoice, resolve_unit_entered, resolve_unit_overclocked
 from .state import AbilityDefinition, GameState, UnitState
 
@@ -136,6 +136,8 @@ def drive_unit(
         raise ValueError("non-evolve drive cannot have evolve target")
     if state.turn_player_id != player_id:
         raise ValueError(f"not turn player: {player_id}")
+    if card.category == "unit" and len(player.battlefield.units) >= MAX_BATTLEFIELD_UNITS:
+        raise ValueError(f"battlefield unit limit reached: max={MAX_BATTLEFIELD_UNITS}")
     cost = card.cp or 0
     if player.current_cp < cost:
         raise ValueError(f"not enough CP: required={cost} current={player.current_cp}")
