@@ -43,6 +43,12 @@ def build_model_from_message(message: dict[str, Any], images_dir: str | Path | N
     return build_gui_view_model(public_state, private_view, images_dir=images_dir)
 
 
+def tile_display_size(tile: dict[str, Any], card_width: int, card_height: int) -> tuple[int, int]:
+    if tile.get("kind") == "unit" and tile.get("exhausted"):
+        return card_height, card_width
+    return card_width, card_height
+
+
 def run_protocol_loop(*, mode: str, images_dir: str | Path | None, model_queue: queue.Queue[dict[str, Any]] | None) -> None:
     for line in sys.stdin:
         try:
@@ -118,15 +124,20 @@ class TkGui:
             self.canvas.create_text(14, row_y + 8, anchor="nw", fill="#9aa3ad", text="(empty)")
             return row_y + 34
         x = 10
+        row_height = 0
         for tile in tiles:
             self._tile(x, row_y, tile)
-            x += self.card_width + 10
-        return row_y + self.card_height + 18
+            tile_width, tile_height = tile_display_size(tile, self.card_width, self.card_height)
+            x += tile_width + 10
+            row_height = max(row_height, tile_height)
+        return row_y + row_height + 18
 
     def _tile(self, x: int, y: int, tile: dict[str, Any]) -> None:
+        tile_width, tile_height = tile_display_size(tile, self.card_width, self.card_height)
+        tapped = tile.get("kind") == "unit" and bool(tile.get("exhausted"))
         outline = "#e1e7ee" if tile.get("kind") == "unit" and not tile.get("exhausted") else "#5f6975"
-        self.canvas.create_rectangle(x, y, x + self.card_width, y + self.card_height, fill="#343b44", outline=outline)
-        image = self._load_image(tile.get("image_path"))
+        self.canvas.create_rectangle(x, y, x + tile_width, y + tile_height, fill="#343b44", outline=outline)
+        image = self._load_image(tile.get("image_path"), tapped=tapped)
         if image is not None:
             self.canvas.create_image(x, y, anchor="nw", image=image)
         else:
@@ -136,24 +147,24 @@ class TkGui:
                 if tile.get("exhausted"):
                     text += "\nEXHAUSTED"
             self.canvas.create_text(
-                x + self.card_width // 2,
-                y + self.card_height // 2,
+                x + tile_width // 2,
+                y + tile_height // 2,
                 anchor="center",
                 fill="#f3f5f7",
-                width=self.card_width - 8,
+                width=tile_width - 8,
                 text=text,
             )
         if tile.get("kind") == "unit":
             label = f"Lv{tile.get('level')} BP{tile.get('current_bp')}"
             if tile.get("exhausted"):
                 label += " EX"
-            self.canvas.create_rectangle(x + 2, y + self.card_height - 22, x + self.card_width - 2, y + self.card_height - 2, fill="#111820", outline="")
-            self.canvas.create_text(x + 6, y + self.card_height - 19, anchor="nw", fill="#f3f5f7", font=("TkDefaultFont", 8), text=label)
+            self.canvas.create_rectangle(x + 2, y + tile_height - 22, x + tile_width - 2, y + tile_height - 2, fill="#111820", outline="")
+            self.canvas.create_text(x + 6, y + tile_height - 19, anchor="nw", fill="#f3f5f7", font=("TkDefaultFont", 8), text=label)
 
-    def _load_image(self, image_path: str | None) -> Any | None:
+    def _load_image(self, image_path: str | None, *, tapped: bool = False) -> Any | None:
         if not image_path:
             return None
-        cache_key = (image_path, self.card_width)
+        cache_key = (image_path, self.card_width, tapped)
         if cache_key in self.image_cache:
             return self.image_cache[cache_key]
         try:
@@ -163,6 +174,8 @@ class TkGui:
         try:
             image = Image.open(image_path)
             image = image.resize((self.card_width, self.card_height))
+            if tapped:
+                image = image.rotate(90, expand=True)
             photo = ImageTk.PhotoImage(image)
             self.image_cache[cache_key] = photo
             return photo

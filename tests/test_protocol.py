@@ -16,7 +16,7 @@ if SRC_PATH.exists():
 from tests.test_engine import build_catalog, draw_window_card
 from tojs_reborn.engine.state import AbilityDefinition, CardDefinition, create_game_state
 from tojs_reborn.io.decklist import parse_decklist
-from tojs_reborn.io.gui_player import build_model_from_message, make_response
+from tojs_reborn.io.gui_player import build_model_from_message, make_response, tile_display_size
 from tojs_reborn.io.gui_view_model import build_gui_view_model, find_card_image
 from tojs_reborn.io.match_runner import FirstLegalPlayer, MatchRunner, replay_match_record, snapshot_match_initial_state
 from tojs_reborn.io.match_cli import run_match_cli
@@ -234,6 +234,11 @@ class ProtocolTest(unittest.TestCase):
         self.assertEqual(response["type"], "action_selected")
         self.assertEqual(response["request_id"], "P1:action")
         self.assertEqual(response["action"]["type"], "pass")
+
+    def test_gui_player_uses_landscape_tile_for_exhausted_field_units(self) -> None:
+        self.assertEqual(tile_display_size({"kind": "unit", "exhausted": True}, 96, 139), (139, 96))
+        self.assertEqual(tile_display_size({"kind": "unit", "exhausted": False}, 96, 139), (96, 139))
+        self.assertEqual(tile_display_size({"kind": "card", "exhausted": True}, 96, 139), (96, 139))
 
     def test_gui_player_no_window_process_responds_to_protocol(self) -> None:
         command = f"{sys.executable} -m tojs_reborn.io.gui_player --no-window --mode pass --images carddata/images"
