@@ -48,6 +48,7 @@ class UnitState:
     owner_player_id: str
     level: int = 1
     exhausted: bool = False
+    attack_restricted_turn_no: int | None = None
     current_damage: int = 0
     base_bp_modifiers: list[dict[str, Any]] = field(default_factory=list)
     bp_modifiers: list[dict[str, Any]] = field(default_factory=list)

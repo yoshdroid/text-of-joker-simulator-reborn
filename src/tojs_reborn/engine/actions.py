@@ -206,6 +206,8 @@ def drive_unit(
         del state.units[evolve_target.unit_id]
     unit = state.create_unit(card_instance_id)
     unit.exhausted = inherited_exhausted
+    if card.category == "unit":
+        unit.attack_restricted_turn_no = state.turn_no
     player.battlefield.add(unit.unit_id)
     move_event = state.event_store.append(
         "card_moved",

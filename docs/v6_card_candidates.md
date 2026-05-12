@@ -84,7 +84,8 @@ selector が 1 つだけの前提を崩し、子プログラムに十分な対�
 - `evolve` カードは、自分の battlefield に存在する同色 unit を進化元として指定した場合のみ drive できる。
 - 進化元 unit は battlefield から discard pile へ移動する。破壊ではないため PIG は発動しない。
 - 進化後のカードは battlefield 上では通常の unit として扱う。
-- 進化 unit は登場直後の attack restriction を持たない。
+- 通常 unit は drive された turn には attack restriction を持ち、その turn 中は攻撃できない。
+- 進化 unit は登場直後の attack restriction を持たず、進化元が未行動なら同じ turn に攻撃できる。
 - 進化 unit は進化元 unit の行動権状態を引き継ぐ。
 - Lv.3 の進化カードを drive した場合は、登場後に OC として扱い、行動済みを引き継いでいても行動権を回復する。
 

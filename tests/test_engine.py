@@ -357,6 +357,45 @@ class EngineTest(unittest.TestCase):
         self.assertIn("unit_overclocked", [event.type for event in state.event_store.events])
         self.assertIn("unit_action_recovered", [event.type for event in state.event_store.events])
 
+    def test_normal_unit_cannot_attack_on_the_turn_it_entered(self) -> None:
+        state = create_game_state(self.catalog)
+        state.turn_no = 3
+        state.turn_player_id = "P1"
+        entering_card = state.create_card_instance("1-0-040", "P1")
+        state.players["P1"].hand.add(entering_card.instance_id)
+        state.players["P1"].current_cp = 10
+
+        happaloid = drive_unit(state, "P1", entering_card.instance_id)
+        actions = list_legal_actions(state, "P1")
+
+        self.assertEqual(happaloid.attack_restricted_turn_no, state.turn_no)
+        self.assertNotIn(
+            happaloid.unit_id,
+            [action.get("attacker_unit_id") for action in actions if action["type"] == "attack"],
+        )
+        with self.assertRaisesRegex(ValueError, "cannot attack on the turn it entered"):
+            declare_attack(state, "P1", happaloid.unit_id)
+
+    def test_evolve_unit_can_attack_on_the_turn_it_entered(self) -> None:
+        state = create_game_state(self.catalog)
+        state.turn_no = 3
+        state.turn_player_id = "P1"
+        _base_card, base_unit = self._add_battlefield_unit(state, "P1", "1-0-021")
+        entering_card = state.create_card_instance("1-0-024", "P1")
+        state.players["P1"].hand.add(entering_card.instance_id)
+        state.players["P1"].current_cp = 10
+
+        rairyu = drive_unit(state, "P1", entering_card.instance_id, evolve_target_unit_id=base_unit.unit_id)
+        actions = list_legal_actions(state, "P1")
+
+        self.assertIsNone(rairyu.attack_restricted_turn_no)
+        self.assertIn(
+            rairyu.unit_id,
+            [action.get("attacker_unit_id") for action in actions if action["type"] == "attack"],
+        )
+        declare_attack(state, "P1", rairyu.unit_id)
+        self.assertTrue(rairyu.exhausted)
+
     def test_kitsune_attack_consumes_ready_rival_unit_action(self) -> None:
         state = create_game_state(self.catalog)
         state.turn_no = 3
@@ -717,6 +756,7 @@ class EngineTest(unittest.TestCase):
         state.players["P1"].hand.add(selected_cost_card.instance_id)
         state.players["P1"].current_cp = 10
         attacker = drive_unit(state, "P1", attacker_card.instance_id)
+        state.turn_no += 2
 
         def choose_cost(_state, _source_unit, _ability, _request_event, _step, legal_choices):
             self.assertEqual(
@@ -742,6 +782,7 @@ class EngineTest(unittest.TestCase):
         state.players["P1"].hand.add(attacker_card.instance_id)
         state.players["P1"].current_cp = 10
         attacker = drive_unit(state, "P1", attacker_card.instance_id)
+        state.turn_no += 2
 
         before_bp = get_unit_bp(state, attacker)
         declare_attack(state, "P1", attacker.unit_id)
@@ -1318,6 +1359,7 @@ class EngineTest(unittest.TestCase):
 
         self.assertEqual(state.players["P1"].current_cp, 10 - (self.catalog["1-0-047"].cp or 0) + 2)
 
+        state.turn_no += 2
         declare_attack(state, "P1", unit.unit_id)
 
         self.assertEqual(state.players["P1"].hand.cards, [draw_target.instance_id])

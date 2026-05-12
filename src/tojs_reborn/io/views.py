@@ -52,6 +52,7 @@ def unit_public_view(state: GameState, unit_id: str) -> dict[str, Any]:
         "cp": card.cp,
         "level": unit.level,
         "exhausted": unit.exhausted,
+        "can_attack": not unit.exhausted and unit.attack_restricted_turn_no != state.turn_no,
         "current_damage": unit.current_damage,
         "base_bp": base_bp,
         "modified_bp": modified_bp,

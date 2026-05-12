@@ -112,6 +112,7 @@ def snapshot_initial_state(state: GameState) -> dict[str, Any]:
                 "owner_player_id": unit.owner_player_id,
                 "level": unit.level,
                 "exhausted": unit.exhausted,
+                "attack_restricted_turn_no": unit.attack_restricted_turn_no,
                 "current_damage": unit.current_damage,
                 "base_bp_modifiers": list(unit.base_bp_modifiers),
                 "bp_modifiers": list(unit.bp_modifiers),
@@ -160,6 +161,7 @@ def state_from_snapshot(
         unit.unit_id = unit_id
         unit.level = int(item["level"])
         unit.exhausted = bool(item["exhausted"])
+        unit.attack_restricted_turn_no = item.get("attack_restricted_turn_no")
         unit.current_damage = int(item["current_damage"])
         unit.base_bp_modifiers = list(item.get("base_bp_modifiers", []))
         unit.bp_modifiers = list(item.get("bp_modifiers", []))
@@ -189,6 +191,7 @@ def state_digest(state: GameState) -> dict[str, Any]:
             "owner_player_id": unit.owner_player_id,
             "level": unit.level,
             "exhausted": unit.exhausted,
+            "attack_restricted_turn_no": unit.attack_restricted_turn_no,
             "current_damage": unit.current_damage,
             "base_bp_modifiers": list(unit.base_bp_modifiers),
             "bp_modifiers": list(unit.bp_modifiers),

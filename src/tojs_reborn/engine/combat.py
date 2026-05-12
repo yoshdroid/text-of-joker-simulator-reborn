@@ -130,6 +130,8 @@ def _declare_attack(state: GameState, player_id: str, attacker: UnitState):
         raise ValueError(f"not turn player: {player_id}")
     if attacker.exhausted:
         raise ValueError(f"unit already exhausted: {attacker.unit_id}")
+    if attacker.attack_restricted_turn_no == state.turn_no:
+        raise ValueError(f"unit cannot attack on the turn it entered: {attacker.unit_id}")
     action_event = state.event_store.append(
         "action_declared",
         round_no=state.round_no,

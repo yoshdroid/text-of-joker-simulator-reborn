@@ -164,6 +164,8 @@ def _attack_actions(state: GameState, player_id: str) -> list[dict[str, Any]]:
         unit = state.units.get(unit_id)
         if unit is None or unit.exhausted:
             continue
+        if unit.attack_restricted_turn_no == state.turn_no:
+            continue
         card = state.card_catalog[unit.card_no]
         actions.append(
             {
