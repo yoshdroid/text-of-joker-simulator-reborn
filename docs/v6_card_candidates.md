@@ -18,6 +18,7 @@ v6 では、現在の engine が持つ能力処理を横断的に確認しつつ
 | --- | --- | --- |
 | `1-0-001` | ブラッドハウンド | OC 時の対象選択、効果ダメージ、choice target 表示 |
 | `1-0-004` | ランサー | 攻撃時能力、対象選択、BP / damage 表示 |
+| `1-0-002` | ソードファイター | attack 時の自己 BP modifier、turn duration 解除 |
 | `1-0-005` | ヘルハウンド | 相手 trigger zone の非公開情報、ランダム破壊、公開後情報 |
 | `1-0-027` | ミイラくん | PIG 順序、相手手札ランダム discard、replay 再現性 |
 | `1-0-029` | カラスマドウ | PIG 順序、category draw、deck refresh 連携 |

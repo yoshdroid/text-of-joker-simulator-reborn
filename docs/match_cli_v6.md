@@ -15,6 +15,7 @@ python -m tojs_reborn.io.replay_viewer --cards carddata/generated/cards.normaliz
 今回の主な確認用カード:
 
 - `1-0-042` ケロール・キッド: OC 時の永続基本BP低下。
+- `1-0-002` ソードファイター: attack 時に自身の BP をターン終了時まで +2000。
 - `1-0-041` フォクスコマンドー: OC 時の強制 cost choice。
 - `1-0-010` 不知火伍式: attack 時の強制 cost choice。
 - `1-0-047` ダルタニャン: CIP で CP+2、attack 時に 1 draw。

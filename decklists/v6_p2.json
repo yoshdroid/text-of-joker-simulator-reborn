@@ -2,6 +2,7 @@
   "deck_name": "v6_p2_red_yellow_checks",
   "cards": [
     { "card_name": "ブラッドハウンド", "count": 3 },
+    { "card_name": "ソードファイター", "count": 2 },
     { "card_name": "バク・ダルマン", "count": 3 },
     { "card_name": "ランサー", "count": 3 },
     { "card_name": "ヘルハウンド", "count": 2 },

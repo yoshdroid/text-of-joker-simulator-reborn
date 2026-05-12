@@ -35,6 +35,34 @@
         }
       ]
     },
+    "1-0-002": {
+      "card_name": "ソードファイター",
+      "abilities": [
+        {
+          "ability_key": "1-0-002:a1",
+          "ability_name": "アタッカー",
+          "source_text": "このユニットがアタックした時、ターン終了時までこのユニットのＢＰを＋２０００する。",
+          "status": "supported",
+          "timing": "SELF_ATK",
+          "optional": false,
+          "priority": {
+            "band": "unit",
+            "order": "source_only"
+          },
+          "condition": null,
+          "cost_steps": [],
+          "selector": null,
+          "effect_steps": [
+            {
+              "effect": "modify_bp",
+              "target": "source",
+              "amount": 2000,
+              "duration": "turn"
+            }
+          ]
+        }
+      ]
+    },
     "1-0-003": {
       "card_name": "バク・ダルマン",
       "abilities": [

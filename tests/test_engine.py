@@ -338,6 +338,22 @@ class EngineTest(unittest.TestCase):
         self.assertIn("effect_fizzled", [event.type for event in state.event_store.events])
         self.assertNotIn("unit_action_consumed", [event.type for event in state.event_store.events])
 
+    def test_sword_fighter_attack_modifies_own_bp_until_turn_end(self) -> None:
+        state = create_game_state(self.catalog)
+        state.turn_no = 3
+        attacker_card = state.create_card_instance("1-0-002", "P1")
+        attacker = state.create_unit(attacker_card.instance_id)
+        state.players["P1"].battlefield.add(attacker.unit_id)
+        before_bp = get_unit_bp(state, attacker)
+
+        declare_attack(state, "P1", attacker.unit_id)
+
+        self.assertEqual(get_unit_bp(state, attacker), before_bp + 2000)
+        self.assertIn("bp_modified", [event.type for event in state.event_store.events])
+        end_turn(state, "P1")
+        self.assertEqual(get_unit_bp(state, attacker), before_bp)
+        self.assertIn("modifier_expired", [event.type for event in state.event_store.events])
+
     def test_bishamon_cip_destroys_all_other_units_turn_player_first(self) -> None:
         state = create_game_state(self.catalog)
         state.turn_player_id = "P1"
