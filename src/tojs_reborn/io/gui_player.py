@@ -142,12 +142,6 @@ class TkGui:
     def _load_image(self, image_path: str | None) -> Any | None:
         if not image_path:
             return None
-
-    @staticmethod
-    def _event_status(event: Any) -> str:
-        if not isinstance(event, dict):
-            return ""
-        return f" | event#{event.get('event_no')} {event.get('type')}"
         try:
             from PIL import Image, ImageTk
         except ModuleNotFoundError:
@@ -159,6 +153,12 @@ class TkGui:
             return ImageTk.PhotoImage(image)
         except OSError:
             return None
+
+    @staticmethod
+    def _event_status(event: Any) -> str:
+        if not isinstance(event, dict):
+            return ""
+        return f" | event#{event.get('event_no')} {event.get('type')}"
 
 
 def main() -> None:
