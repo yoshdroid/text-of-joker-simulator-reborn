@@ -216,7 +216,14 @@ class MatchRunner:
         first_event_no = len(self.state.event_store.events) + 1
         action_type = action["type"]
         if action_type == "drive_unit":
-            drive_unit(self.state, player_id, action["card_instance_id"], self._choose_optional_ability, self._choose_ability_cost)
+            drive_unit(
+                self.state,
+                player_id,
+                action["card_instance_id"],
+                self._choose_optional_ability,
+                self._choose_ability_cost,
+                evolve_target_unit_id=action.get("evolve_target_unit_id"),
+            )
             self._process_windows_from(first_event_no)
         elif action_type == "set_trigger":
             set_trigger(self.state, player_id, action["card_instance_id"])

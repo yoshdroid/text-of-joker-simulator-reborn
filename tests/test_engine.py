@@ -104,6 +104,12 @@ class EngineTest(unittest.TestCase):
     def setUp(self) -> None:
         self.catalog = build_catalog()
 
+    def _add_battlefield_unit(self, state, player_id: str, card_no: str):
+        card = state.create_card_instance(card_no, player_id)
+        unit = state.create_unit(card.instance_id)
+        state.players[player_id].battlefield.add(unit.unit_id)
+        return card, unit
+
     def test_event_store_assigns_sequential_event_numbers(self) -> None:
         store = EventStore()
 
@@ -260,6 +266,7 @@ class EngineTest(unittest.TestCase):
 
     def test_rairyu_cip_deals_7000_damage_to_exhausted_rival_unit(self) -> None:
         state = create_game_state(self.catalog)
+        _base_card, base_unit = self._add_battlefield_unit(state, "P1", "1-0-021")
         ready_card = state.create_card_instance("1-0-040", "P2")
         exhausted_card = state.create_card_instance("1-0-048", "P2")
         ready_unit = state.create_unit(ready_card.instance_id)
@@ -271,8 +278,10 @@ class EngineTest(unittest.TestCase):
         state.players["P1"].hand.add(entering_card.instance_id)
         state.players["P1"].current_cp = 10
 
-        drive_unit(state, "P1", entering_card.instance_id)
+        rairyu = drive_unit(state, "P1", entering_card.instance_id, evolve_target_unit_id=base_unit.unit_id)
 
+        self.assertIn(rairyu.unit_id, state.players["P1"].battlefield.units)
+        self.assertNotIn(base_unit.unit_id, state.units)
         self.assertIn(exhausted_card.instance_id, state.players["P2"].discard_pile.cards)
         self.assertIn(ready_unit.unit_id, state.units)
         self.assertNotIn(exhausted_unit.unit_id, state.units)
@@ -284,6 +293,7 @@ class EngineTest(unittest.TestCase):
 
     def test_rairyu_cip_fizzles_without_exhausted_rival_unit(self) -> None:
         state = create_game_state(self.catalog)
+        _base_card, base_unit = self._add_battlefield_unit(state, "P1", "1-0-021")
         ready_card = state.create_card_instance("1-0-040", "P2")
         ready_unit = state.create_unit(ready_card.instance_id)
         state.players["P2"].battlefield.add(ready_unit.unit_id)
@@ -291,11 +301,61 @@ class EngineTest(unittest.TestCase):
         state.players["P1"].hand.add(entering_card.instance_id)
         state.players["P1"].current_cp = 10
 
-        drive_unit(state, "P1", entering_card.instance_id)
+        drive_unit(state, "P1", entering_card.instance_id, evolve_target_unit_id=base_unit.unit_id)
 
         self.assertIn("ability_resolved", [event.type for event in state.event_store.events])
         self.assertIn("effect_fizzled", [event.type for event in state.event_store.events])
         self.assertNotIn("damage_dealt", [event.type for event in state.event_store.events])
+
+    def test_evolve_drive_requires_same_color_battlefield_target(self) -> None:
+        state = create_game_state(self.catalog)
+        _green_card, green_unit = self._add_battlefield_unit(state, "P1", "1-0-040")
+        entering_card = state.create_card_instance("1-0-024", "P1")
+        state.players["P1"].hand.add(entering_card.instance_id)
+        state.players["P1"].current_cp = 10
+
+        with self.assertRaisesRegex(ValueError, "requires target unit"):
+            drive_unit(state, "P1", entering_card.instance_id)
+        with self.assertRaisesRegex(ValueError, "same color"):
+            drive_unit(state, "P1", entering_card.instance_id, evolve_target_unit_id=green_unit.unit_id)
+
+    def test_evolve_drive_discards_source_and_inherits_action_state(self) -> None:
+        state = create_game_state(self.catalog)
+        base_card, base_unit = self._add_battlefield_unit(state, "P1", "1-0-021")
+        base_unit.exhausted = True
+        entering_card = state.create_card_instance("1-0-024", "P1")
+        state.players["P1"].hand.add(entering_card.instance_id)
+        state.players["P1"].current_cp = 10
+
+        rairyu = drive_unit(state, "P1", entering_card.instance_id, evolve_target_unit_id=base_unit.unit_id)
+
+        self.assertNotIn(base_unit.unit_id, state.units)
+        self.assertNotIn(base_unit.unit_id, state.players["P1"].battlefield.units)
+        self.assertIn(base_card.instance_id, state.players["P1"].discard_pile.cards)
+        self.assertIn(rairyu.unit_id, state.players["P1"].battlefield.units)
+        self.assertTrue(rairyu.exhausted)
+        self.assertEqual(rairyu.card_no, "1-0-024")
+        self.assertNotIn("unit_destroyed", [event.type for event in state.event_store.events])
+        source_moves = [
+            event
+            for event in state.event_store.events
+            if event.type == "card_moved" and event.payload.get("reason") == "evolve_source"
+        ]
+        self.assertEqual(source_moves[-1].source.card_instance_id, base_card.instance_id)
+
+    def test_level3_evolve_drive_recovers_inherited_exhausted_action_by_overclock(self) -> None:
+        state = create_game_state(self.catalog)
+        _base_card, base_unit = self._add_battlefield_unit(state, "P1", "1-0-021")
+        base_unit.exhausted = True
+        entering_card = state.create_card_instance("1-0-024", "P1", level=3)
+        state.players["P1"].hand.add(entering_card.instance_id)
+        state.players["P1"].current_cp = 10
+
+        rairyu = drive_unit(state, "P1", entering_card.instance_id, evolve_target_unit_id=base_unit.unit_id)
+
+        self.assertFalse(rairyu.exhausted)
+        self.assertIn("unit_overclocked", [event.type for event in state.event_store.events])
+        self.assertIn("unit_action_recovered", [event.type for event in state.event_store.events])
 
     def test_kitsune_attack_consumes_ready_rival_unit_action(self) -> None:
         state = create_game_state(self.catalog)
@@ -357,6 +417,7 @@ class EngineTest(unittest.TestCase):
     def test_bishamon_cip_destroys_all_other_units_turn_player_first(self) -> None:
         state = create_game_state(self.catalog)
         state.turn_player_id = "P1"
+        _base_card, base_unit = self._add_battlefield_unit(state, "P1", "1-0-021")
         p1_first_card = state.create_card_instance("1-0-028", "P1")
         p1_second_card = state.create_card_instance("1-0-027", "P1")
         p2_card = state.create_card_instance("1-0-029", "P2")
@@ -370,7 +431,7 @@ class EngineTest(unittest.TestCase):
         state.players["P1"].hand.add(entering_card.instance_id)
         state.players["P1"].current_cp = 10
 
-        bishamon = drive_unit(state, "P1", entering_card.instance_id)
+        bishamon = drive_unit(state, "P1", entering_card.instance_id, evolve_target_unit_id=base_unit.unit_id)
 
         self.assertIn(bishamon.unit_id, state.units)
         self.assertNotIn(p1_first.unit_id, state.units)
@@ -388,11 +449,12 @@ class EngineTest(unittest.TestCase):
 
     def test_bishamon_cip_fizzles_when_no_other_units(self) -> None:
         state = create_game_state(self.catalog)
+        _base_card, base_unit = self._add_battlefield_unit(state, "P1", "1-0-021")
         entering_card = state.create_card_instance("1-0-026", "P1")
         state.players["P1"].hand.add(entering_card.instance_id)
         state.players["P1"].current_cp = 10
 
-        bishamon = drive_unit(state, "P1", entering_card.instance_id)
+        bishamon = drive_unit(state, "P1", entering_card.instance_id, evolve_target_unit_id=base_unit.unit_id)
 
         self.assertIn(bishamon.unit_id, state.units)
         self.assertIn("ability_resolved", [event.type for event in state.event_store.events])
@@ -1521,6 +1583,25 @@ class EngineTest(unittest.TestCase):
         self.assertIn("override_card", action_types)
         self.assertNotIn("overclock_unit", action_types)
         self.assertIn("pass", action_types)
+
+    def test_legal_actions_include_evolve_drive_only_for_same_color_target(self) -> None:
+        state = create_game_state(self.catalog)
+        state.turn_no = 3
+        state.turn_player_id = "P1"
+        state.players["P1"].current_cp = 10
+        _yellow_card, yellow_unit = self._add_battlefield_unit(state, "P1", "1-0-021")
+        _green_card, green_unit = self._add_battlefield_unit(state, "P1", "1-0-040")
+        evolve_card = state.create_card_instance("1-0-024", "P1")
+        state.players["P1"].hand.add(evolve_card.instance_id)
+
+        actions = [
+            action
+            for action in list_legal_actions(state, "P1")
+            if action["type"] == "drive_unit" and action["card_instance_id"] == evolve_card.instance_id
+        ]
+
+        self.assertEqual([action["evolve_target_unit_id"] for action in actions], [yellow_unit.unit_id])
+        self.assertNotIn(green_unit.unit_id, [action.get("evolve_target_unit_id") for action in actions])
 
     def test_first_player_cannot_attack_on_first_turn(self) -> None:
         state = create_game_state(self.catalog)

@@ -37,8 +37,8 @@ class CardpoolNormalizerTest(unittest.TestCase):
         ability = happaloid["abilities"][0]
 
         self.assertEqual(report["errors"], [])
-        self.assertEqual(report["supported_ability_count"], 36)
-        self.assertEqual(report["status_counts"]["supported"], 36)
+        self.assertEqual(report["supported_ability_count"], 37)
+        self.assertEqual(report["status_counts"]["supported"], 37)
         self.assertGreater(report["timing_counts"]["SELF_CIP"], 0)
         self.assertGreater(report["effect_counts"]["draw_cards"], 0)
         self.assertGreater(report["effect_counts"]["discard_from_hand"], 0)

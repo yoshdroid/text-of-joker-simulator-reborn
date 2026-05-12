@@ -55,7 +55,12 @@ def apply_intent(state: GameState, intent: dict[str, Any]) -> None:
     elif intent_type == "end_turn":
         end_turn(state, player_id)
     elif intent_type == "drive_unit":
-        drive_unit(state, player_id, intent["card_instance_id"])
+        drive_unit(
+            state,
+            player_id,
+            intent["card_instance_id"],
+            evolve_target_unit_id=intent.get("evolve_target_unit_id"),
+        )
     elif intent_type == "set_trigger":
         set_trigger(state, player_id, intent["card_instance_id"])
     elif intent_type == "override_card":

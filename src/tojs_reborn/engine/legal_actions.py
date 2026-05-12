@@ -56,7 +56,7 @@ def _drive_actions(state: GameState, player_id: str) -> list[dict[str, Any]]:
     for card_instance_id in player.hand.cards:
         card_no = state.card_instances[card_instance_id].card_no
         card = state.card_catalog[card_no]
-        if card.category in {"unit", "evolve"} and player.current_cp >= (card.cp or 0):
+        if card.category == "unit" and player.current_cp >= (card.cp or 0):
             actions.append(
                 {
                     "type": "drive_unit",
@@ -71,6 +71,31 @@ def _drive_actions(state: GameState, player_id: str) -> list[dict[str, Any]]:
                     },
                 }
             )
+        elif card.category == "evolve" and player.current_cp >= (card.cp or 0):
+            for unit_id in player.battlefield.units:
+                unit = state.units.get(unit_id)
+                if unit is None:
+                    continue
+                target_card = state.card_catalog[unit.card_no]
+                if target_card.color != card.color:
+                    continue
+                actions.append(
+                    {
+                        "type": "drive_unit",
+                        "card_instance_id": card_instance_id,
+                        "evolve_target_unit_id": unit_id,
+                        "card": card_instance_public_view(state, card_instance_id),
+                        "target_unit": unit_public_view(state, unit_id),
+                        "display": {
+                            "label": f"{state.card_catalog[unit.card_no].name}に{card.name}を重ねて進化召喚する",
+                            "card_no": card_no,
+                            "card_name": card.name,
+                            "category": card.category,
+                            "cp": card.cp,
+                            "target_unit_id": unit_id,
+                        },
+                    }
+                )
     return actions
 
 

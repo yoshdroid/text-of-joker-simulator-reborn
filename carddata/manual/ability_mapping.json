@@ -386,6 +386,32 @@
         }
       ]
     },
+    "1-0-021": {
+      "card_name": "護符剣士ライマル",
+      "abilities": [
+        {
+          "ability_key": "1-0-021:a1",
+          "ability_name": "不屈",
+          "source_text": "",
+          "status": "supported",
+          "timing": "SELF_TURN_END",
+          "optional": false,
+          "priority": {
+            "band": "unit",
+            "order": "source_only"
+          },
+          "condition": null,
+          "cost_steps": [],
+          "selector": null,
+          "effect_steps": [
+            {
+              "effect": "recover_action",
+              "target": "source"
+            }
+          ]
+        }
+      ]
+    },
     "1-0-023": {
       "card_name": "ラグエル",
       "abilities": [

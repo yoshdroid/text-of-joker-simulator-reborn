@@ -75,16 +75,31 @@ selector が 1 つだけの前提を崩し、子プログラムに十分な対�
 - 戻される側の手札が 7 枚以上なら hand ではなく discard pile に移動する。
 - 同名カード同士を重ねて clock up できるのは hand 内だけであり、battlefield unit に素材カードは重ねない。
 
-### 3.2.2 進化ユニットの暫定扱い
+### 3.2.2 進化ユニット
 
 確認用カードは 1-0-024 雷龍 とする。
 
 必要な仕様:
 
-- v6 時点では `evolve` カードも battlefield に出る unit として扱う。
-- 進化元指定、進化元への重ね置き、進化固有の summon rule は未実装。
-- `drive_unit` / legal action は `unit` と `evolve` を場に出せる。
-- 進化固有ルールを扱う段階で、現在の暫定実装を置き換える。
+- `evolve` カードは、自分の battlefield に存在する同色 unit を進化元として指定した場合のみ drive できる。
+- 進化元 unit は battlefield から discard pile へ移動する。破壊ではないため PIG は発動しない。
+- 進化後のカードは battlefield 上では通常の unit として扱う。
+- 進化 unit は登場直後の attack restriction を持たない。
+- 進化 unit は進化元 unit の行動権状態を引き継ぐ。
+- Lv.3 の進化カードを drive した場合は、登場後に OC として扱い、行動済みを引き継いでいても行動権を回復する。
+
+確認用カード:
+
+- `1-0-021` 護符剣士ライマル: 黄の進化元、空白テキスト keyword `不屈` の確認用。
+- `1-0-024` 雷龍: 黄 evolve、CIP で相手行動済 unit へ 7000 damage。
+- `1-0-026` 戦神・毘沙門: 黄 evolve、CIP で自身以外の全 unit を破壊。
+
+keyword `不屈`:
+
+- 空白テキストの ability は keyword として別途定義する。
+- `不屈` は SELF_CIP で unit に付与される永続 keyword とみなす。
+- v6 実装では、永続 keyword モデルがまだ独立していないため、該当カードの `SELF_TURN_END recover_action` として表現する。
+- 将来 keyword layer を作る場合は、SELF_CIP で keyword granted event を記録し、turn end resolver が keyword を参照して回復する形へ移す。
 
 ### 3.3 discard pile / deck search / reveal
 

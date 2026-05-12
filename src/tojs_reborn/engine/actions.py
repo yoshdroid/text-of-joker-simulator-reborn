@@ -123,17 +123,33 @@ def drive_unit(
     card_instance_id: str,
     optional_ability_choice: OptionalAbilityChoice | None = None,
     ability_cost_choice: AbilityCostChoice | None = None,
+    evolve_target_unit_id: str | None = None,
 ) -> UnitState:
     player = state.players[player_id]
     instance = state.card_instances[card_instance_id]
     card = state.card_catalog[instance.card_no]
     if card.category not in {"unit", "evolve"}:
         raise ValueError(f"cannot drive non-unit card: {instance.card_no}")
+    if card.category == "evolve" and evolve_target_unit_id is None:
+        raise ValueError("evolve drive requires target unit")
+    if card.category != "evolve" and evolve_target_unit_id is not None:
+        raise ValueError("non-evolve drive cannot have evolve target")
     if state.turn_player_id != player_id:
         raise ValueError(f"not turn player: {player_id}")
     cost = card.cp or 0
     if player.current_cp < cost:
         raise ValueError(f"not enough CP: required={cost} current={player.current_cp}")
+    inherited_exhausted = False
+    if card.category == "evolve":
+        evolve_target = state.units.get(evolve_target_unit_id or "")
+        if evolve_target is None:
+            raise ValueError(f"evolve target unit not found: {evolve_target_unit_id}")
+        if evolve_target.owner_player_id != player_id:
+            raise ValueError("evolve target must be controlled by owner")
+        target_card = state.card_catalog[evolve_target.card_no]
+        if target_card.color != card.color:
+            raise ValueError("evolve target must have the same color")
+        inherited_exhausted = evolve_target.exhausted
 
     action_event = state.event_store.append(
         "action_declared",
@@ -141,7 +157,11 @@ def drive_unit(
         turn_no=state.turn_no,
         actor_player_id=player_id,
         source=EventSource(card_no=instance.card_no, card_instance_id=card_instance_id),
-        payload={"action": "drive_unit", "card_instance_id": card_instance_id},
+        payload={
+            "action": "drive_unit",
+            "card_instance_id": card_instance_id,
+            "evolve_target_unit_id": evolve_target_unit_id,
+        },
     )
     if cost > 0:
         before_cp = player.current_cp
@@ -161,7 +181,31 @@ def drive_unit(
             },
         )
     player.hand.remove(card_instance_id)
+    if card.category == "evolve":
+        evolve_target = state.units[evolve_target_unit_id or ""]
+        player.battlefield.remove(evolve_target.unit_id)
+        player.discard_pile.add(evolve_target.card_instance_id)
+        state.event_store.append(
+            "card_moved",
+            round_no=state.round_no,
+            turn_no=state.turn_no,
+            actor_player_id=player_id,
+            cause_event_no=action_event.event_no,
+            source=EventSource(
+                card_no=evolve_target.card_no,
+                card_instance_id=evolve_target.card_instance_id,
+                unit_id=evolve_target.unit_id,
+            ),
+            payload={
+                "from_zone": "battlefield",
+                "to_zone": "discard_pile",
+                "owner_player_id": player_id,
+                "reason": "evolve_source",
+            },
+        )
+        del state.units[evolve_target.unit_id]
     unit = state.create_unit(card_instance_id)
+    unit.exhausted = inherited_exhausted
     player.battlefield.add(unit.unit_id)
     move_event = state.event_store.append(
         "card_moved",
