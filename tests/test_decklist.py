@@ -107,6 +107,7 @@ class DecklistTest(unittest.TestCase):
         self.assertIn("1-0-042", deck1.expanded_card_nos())
         self.assertIn("1-0-041", deck1.expanded_card_nos())
         self.assertIn("1-0-003", deck2.expanded_card_nos())
+        self.assertIn("1-0-007", deck2.expanded_card_nos())
         self.assertIn("1-0-010", deck2.expanded_card_nos())
 
     def test_setup_match_state_registers_decks_and_initial_hands(self) -> None:

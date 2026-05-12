@@ -1602,6 +1602,29 @@ class EngineTest(unittest.TestCase):
         damage_events = [event for event in state.event_store.events if event.type == "damage_dealt"]
         self.assertEqual(damage_events[-1].payload["amount"], 4000)
 
+    def test_goliath_level3_drive_deals_one_life_damage_to_rival_player(self) -> None:
+        state = create_game_state(self.catalog)
+        state.turn_player_id = "P1"
+        target = state.create_card_instance("1-0-007", "P1")
+        first_material = state.create_card_instance("1-0-007", "P1")
+        second_material = state.create_card_instance("1-0-007", "P1")
+        state.players["P1"].hand.add(target.instance_id)
+        state.players["P1"].hand.add(first_material.instance_id)
+        state.players["P1"].hand.add(second_material.instance_id)
+        state.players["P1"].current_cp = 10
+
+        override_card(state, "P1", target.instance_id, first_material.instance_id)
+        override_card(state, "P1", target.instance_id, second_material.instance_id)
+        goliath = drive_unit(state, "P1", target.instance_id)
+
+        self.assertEqual(goliath.level, 3)
+        self.assertEqual(state.players["P2"].life, 6)
+        ability_events = [event for event in state.event_store.events if event.type == "ability_resolved"]
+        self.assertEqual(ability_events[-1].source.ability_id, "1-0-007:a1")
+        life_events = [event for event in state.event_store.events if event.type == "life_changed"]
+        self.assertEqual(life_events[-1].payload["amount"], -1)
+        self.assertEqual(life_events[-1].payload["reason"], "effect")
+
     def test_gigamamuto_turn_end_ability_recovers_exhausted_source_unit(self) -> None:
         state = create_game_state(self.catalog)
         state.turn_player_id = "P1"
