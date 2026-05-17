@@ -11,13 +11,16 @@ from tojs_reborn.engine.state import CardDefinition, load_card_catalog
 from .replay_gui_model import build_replay_gui_model
 
 
+DEFAULT_REPLAY_CARD_WIDTH = 36
+
+
 def run_replay_gui_cli(argv: Sequence[str] | None = None) -> int:
     parser = argparse.ArgumentParser(description="Open a seekable replay GUI.")
     parser.add_argument("--replay", required=True)
     parser.add_argument("--cards", default="carddata/generated/cards.normalized.json")
     parser.add_argument("--images", default="carddata/images")
     parser.add_argument("--start-event-no", type=int)
-    parser.add_argument("--card-width", type=int, default=72)
+    parser.add_argument("--card-width", type=int, default=DEFAULT_REPLAY_CARD_WIDTH)
     parser.add_argument("--no-window", action="store_true", help="Print the selected frame summary instead of opening Tk.")
     args = parser.parse_args(argv)
 
@@ -51,26 +54,33 @@ class ReplayTkGui:
         self.image_cache: dict[tuple[str, int], Any] = {}
         self.playing = False
         self._updating_scale = False
+        self._sash_initialized = False
 
         self.root = tk.Tk()
         self.root.title("TOJ Reborn Replay GUI")
         self.root.geometry("1360x860")
         self.root.configure(bg="#171b20")
 
-        self.main = tk.Frame(self.root, bg="#171b20")
+        self.main = tk.PanedWindow(
+            self.root,
+            orient=tk.HORIZONTAL,
+            bg="#171b20",
+            sashwidth=8,
+            sashrelief=tk.RAISED,
+            showhandle=True,
+        )
         self.main.pack(fill=tk.BOTH, expand=True)
         self.board_canvas = tk.Canvas(self.main, bg="#171b20", highlightthickness=0)
-        self.board_canvas.pack(side=tk.LEFT, fill=tk.BOTH, expand=True)
         self.log = tk.Text(
             self.main,
-            width=56,
             bg="#101419",
             fg="#dbe2ea",
             insertbackground="#dbe2ea",
             font=("Consolas", 9),
             wrap=tk.NONE,
         )
-        self.log.pack(side=tk.RIGHT, fill=tk.Y)
+        self.main.add(self.board_canvas, minsize=360, stretch="always")
+        self.main.add(self.log, minsize=360, stretch="always")
 
         self.controls = tk.Frame(self.root, bg="#222831")
         self.controls.pack(fill=tk.X)
@@ -122,6 +132,7 @@ class ReplayTkGui:
     def render(self) -> None:
         if not self.frames:
             return
+        self._initialize_sash()
         frame = self.frames[self.frame_index]
         self.board_canvas.delete("all")
         self._render_board(frame)
@@ -132,6 +143,16 @@ class ReplayTkGui:
         finally:
             self._updating_scale = False
         self.position.configure(text=f"{self.frame_index}/{len(self.frames) - 1}")
+
+    def _initialize_sash(self) -> None:
+        if self._sash_initialized:
+            return
+        width = self.main.winfo_width()
+        if width <= 1:
+            self.root.after(50, self.render)
+            return
+        self.main.sash_place(0, width // 2, 0)
+        self._sash_initialized = True
 
     def _render_board(self, frame: dict[str, Any]) -> None:
         event = frame.get("current_event") or {}

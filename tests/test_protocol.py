@@ -30,7 +30,7 @@ from tojs_reborn.io.player_runner import (
 )
 from tojs_reborn.io.process_player import start_process_player
 from tojs_reborn.io.replay_cli import run_replay_cli
-from tojs_reborn.io.replay_gui import ReplayTkGui, run_replay_gui_cli
+from tojs_reborn.io.replay_gui import DEFAULT_REPLAY_CARD_WIDTH, ReplayTkGui, run_replay_gui_cli
 from tojs_reborn.io.replay_gui_model import build_replay_gui_model
 from tojs_reborn.io.replay_viewer import format_replay_events, run_replay_viewer_cli
 from tojs_reborn.io.views import build_private_view, build_public_state
@@ -1119,6 +1119,7 @@ class ProtocolTest(unittest.TestCase):
         gui.board_canvas = FakeCanvas()
         gui.position = FakePosition()
         gui._updating_scale = False
+        gui._sash_initialized = True
         gui._render_board = lambda _frame: None
         gui._render_log = lambda _frame: None
         gui.scale = FakeScale(gui)
@@ -1126,6 +1127,9 @@ class ProtocolTest(unittest.TestCase):
         gui.render()
 
         self.assertEqual(gui.scale.set_count, 1)
+
+    def test_replay_gui_default_card_width_keeps_tiles_compact(self) -> None:
+        self.assertEqual(DEFAULT_REPLAY_CARD_WIDTH, 36)
 
     def test_json_line_player_uses_valid_action_response(self) -> None:
         legal_actions = [{"type": "pass"}, {"type": "drive_unit", "card_instance_id": "c0001"}]

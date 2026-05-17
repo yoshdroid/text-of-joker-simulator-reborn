@@ -24,7 +24,9 @@ python -m tojs_reborn.io.replay_gui --replay test_output/replay.json --start-eve
 ## 表示内容
 
 - 左側: 両プレイヤーの status と各 zone。
-- 右側: replay event log。現在 frame の event は `>` で示す。
+- 右側: replay event log。現在 frame の event は `>` で示す。初期状態では画面幅の約半分を使い、境界はドラッグで変更できる。
 - 下部: Play / Prev / Next / seek bar。
 
 カード画像が見つからない場合は、card no と card name のテキストタイルで表示する。
+既定のカード幅は 36px とし、以前の 72px 表示に対して面積がおよそ 1/4 になる。
+大きく表示したい場合は `--card-width` で指定できる。
