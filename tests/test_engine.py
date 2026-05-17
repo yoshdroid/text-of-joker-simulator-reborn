@@ -1597,7 +1597,7 @@ class EngineTest(unittest.TestCase):
             self.assertEqual(get_unit_bp(state, blocker), before_bp)
             self.assertIn("modifier_expired", [event.type for event in state.event_store.events])
 
-    def test_turn_end_ability_recovers_exhausted_source_unit(self) -> None:
+    def test_indomitable_keyword_recovers_exhausted_cat_at_turn_end(self) -> None:
         state = create_game_state(self.catalog)
         state.turn_player_id = "P1"
         cat_card = state.create_card_instance("1-0-044", "P1")
@@ -1608,10 +1608,10 @@ class EngineTest(unittest.TestCase):
         end_turn(state, "P1")
 
         self.assertFalse(cat.exhausted)
-        self.assertEqual(
-            [event.source.ability_id for event in state.event_store.events if event.type == "ability_resolved"],
-            ["1-0-044:a1"],
-        )
+        self.assertEqual(cat.keywords, ["indomitable"])
+        recover_events = [event for event in state.event_store.events if event.type == "unit_action_recovered"]
+        self.assertEqual(recover_events[-1].payload["reason"], "keyword")
+        self.assertEqual(recover_events[-1].payload["keyword"], "indomitable")
 
     def test_raimal_indomitable_keyword_recovers_exhausted_source_unit_at_turn_end(self) -> None:
         state = create_game_state(self.catalog)
@@ -1714,7 +1714,7 @@ class EngineTest(unittest.TestCase):
         self.assertEqual(life_events[-1].payload["amount"], -1)
         self.assertEqual(life_events[-1].payload["reason"], "effect")
 
-    def test_gigamamuto_turn_end_ability_recovers_exhausted_source_unit(self) -> None:
+    def test_gigamamuto_indomitable_keyword_recovers_exhausted_source_unit(self) -> None:
         state = create_game_state(self.catalog)
         state.turn_player_id = "P1"
         mammoth_card = state.create_card_instance("1-0-048", "P1")
@@ -1725,10 +1725,10 @@ class EngineTest(unittest.TestCase):
         end_turn(state, "P1")
 
         self.assertFalse(mammoth.exhausted)
-        self.assertEqual(
-            [event.source.ability_id for event in state.event_store.events if event.type == "ability_resolved"],
-            ["1-0-048:a1"],
-        )
+        self.assertEqual(mammoth.keywords, ["indomitable"])
+        recover_events = [event for event in state.event_store.events if event.type == "unit_action_recovered"]
+        self.assertEqual(recover_events[-1].payload["reason"], "keyword")
+        self.assertEqual(recover_events[-1].payload["keyword"], "indomitable")
 
     def test_legal_actions_include_drive_attack_set_trigger_and_override(self) -> None:
         state = create_game_state(self.catalog)
