@@ -50,6 +50,7 @@ class ReplayTkGui:
         self.card_height = int(card_width * 1.42)
         self.image_cache: dict[tuple[str, int], Any] = {}
         self.playing = False
+        self._updating_scale = False
 
         self.root = tk.Tk()
         self.root.title("TOJ Reborn Replay GUI")
@@ -113,6 +114,8 @@ class ReplayTkGui:
         self.render()
 
     def seek(self, value: str) -> None:
+        if self._updating_scale:
+            return
         self.frame_index = max(0, min(len(self.frames) - 1, int(float(value))))
         self.render()
 
@@ -123,7 +126,11 @@ class ReplayTkGui:
         self.board_canvas.delete("all")
         self._render_board(frame)
         self._render_log(frame)
-        self.scale.set(self.frame_index)
+        self._updating_scale = True
+        try:
+            self.scale.set(self.frame_index)
+        finally:
+            self._updating_scale = False
         self.position.configure(text=f"{self.frame_index}/{len(self.frames) - 1}")
 
     def _render_board(self, frame: dict[str, Any]) -> None:

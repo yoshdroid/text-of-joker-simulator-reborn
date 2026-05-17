@@ -30,7 +30,7 @@ from tojs_reborn.io.player_runner import (
 )
 from tojs_reborn.io.process_player import start_process_player
 from tojs_reborn.io.replay_cli import run_replay_cli
-from tojs_reborn.io.replay_gui import run_replay_gui_cli
+from tojs_reborn.io.replay_gui import ReplayTkGui, run_replay_gui_cli
 from tojs_reborn.io.replay_gui_model import build_replay_gui_model
 from tojs_reborn.io.replay_viewer import format_replay_events, run_replay_viewer_cli
 from tojs_reborn.io.views import build_private_view, build_public_state
@@ -1094,6 +1094,38 @@ class ProtocolTest(unittest.TestCase):
         self.assertEqual(summary["current_event"]["type"], "card_moved")
         self.assertEqual(summary["players"][0]["status"]["hand_count"], 0)
         self.assertEqual(summary["players"][0]["status"]["battlefield_count"], 1)
+
+    def test_replay_gui_render_ignores_scale_set_callback_reentry(self) -> None:
+        class FakeCanvas:
+            def delete(self, _tag: str) -> None:
+                return
+
+        class FakePosition:
+            def configure(self, **_kwargs) -> None:
+                return
+
+        class FakeScale:
+            def __init__(self, gui: ReplayTkGui) -> None:
+                self.gui = gui
+                self.set_count = 0
+
+            def set(self, value: int) -> None:
+                self.set_count += 1
+                self.gui.seek(str(value))
+
+        gui = ReplayTkGui.__new__(ReplayTkGui)
+        gui.frames = [{"event_index": 0}]
+        gui.frame_index = 0
+        gui.board_canvas = FakeCanvas()
+        gui.position = FakePosition()
+        gui._updating_scale = False
+        gui._render_board = lambda _frame: None
+        gui._render_log = lambda _frame: None
+        gui.scale = FakeScale(gui)
+
+        gui.render()
+
+        self.assertEqual(gui.scale.set_count, 1)
 
     def test_json_line_player_uses_valid_action_response(self) -> None:
         legal_actions = [{"type": "pass"}, {"type": "drive_unit", "card_instance_id": "c0001"}]
