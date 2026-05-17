@@ -14,7 +14,7 @@ python -m tojs_reborn.io.scenario_cli --cards carddata/generated/cards.normalize
 
 | scenario | 確認対象 | 期待する目視ポイント | v7 |
 | --- | --- | --- | --- |
-| `bishamon_evolve_destroy_all` | 毘沙門 | `1-0-026` 毘沙門を進化ドライブし、自身以外の両プレイヤーのユニットが破壊され捨札へ移動する。 |  |
+| `bishamon_evolve_destroy_all` | 毘沙門 | 左端の `1-0-021` ライマルを元に `1-0-026` 毘沙門を進化ドライブし、進化後も左端に配置する。ミイラくんで P2 手札1枚をランダム破壊し、スカルウォーカーで進化元ライマルを手札へ戻し、カラスマドウで P2 が intercept をサーチドローする。 |  |
 | `bloodhound_level3_damage` | ブラッドハウンド | `1-0-001` ブラッドハウンドを手札オーバーライドで LV3 にしてドライブし、OC の対象選択、4000ダメージ、相手ユニット破壊を確認する。 |  |
 | `display_stand_trigger_draw` | ディスプレイスタンド | `1-0-062` ディスプレイスタンドが owner unit enter 後に強制発動し、デッキトップを1枚引く。 |  |
 | `happaloid_cip_draw` | ハッパロイド | `1-0-040` ハッパロイドをドライブし、CIP でデッキトップのカードが手札に移る。 |  |

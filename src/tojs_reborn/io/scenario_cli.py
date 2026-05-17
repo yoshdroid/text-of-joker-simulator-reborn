@@ -121,16 +121,20 @@ def _scenario_bishamon_evolve_destroy_all(catalog: dict[str, Any]) -> tuple[Game
 
     state = create_game_state(catalog, seed=26)
     state.turn_player_id = "P1"
-    _base_card, base_unit = _add_battlefield_unit(state, "P1", "1-0-021")
-    _p1_first_card, _p1_first = _add_battlefield_unit(state, "P1", "1-0-028")
-    _p1_second_card, _p1_second = _add_battlefield_unit(state, "P1", "1-0-027")
-    _p2_card, _p2_unit = _add_battlefield_unit(state, "P2", "1-0-029")
+    _raimal_card, raimal = _add_battlefield_unit(state, "P1", "1-0-021")
+    _skull_card, _skull = _add_battlefield_unit(state, "P1", "1-0-028")
+    _mummy_card, _mummy = _add_battlefield_unit(state, "P1", "1-0-027")
+    _crow_card, _crow = _add_battlefield_unit(state, "P2", "1-0-029")
+    state.players["P2"].hand.add(state.create_card_instance("1-0-001", "P2").instance_id)
+    state.players["P2"].hand.add(state.create_card_instance("1-0-004", "P2").instance_id)
+    state.players["P2"].deck.cards.append(state.create_card_instance("1-0-040", "P2").instance_id)
+    state.players["P2"].deck.cards.append(state.create_card_instance("1-0-097", "P2").instance_id)
     entering_card = state.create_card_instance("1-0-026", "P1")
     state.players["P1"].hand.add(entering_card.instance_id)
     state.players["P1"].current_cp = 10
     initial_state = snapshot_initial_state(state)
 
-    drive_unit(state, "P1", entering_card.instance_id, evolve_target_unit_id=base_unit.unit_id)
+    drive_unit(state, "P1", entering_card.instance_id, evolve_target_unit_id=raimal.unit_id)
     return state, initial_state
 
 

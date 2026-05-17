@@ -1585,6 +1585,22 @@ class ProtocolTest(unittest.TestCase):
         )
         bishamon = json.loads((output_dir / "bishamon_evolve_destroy_all.json").read_text(encoding="utf-8"))
         self.assertEqual([event["type"] for event in bishamon["events"]].count("unit_destroyed"), 3)
+        final_bishamon = bishamon["final_state"]
+        p1_battlefield = final_bishamon["players"]["P1"]["battlefield"]
+        self.assertEqual(len(p1_battlefield), 1)
+        self.assertEqual(final_bishamon["units"][p1_battlefield[0]]["card_no"], "1-0-026")
+        p1_hand_card_nos = [
+            final_bishamon["card_instances"][card_instance_id]["card_no"]
+            for card_instance_id in final_bishamon["players"]["P1"]["hand"]
+        ]
+        self.assertIn("1-0-021", p1_hand_card_nos)
+        self.assertEqual(len(final_bishamon["players"]["P2"]["hand"]), 2)
+        self.assertEqual(len(final_bishamon["players"]["P2"]["deck"]), 1)
+        p2_hand_card_nos = [
+            final_bishamon["card_instances"][card_instance_id]["card_no"]
+            for card_instance_id in final_bishamon["players"]["P2"]["hand"]
+        ]
+        self.assertIn("1-0-097", p2_hand_card_nos)
         bloodhound = json.loads((output_dir / "bloodhound_level3_damage.json").read_text(encoding="utf-8"))
         damage_events = [event for event in bloodhound["events"] if event["type"] == "damage_dealt"]
         self.assertEqual(damage_events[-1]["payload"].get("amount"), 4000)

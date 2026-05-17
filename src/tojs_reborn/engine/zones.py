@@ -31,6 +31,9 @@ class BattleField:
     def add(self, unit_id: str) -> None:
         self.units.append(unit_id)
 
+    def insert(self, index: int, unit_id: str) -> None:
+        self.units.insert(index, unit_id)
+
     def remove(self, unit_id: str) -> None:
         self.units.remove(unit_id)
 

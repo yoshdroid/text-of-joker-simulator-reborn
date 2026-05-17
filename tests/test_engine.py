@@ -353,6 +353,18 @@ class EngineTest(unittest.TestCase):
         ]
         self.assertEqual(source_moves[-1].source.card_instance_id, base_card.instance_id)
 
+    def test_evolve_drive_places_new_unit_at_source_position(self) -> None:
+        state = create_game_state(self.catalog)
+        _base_card, base_unit = self._add_battlefield_unit(state, "P1", "1-0-021")
+        _second_card, second_unit = self._add_battlefield_unit(state, "P1", "1-0-040")
+        entering_card = state.create_card_instance("1-0-024", "P1")
+        state.players["P1"].hand.add(entering_card.instance_id)
+        state.players["P1"].current_cp = 10
+
+        evolved = drive_unit(state, "P1", entering_card.instance_id, evolve_target_unit_id=base_unit.unit_id)
+
+        self.assertEqual(state.players["P1"].battlefield.units, [evolved.unit_id, second_unit.unit_id])
+
     def test_level3_evolve_drive_recovers_inherited_exhausted_action_by_overclock(self) -> None:
         state = create_game_state(self.catalog)
         _base_card, base_unit = self._add_battlefield_unit(state, "P1", "1-0-021")

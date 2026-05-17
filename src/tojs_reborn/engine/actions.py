@@ -180,6 +180,7 @@ def drive_unit(
     if player.current_cp < cost:
         raise ValueError(f"not enough CP: required={cost} current={player.current_cp}")
     inherited_exhausted = False
+    evolve_target_index: int | None = None
     if card.category == "evolve":
         evolve_target = state.units.get(evolve_target_unit_id or "")
         if evolve_target is None:
@@ -190,6 +191,7 @@ def drive_unit(
         if target_card.color != card.color:
             raise ValueError("evolve target must have the same color")
         inherited_exhausted = evolve_target.exhausted
+        evolve_target_index = player.battlefield.units.index(evolve_target.unit_id)
 
     action_event = state.event_store.append(
         "action_declared",
@@ -248,7 +250,10 @@ def drive_unit(
     unit.exhausted = inherited_exhausted
     if card.category == "unit":
         unit.attack_restricted_turn_no = state.turn_no
-    player.battlefield.add(unit.unit_id)
+    if evolve_target_index is None:
+        player.battlefield.add(unit.unit_id)
+    else:
+        player.battlefield.insert(evolve_target_index, unit.unit_id)
     move_event = state.event_store.append(
         "card_moved",
         round_no=state.round_no,
