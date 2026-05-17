@@ -12,6 +12,7 @@ from tojs_reborn.cardpool.normalizer import normalize_cardpool
 from tojs_reborn.engine.actions import draw_cards, drive_unit, overclock_unit, override_card, set_trigger
 from tojs_reborn.engine.combat import attack_player, attack_unit, declare_attack, destroy_lethal_units
 from tojs_reborn.engine.events import EventStore
+from tojs_reborn.engine.integrity import assert_game_state_integrity
 from tojs_reborn.engine.legal_actions import list_block_actions, list_legal_actions
 from tojs_reborn.engine.replay import (
     build_replay_record,
@@ -1443,6 +1444,17 @@ class EngineTest(unittest.TestCase):
             set_trigger(state, "P1", trigger_cards[-1].instance_id)
         self.assertEqual(turn_cp_for("P1", 99), 7)
         self.assertEqual(turn_cp_for("P2", 1), 3)
+
+    def test_integrity_check_detects_duplicate_card_instance_across_zones(self) -> None:
+        state = create_game_state(self.catalog)
+        card = state.create_card_instance("1-0-001", "P1")
+        state.players["P1"].hand.add(card.instance_id)
+
+        assert_game_state_integrity(state)
+
+        state.players["P1"].deck.cards.append(card.instance_id)
+        with self.assertRaisesRegex(AssertionError, "multiple zones"):
+            assert_game_state_integrity(state)
 
     def test_trigger_intercept_window_lists_public_candidates(self) -> None:
         state = create_game_state(self.catalog)

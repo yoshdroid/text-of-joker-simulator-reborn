@@ -701,6 +701,7 @@ class ProtocolTest(unittest.TestCase):
                     "--replay",
                     str(replay_path),
                     "--verify-replay",
+                    "--check-integrity",
                 ]
             )
 
@@ -765,6 +766,7 @@ class ProtocolTest(unittest.TestCase):
                     "--max-turns",
                     "2",
                     "--verify-replay",
+                    "--check-integrity",
                     "--output-dir",
                     str(output_dir),
                 ]

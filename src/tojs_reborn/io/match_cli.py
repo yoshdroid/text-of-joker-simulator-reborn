@@ -38,6 +38,7 @@ def run_match_cli(argv: Sequence[str] | None = None) -> int:
     parser.add_argument("--event-delay-seconds", type=float, default=0.0)
     parser.add_argument("--replay")
     parser.add_argument("--verify-replay", action="store_true")
+    parser.add_argument("--check-integrity", action="store_true")
     parser.add_argument("--strict-deck-rule", action="store_true")
     args = parser.parse_args(argv)
 
@@ -56,7 +57,7 @@ def run_match_cli(argv: Sequence[str] | None = None) -> int:
         }
         try:
             initial_state = snapshot_match_initial_state(state)
-            runner = MatchRunner(state, players=players)
+            runner = MatchRunner(state, players=players, check_integrity=args.check_integrity)
             result = runner.run_match(
                 max_turns=args.max_turns,
                 max_actions_per_turn=args.max_actions_per_turn,

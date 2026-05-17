@@ -25,6 +25,7 @@ def run_match_batch_cli(argv: Sequence[str] | None = None) -> int:
     parser.add_argument("--max-turns", type=int, default=20)
     parser.add_argument("--max-actions-per-turn", type=int, default=20)
     parser.add_argument("--verify-replay", action="store_true")
+    parser.add_argument("--check-integrity", action="store_true")
     parser.add_argument("--output-dir", default="BattleLogs")
     parser.add_argument("--save-all-replays", action="store_true")
     parser.add_argument("--strict-deck-rule", action="store_true")
@@ -52,6 +53,7 @@ def run_match_batch_cli(argv: Sequence[str] | None = None) -> int:
             max_turns=args.max_turns,
             max_actions_per_turn=args.max_actions_per_turn,
             verify_replay=args.verify_replay,
+            check_integrity=args.check_integrity,
         )
         replay_record = item.pop("_replay_record", None)
         if item["status"] != "ok":
@@ -97,6 +99,7 @@ def _run_one_seed(
     max_turns: int,
     max_actions_per_turn: int,
     verify_replay: bool,
+    check_integrity: bool,
 ) -> dict[str, Any]:
     players = {}
     replay_record: dict[str, Any] | None = None
@@ -111,7 +114,7 @@ def _run_one_seed(
             "P2": _build_player(p2, seed=seed, player_id="P2"),
         }
         initial_state = snapshot_match_initial_state(state)
-        runner = MatchRunner(state, players=players)
+        runner = MatchRunner(state, players=players, check_integrity=check_integrity)
         result = runner.run_match(max_turns=max_turns, max_actions_per_turn=max_actions_per_turn)
         replay_record = runner.build_replay_record(initial_state)
         replay_record["match_result"] = {

@@ -7,6 +7,7 @@ from typing import Protocol
 
 from tojs_reborn.engine.actions import drive_unit, override_card, set_trigger
 from tojs_reborn.engine.combat import declare_attack, declare_block, resolve_unblocked_attack
+from tojs_reborn.engine.integrity import assert_game_state_integrity
 from tojs_reborn.engine.legal_actions import list_block_actions, list_legal_actions
 from tojs_reborn.engine.replay import build_replay_record, snapshot_initial_state, state_from_snapshot
 from tojs_reborn.engine.rules import opponent_id, turn_cp_for
@@ -42,6 +43,7 @@ class MatchRunner:
     state: GameState
     players: dict[str, ActionPlayer]
     record_intents: bool = True
+    check_integrity: bool = False
     intents: list[dict] = field(default_factory=list)
     _active_intent: dict | None = field(default=None, init=False, repr=False)
     _fallback_counts: dict[str, int] = field(default_factory=dict, init=False, repr=False)
@@ -72,6 +74,7 @@ class MatchRunner:
                 "max_fallbacks_per_player": max_fallbacks_per_player,
             },
         )
+        self._assert_integrity()
         self._publish_event_updates(event_delay_seconds=event_delay_seconds)
         if self.record_intents:
             self.intents.append(
@@ -85,6 +88,7 @@ class MatchRunner:
                 }
             )
         self.run_mulligan_phase(max_mulligans=max_mulligans)
+        self._assert_integrity()
         self._publish_event_updates(event_delay_seconds=event_delay_seconds)
         result = self._player_error_result(0)
         if result is not None:
@@ -99,6 +103,7 @@ class MatchRunner:
             draw_count = _turn_draw_count(player_id, player_turn_counts[player_id])
             cp = _turn_cp(player_id, player_turn_counts[player_id])
             start_turn(self.state, player_id, draw_count=draw_count, cp=cp)
+            self._assert_integrity()
             self._publish_event_updates(event_delay_seconds=event_delay_seconds)
             if self.record_intents:
                 self.intents.append(
@@ -126,6 +131,7 @@ class MatchRunner:
                         event_delay_seconds=event_delay_seconds,
                     )
                 self.run_turn_action(player_id)
+                self._assert_integrity()
                 self._publish_event_updates(event_delay_seconds=event_delay_seconds)
                 actions_taken += 1
                 result = self._player_error_result(turns_started)
@@ -483,6 +489,7 @@ class MatchRunner:
                     "error_player_id": result.error_player_id,
                 }
             )
+        self._assert_integrity()
         self._publish_event_updates(event_delay_seconds=event_delay_seconds)
         return result
 
@@ -512,6 +519,10 @@ class MatchRunner:
             self._published_event_count += 1
             if event_delay_seconds > 0:
                 time.sleep(event_delay_seconds)
+
+    def _assert_integrity(self) -> None:
+        if self.check_integrity:
+            assert_game_state_integrity(self.state)
 
 
 @dataclass
