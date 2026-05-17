@@ -35,6 +35,7 @@ def run_scenario_cli(argv: Sequence[str] | None = None) -> int:
     parser.add_argument("--replay", help="Output replay path for a single scenario.")
     parser.add_argument("--verify", action="store_true")
     parser.add_argument("--open-gui", action="store_true")
+    parser.add_argument("--fullscreen", action="store_true", help="Pass --fullscreen to replay_gui when using --open-gui.")
     parser.add_argument("--start-event-no", type=int)
     args = parser.parse_args(argv)
 
@@ -68,6 +69,8 @@ def run_scenario_cli(argv: Sequence[str] | None = None) -> int:
             ]
             if args.start_event_no is not None:
                 gui_args.extend(["--start-event-no", str(args.start_event_no)])
+            if args.fullscreen:
+                gui_args.append("--fullscreen")
             return run_replay_gui_cli(gui_args)
     except (FileNotFoundError, ValueError, AssertionError, KeyError) as exc:
         print(f"scenario failed: {exc}", file=sys.stderr)

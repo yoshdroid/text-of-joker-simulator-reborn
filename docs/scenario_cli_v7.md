@@ -1,6 +1,6 @@
 # scenario CLI v7
 
-個別機能や個別カード効果を GUI で確認するため、固定シナリオから replay を生成する。
+個別機能・個別カード効果を GUI で目視確認するため、固定テストシナリオから replay を生成する CLI。
 
 ## 生成
 
@@ -10,11 +10,13 @@ python -m tojs_reborn.io.scenario_cli --cards carddata/generated/cards.normalize
 
 既定では `test_output/scenarios/` に replay を出力する。
 
-利用できる scenario:
+## テストシナリオ一覧
 
-- `hand_limit_draw`: 手札 3 枚 / 2 枚からターン冒頭ドローを繰り返し、6->7 と 7->7 の手札上限制御を確認する。
-- `new_armor_trigger`: `1-0-061` 新品の鎧が unit enter 後に強制発動し、deck から intercept を探して引く。
-- `lina_discard_choice`: `1-0-031` 見習い魔導士リーナの OC で、捨札選択と `choice_selected` 表示を確認する。
+| scenario | 確認対象 | 期待する目視ポイント | v7 |
+| --- | --- | --- | --- |
+| `hand_limit_draw` | 手札上限 | 自分の手札3枚、相手の手札2枚から開始し、ターン冒頭ドローで 6->7 は増え、7->7 は `draw_skipped` になって手札上限7を超えない。 | ✓ |
+| `new_armor_trigger` | 新品の鎧 | `1-0-061` 新品の鎧が unit enter 後に強制発動し、deck から intercept を探して手札に加える。 | ✓ |
+| `lina_discard_choice` | 見習い魔導士リーナ | `1-0-031` 見習い魔導士リーナを手札オーバーライドで LV1->LV2->LV3 にし、ドライブ時の OC で捨札選択と `choice_selected` を確認する。LV3には追加オーバーライドできない。 | ✓ |
 
 ## GUI で開く
 
@@ -22,6 +24,12 @@ python -m tojs_reborn.io.scenario_cli --cards carddata/generated/cards.normalize
 
 ```powershell
 python -m tojs_reborn.io.scenario_cli --cards carddata/generated/cards.normalized.json --images carddata/images --scenario new_armor_trigger --verify --open-gui
+```
+
+画面サイズに依存しにくい状態で確認を始めたい場合は `--fullscreen` を追加する。
+
+```powershell
+python -m tojs_reborn.io.scenario_cli --cards carddata/generated/cards.normalized.json --images carddata/images --scenario lina_discard_choice --verify --open-gui --fullscreen
 ```
 
 既に生成した replay を開く場合:

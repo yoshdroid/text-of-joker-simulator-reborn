@@ -1513,6 +1513,7 @@ class ProtocolTest(unittest.TestCase):
                     str(output_dir / "images"),
                     "--start-event-no",
                     "1",
+                    "--fullscreen",
                     "--no-window",
                 ]
             )
@@ -1524,6 +1525,27 @@ class ProtocolTest(unittest.TestCase):
         self.assertEqual(summary["current_event"]["type"], "card_moved")
         self.assertEqual(summary["players"][0]["status"]["hand_count"], 0)
         self.assertEqual(summary["players"][0]["status"]["battlefield_count"], 1)
+
+    def test_replay_gui_fullscreen_uses_zoomed_window_state(self) -> None:
+        class FakeRoot:
+            def __init__(self) -> None:
+                self.states: list[str] = []
+                self.attributes_calls: list[tuple[str, bool]] = []
+
+            def state(self, value: str) -> None:
+                self.states.append(value)
+
+            def attributes(self, name: str, value: bool) -> None:
+                self.attributes_calls.append((name, value))
+
+        gui = ReplayTkGui.__new__(ReplayTkGui)
+        gui.root = FakeRoot()
+        gui.tk = type("FakeTk", (), {"TclError": RuntimeError})
+
+        gui._apply_fullscreen(True)
+
+        self.assertEqual(gui.root.states, ["zoomed"])
+        self.assertEqual(gui.root.attributes_calls, [])
 
     def test_scenario_cli_generates_replays_for_gui_inspection(self) -> None:
         output_dir = ROOT / "test_output" / "scenario_cli"

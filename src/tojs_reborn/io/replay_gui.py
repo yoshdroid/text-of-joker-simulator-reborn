@@ -21,6 +21,7 @@ def run_replay_gui_cli(argv: Sequence[str] | None = None) -> int:
     parser.add_argument("--images", default="carddata/images")
     parser.add_argument("--start-event-no", type=int)
     parser.add_argument("--card-width", type=int, default=DEFAULT_REPLAY_CARD_WIDTH)
+    parser.add_argument("--fullscreen", action="store_true", help="Start the Tk window maximized/fullscreen.")
     parser.add_argument("--no-window", action="store_true", help="Print the selected frame summary instead of opening Tk.")
     args = parser.parse_args(argv)
 
@@ -32,7 +33,12 @@ def run_replay_gui_cli(argv: Sequence[str] | None = None) -> int:
         if args.no_window:
             print(json.dumps(_frame_summary(model, frame_index), ensure_ascii=False, separators=(",", ":")))
             return 0
-        ReplayTkGui(model=model, start_frame_index=frame_index, card_width=args.card_width).run()
+        ReplayTkGui(
+            model=model,
+            start_frame_index=frame_index,
+            card_width=args.card_width,
+            fullscreen=args.fullscreen,
+        ).run()
     except (FileNotFoundError, ValueError, KeyError, json.JSONDecodeError) as exc:
         print(f"replay GUI failed: {exc}", file=sys.stderr)
         return 1
@@ -40,7 +46,14 @@ def run_replay_gui_cli(argv: Sequence[str] | None = None) -> int:
 
 
 class ReplayTkGui:
-    def __init__(self, *, model: dict[str, Any], start_frame_index: int, card_width: int) -> None:
+    def __init__(
+        self,
+        *,
+        model: dict[str, Any],
+        start_frame_index: int,
+        card_width: int,
+        fullscreen: bool = False,
+    ) -> None:
         import tkinter as tk
         from tkinter import ttk
 
@@ -60,6 +73,7 @@ class ReplayTkGui:
         self.root.title("TOJ Reborn Replay GUI")
         self.root.geometry("1360x860")
         self.root.configure(bg="#171b20")
+        self._apply_fullscreen(fullscreen)
 
         self.main = tk.PanedWindow(
             self.root,
@@ -99,6 +113,14 @@ class ReplayTkGui:
         self.root.bind_all("<space>", lambda _event: self.toggle_play())
         self.root.bind_all("<Left>", lambda _event: self.go(-1))
         self.root.bind_all("<Right>", lambda _event: self.go(1))
+
+    def _apply_fullscreen(self, enabled: bool) -> None:
+        if not enabled:
+            return
+        try:
+            self.root.state("zoomed")
+        except self.tk.TclError:
+            self.root.attributes("-fullscreen", True)
 
     def run(self) -> None:
         self.render()
