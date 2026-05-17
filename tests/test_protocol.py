@@ -30,6 +30,7 @@ from tojs_reborn.io.player_runner import (
 )
 from tojs_reborn.io.process_player import start_process_player
 from tojs_reborn.io.replay_cli import run_replay_cli
+from tojs_reborn.io.replay_gui import run_replay_gui_cli
 from tojs_reborn.io.replay_gui_model import build_replay_gui_model
 from tojs_reborn.io.replay_viewer import format_replay_events, run_replay_viewer_cli
 from tojs_reborn.io.views import build_private_view, build_public_state
@@ -1018,6 +1019,81 @@ class ProtocolTest(unittest.TestCase):
         self.assertTrue(lines[0].startswith("0001 R1 T1 actor=- cause=- match_started"))
         self.assertTrue(any(line == "     state:" for line in lines))
         self.assertTrue(any("battlefield=[" in line for line in lines))
+
+    def test_replay_gui_cli_no_window_prints_selected_frame_summary(self) -> None:
+        output_dir = ROOT / "test_output" / "replay_gui_cli"
+        output_dir.mkdir(parents=True, exist_ok=True)
+        replay_path = output_dir / "replay.json"
+        replay_path.write_text(
+            json.dumps(
+                {
+                    "seed": 11,
+                    "initial_state": {
+                        "round_no": 1,
+                        "turn_no": 1,
+                        "turn_player_id": "P1",
+                        "card_instances": {
+                            "c0001": {"card_no": "1-0-040", "owner_player_id": "P1", "level": 1}
+                        },
+                        "players": {
+                            "P1": {
+                                "life": 7,
+                                "current_cp": 2,
+                                "deck": [],
+                                "hand": ["c0001"],
+                                "battlefield": [],
+                                "trigger_zone": [],
+                                "discard_pile": [],
+                            }
+                        },
+                        "units": {},
+                    },
+                    "events": [
+                        {
+                            "event_no": 1,
+                            "type": "card_moved",
+                            "round_no": 1,
+                            "turn_no": 1,
+                            "actor_player_id": "P1",
+                            "cause_event_no": None,
+                            "source": {
+                                "card_no": "1-0-040",
+                                "card_instance_id": "c0001",
+                                "unit_id": "u0001",
+                                "ability_id": None,
+                            },
+                            "payload": {"from_zone": "hand", "to_zone": "battlefield", "owner_player_id": "P1"},
+                        }
+                    ],
+                },
+                ensure_ascii=False,
+            ),
+            encoding="utf-8",
+        )
+
+        output = StringIO()
+        with redirect_stdout(output):
+            exit_code = run_replay_gui_cli(
+                [
+                    "--replay",
+                    str(replay_path),
+                    "--cards",
+                    str(output_dir / "missing_cards.json"),
+                    "--images",
+                    str(output_dir / "images"),
+                    "--start-event-no",
+                    "1",
+                    "--no-window",
+                ]
+            )
+
+        self.assertEqual(exit_code, 0)
+        summary = json.loads(output.getvalue())
+        self.assertEqual(summary["seed"], 11)
+        self.assertEqual(summary["frame_index"], 1)
+        self.assertEqual(summary["current_event"]["type"], "card_moved")
+        self.assertEqual(summary["players"][0]["status"]["hand_count"], 0)
+        self.assertEqual(summary["players"][0]["status"]["battlefield_count"], 1)
 
     def test_json_line_player_uses_valid_action_response(self) -> None:
         legal_actions = [{"type": "pass"}, {"type": "drive_unit", "card_instance_id": "c0001"}]
