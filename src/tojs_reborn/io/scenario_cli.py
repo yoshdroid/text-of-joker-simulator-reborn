@@ -22,6 +22,7 @@ ScenarioBuilder = Callable[[dict[str, Any]], tuple[GameState, dict[str, Any]]]
 SCENARIOS: dict[str, ScenarioBuilder] = {
     "bishamon_evolve_destroy_all": lambda catalog: _scenario_bishamon_evolve_destroy_all(catalog),
     "bloodhound_level3_damage": lambda catalog: _scenario_bloodhound_level3_damage(catalog),
+    "display_stand_trigger_draw": lambda catalog: _scenario_display_stand_trigger_draw(catalog),
     "happaloid_cip_draw": lambda catalog: _scenario_happaloid_cip_draw(catalog),
     "hand_limit_draw": lambda catalog: _scenario_hand_limit_draw(catalog),
     "kaim_cip_trigger_search": lambda catalog: _scenario_kaim_cip_trigger_search(catalog),
@@ -130,6 +131,25 @@ def _scenario_bishamon_evolve_destroy_all(catalog: dict[str, Any]) -> tuple[Game
     initial_state = snapshot_initial_state(state)
 
     drive_unit(state, "P1", entering_card.instance_id, evolve_target_unit_id=base_unit.unit_id)
+    return state, initial_state
+
+
+def _scenario_display_stand_trigger_draw(catalog: dict[str, Any]) -> tuple[GameState, dict[str, Any]]:
+    from tojs_reborn.engine.state import create_game_state
+
+    state = create_game_state(catalog, seed=62)
+    state.turn_player_id = "P1"
+    trigger_card = state.create_card_instance("1-0-062", "P1")
+    entering = state.create_card_instance("1-0-001", "P1")
+    draw_target = state.create_card_instance("1-0-004", "P1")
+    state.players["P1"].trigger_zone.add(trigger_card.instance_id)
+    state.players["P1"].hand.add(entering.instance_id)
+    state.players["P1"].deck.cards.append(draw_target.instance_id)
+    state.players["P1"].current_cp = 1
+    initial_state = snapshot_initial_state(state)
+
+    drive_unit(state, "P1", entering.instance_id)
+    process_windows_for_events(state, 1)
     return state, initial_state
 
 
