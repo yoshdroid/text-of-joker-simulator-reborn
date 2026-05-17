@@ -256,7 +256,7 @@ class ReplayTkGui:
         self.board_canvas.create_text(x + 3, y + height - 13, anchor="nw", fill="#f2f5f8", font=("TkDefaultFont", 7), text=text)
 
     def _tile_dimensions(self, zone: str, tile: dict[str, Any]) -> tuple[int, int]:
-        scale = 0.5 if zone in {"deck", "discard_pile"} else 1.0
+        scale = 2.0 if zone == "battlefield" else 0.5 if zone in {"deck", "discard_pile"} else 1.0
         width = max(18, int(self.card_width * scale))
         height = max(26, int(self.card_height * scale))
         if tile.get("kind") == "unit" and tile.get("exhausted"):

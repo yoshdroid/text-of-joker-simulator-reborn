@@ -3,6 +3,7 @@ from __future__ import annotations
 from pathlib import Path
 from typing import Any
 
+from tojs_reborn.engine.rules import card_bp_to_game_bp
 from tojs_reborn.engine.state import CardDefinition
 
 from .gui_view_model import find_card_image
@@ -517,4 +518,4 @@ def _printed_bp(card: CardDefinition | None, level: int) -> int | None:
     if card is None or not card.bp_by_level:
         return None
     index = max(0, min(level, len(card.bp_by_level)) - 1)
-    return int(card.bp_by_level[index])
+    return card_bp_to_game_bp(int(card.bp_by_level[index]))

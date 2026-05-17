@@ -1,7 +1,16 @@
 from __future__ import annotations
 
 from .events import EventSource, FactEvent
-from .rules import MAX_BATTLEFIELD_UNITS, MAX_CP, MAX_HAND_SIZE, MAX_TRIGGER_ZONE_CARDS, get_unit_base_bp, get_unit_bp, opponent_id
+from .rules import (
+    MAX_BATTLEFIELD_UNITS,
+    MAX_CP,
+    MAX_HAND_SIZE,
+    MAX_TRIGGER_ZONE_CARDS,
+    bp_amount_to_game_bp,
+    get_unit_base_bp,
+    get_unit_bp,
+    opponent_id,
+)
 from .resolver import AbilityCostChoice, OptionalAbilityChoice, resolve_unit_entered, resolve_unit_overclocked
 from .state import AbilityDefinition, GameState, UnitState
 
@@ -628,7 +637,7 @@ def _handle_modify_bp(
     if target is None:
         _append_effect_fizzled(state, unit.owner_player_id, ability_event, step, "no_valid_target")
         return
-    amount = int(step.get("amount", 0))
+    amount = bp_amount_to_game_bp(int(step.get("amount", 0)))
     before_bp = get_unit_bp(state, target)
     target.bp_modifiers.append(
         {
@@ -665,7 +674,7 @@ def _handle_modify_base_bp(
     if target is None:
         _append_effect_fizzled(state, unit.owner_player_id, ability_event, step, "no_valid_target")
         return
-    amount = int(step.get("amount", 0))
+    amount = bp_amount_to_game_bp(int(step.get("amount", 0)))
     before_bp = get_unit_base_bp(state, target)
     target.base_bp_modifiers.append(
         {

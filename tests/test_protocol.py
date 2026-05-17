@@ -14,6 +14,7 @@ if SRC_PATH.exists():
     sys.path.insert(0, str(SRC_PATH))
 
 from tests.test_engine import build_catalog, draw_window_card
+from tojs_reborn.engine.rules import card_bp_to_game_bp
 from tojs_reborn.engine.state import AbilityDefinition, CardDefinition, create_game_state
 from tojs_reborn.io.decklist import parse_decklist
 from tojs_reborn.io.gui_player import build_model_from_message, make_response, tile_display_size
@@ -150,9 +151,9 @@ class ProtocolTest(unittest.TestCase):
         self.assertIn("display", legal_choice)
         self.assertEqual(legal_choice["target"]["card_no"], "1-0-001")
         self.assertEqual(legal_choice["target"]["controller"], "P2")
-        self.assertEqual(legal_choice["target"]["base_bp"], self.catalog["1-0-001"].bp_by_level[0])
+        self.assertEqual(legal_choice["target"]["base_bp"], card_bp_to_game_bp(self.catalog["1-0-001"].bp_by_level[0]))
         self.assertEqual(legal_choice["target"]["modified_bp"], 1000)
-        self.assertEqual(legal_choice["target"]["current_bp"], self.catalog["1-0-001"].bp_by_level[0] + 1000)
+        self.assertEqual(legal_choice["target"]["current_bp"], card_bp_to_game_bp(self.catalog["1-0-001"].bp_by_level[0]) + 1000)
         self.assertEqual(legal_choice["target"]["damage"], 200)
 
     def test_public_state_hides_opponent_private_zones(self) -> None:
@@ -1303,7 +1304,7 @@ class ProtocolTest(unittest.TestCase):
         self.assertEqual(after_move_p1["battlefield"][0]["unit_id"], "u0001")
         self.assertEqual(after_move_p1["battlefield"][0]["image_path"], str(image_path))
         self.assertEqual(after_move_p1["battlefield"][0]["level"], 1)
-        self.assertEqual(after_move_p1["battlefield"][0]["current_bp"], self.catalog["1-0-040"].bp_by_level[0])
+        self.assertEqual(after_move_p1["battlefield"][0]["current_bp"], card_bp_to_game_bp(self.catalog["1-0-040"].bp_by_level[0]))
         self.assertFalse(after_move_p1["battlefield"][0]["exhausted"])
         self.assertTrue(after_attack_p1["battlefield"][0]["exhausted"])
         self.assertEqual(model["frames"][1]["current_event"]["description"], "#1 card_moved actor=P1")
@@ -1490,8 +1491,8 @@ class ProtocolTest(unittest.TestCase):
         gui.card_width = 36
         gui.card_height = 51
 
-        self.assertEqual(gui._tile_dimensions("battlefield", {"kind": "unit", "exhausted": False}), (36, 51))
-        self.assertEqual(gui._tile_dimensions("battlefield", {"kind": "unit", "exhausted": True}), (51, 36))
+        self.assertEqual(gui._tile_dimensions("battlefield", {"kind": "unit", "exhausted": False}), (72, 102))
+        self.assertEqual(gui._tile_dimensions("battlefield", {"kind": "unit", "exhausted": True}), (102, 72))
         self.assertEqual(gui._tile_dimensions("deck", {"kind": "card"}), (18, 26))
 
     def test_json_line_player_uses_valid_action_response(self) -> None:

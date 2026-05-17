@@ -120,6 +120,15 @@ class EngineTest(unittest.TestCase):
         self.assertEqual(first.event_no, 1)
         self.assertEqual(second.event_no, 2)
 
+    def test_unit_printed_bp_is_scaled_to_game_bp(self) -> None:
+        state = create_game_state(self.catalog)
+        card = state.create_card_instance("1-0-001", "P1")
+        unit = state.create_unit(card.instance_id)
+
+        self.assertEqual(self.catalog["1-0-001"].bp_by_level[0], 3)
+        self.assertEqual(get_unit_base_bp(state, unit), 3000)
+        self.assertEqual(get_unit_bp(state, unit), 3000)
+
     def test_draw_cards_moves_deck_top_to_hand_and_records_events(self) -> None:
         state = create_game_state(self.catalog)
         card = state.create_card_instance("1-0-001", "P1")
@@ -154,7 +163,7 @@ class EngineTest(unittest.TestCase):
         crow = state.create_unit(crow_card.instance_id)
         state.players["P1"].battlefield.add(crow.unit_id)
         state.turn_player_id = "P1"
-        crow.current_damage = 1
+        crow.current_damage = get_unit_bp(state, crow)
 
         destroy_lethal_units(state, [crow], cause_event_no=0)
 
@@ -1068,8 +1077,8 @@ class EngineTest(unittest.TestCase):
         drive_unit(state, "P1", source_card.instance_id)
         end_turn(state, "P1")
 
-        self.assertEqual(get_unit_base_bp(state, rival_target), before_base_bp - 3)
-        self.assertEqual(get_unit_bp(state, rival_target), before_base_bp - 3)
+        self.assertEqual(get_unit_base_bp(state, rival_target), before_base_bp - 3000)
+        self.assertEqual(get_unit_bp(state, rival_target), before_base_bp - 3000)
         self.assertEqual(rival_target.base_bp_modifiers[-1]["duration"], "permanent")
         self.assertIn("base_bp_modified", [event.type for event in state.event_store.events])
 
@@ -1248,8 +1257,8 @@ class EngineTest(unittest.TestCase):
         mummy = state.create_unit(mummy_card.instance_id)
         crow = state.create_unit(crow_card.instance_id)
         state.players["P1"].battlefield.units.extend([mummy.unit_id, crow.unit_id])
-        mummy.current_damage = 1
-        crow.current_damage = 1
+        mummy.current_damage = get_unit_bp(state, mummy)
+        crow.current_damage = get_unit_bp(state, crow)
         p2_hand = state.create_card_instance("1-0-001", "P2")
         p1_intercept = state.create_card_instance("1-0-065", "P1")
         state.players["P2"].hand.add(p2_hand.instance_id)
@@ -1330,7 +1339,7 @@ class EngineTest(unittest.TestCase):
         hand_cards = [state.create_card_instance("1-0-001", "P2") for _ in range(3)]
         for card in hand_cards:
             state.players["P2"].hand.add(card.instance_id)
-        mummy.current_damage = 1
+        mummy.current_damage = get_unit_bp(state, mummy)
 
         destroy_lethal_units(state, [mummy], cause_event_no=0)
 
