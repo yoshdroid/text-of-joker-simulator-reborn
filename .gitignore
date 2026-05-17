@@ -1,6 +1,7 @@
 carddata/generated/
 carddata/images/
 test_output/
+BattleLogs/
 tmp*/
 __pycache__/
 *.py[cod]

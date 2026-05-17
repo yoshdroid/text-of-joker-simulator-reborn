@@ -20,6 +20,7 @@ from tojs_reborn.io.gui_player import build_model_from_message, make_response, t
 from tojs_reborn.io.gui_view_model import build_gui_view_model, find_card_image
 from tojs_reborn.io.match_runner import FirstLegalPlayer, MatchRunner, replay_match_record, snapshot_match_initial_state
 from tojs_reborn.io.match_cli import run_match_cli
+from tojs_reborn.io.match_batch_cli import parse_seed_spec, run_match_batch_cli
 from tojs_reborn.io.match_setup import MatchSetupConfig, setup_match_state
 from tojs_reborn.io.player_runner import (
     JsonLinePlayer,
@@ -739,6 +740,42 @@ class ProtocolTest(unittest.TestCase):
         replay = json.loads(replay_path.read_text(encoding="utf-8"))
         self.assertEqual(replay["seed"], 7)
         self.assertIn(replay["match_result"]["reason"], {"max_turns", "life_zero", "max_actions_per_turn"})
+
+    def test_match_batch_cli_runs_multiple_seeds_with_replay_verification(self) -> None:
+        self.assertEqual(parse_seed_spec("1,3-5"), [1, 3, 4, 5])
+        output_dir = ROOT / "test_output" / "match_batch"
+        output_dir.mkdir(parents=True, exist_ok=True)
+        stdout = StringIO()
+
+        with redirect_stdout(stdout):
+            exit_code = run_match_batch_cli(
+                [
+                    "--cards",
+                    "carddata/generated/cards.normalized.json",
+                    "--deck1",
+                    "decklists/sample_p1.json",
+                    "--deck2",
+                    "decklists/sample_p2.json",
+                    "--p1",
+                    "sample:random",
+                    "--p2",
+                    "sample:aggressive",
+                    "--seeds",
+                    "1-2",
+                    "--max-turns",
+                    "2",
+                    "--verify-replay",
+                    "--output-dir",
+                    str(output_dir),
+                ]
+            )
+
+        self.assertEqual(exit_code, 0)
+        lines = [json.loads(line) for line in stdout.getvalue().splitlines()]
+        self.assertEqual([line["seed"] for line in lines], [1, 2])
+        self.assertEqual({line["status"] for line in lines}, {"ok"})
+        self.assertTrue(all("last_event" in line for line in lines))
+        self.assertFalse(any(output_dir.glob("replay_seed_*.json")))
 
     def test_replay_cli_verifies_match_cli_replay(self) -> None:
         output_dir = ROOT / "test_output" / "replay_cli"
