@@ -53,6 +53,7 @@ class UnitState:
     base_bp_modifiers: list[dict[str, Any]] = field(default_factory=list)
     bp_modifiers: list[dict[str, Any]] = field(default_factory=list)
     stacked_card_instance_ids: list[str] = field(default_factory=list)
+    keywords: list[str] = field(default_factory=list)
 
 
 @dataclass
@@ -103,6 +104,7 @@ class GameState:
             owner_player_id=instance.owner_player_id,
             level=instance.level,
             stacked_card_instance_ids=[card_instance_id],
+            keywords=_printed_keywords(self.card_catalog[instance.card_no]),
         )
         self.next_unit_no += 1
         self.units[unit.unit_id] = unit
@@ -149,3 +151,11 @@ def create_game_state(card_catalog: dict[str, CardDefinition], *, seed: int = 0)
         rng=random.Random(seed),
     )
     return state
+
+
+def _printed_keywords(card: CardDefinition) -> list[str]:
+    keywords = []
+    for ability in card.abilities:
+        if ability.name == "不屈" and "indomitable" not in keywords:
+            keywords.append("indomitable")
+    return keywords

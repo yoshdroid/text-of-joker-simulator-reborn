@@ -133,6 +133,7 @@ def resolve_turn_ended(
 ) -> None:
     for unit_id in list(state.players[player_id].battlefield.units):
         if unit_id in state.units:
+            _resolve_turn_end_keywords(state, state.units[unit_id], cause_event)
             _resolve_supported_abilities(
                 state,
                 state.units[unit_id],
@@ -176,6 +177,8 @@ def _resolve_supported_abilities(
     for ability in card.abilities:
         if ability.status != "supported" or ability.timing != timing:
             continue
+        if timing == "SELF_TURN_END" and ability.name == "不屈" and "indomitable" in ability_source_unit.keywords:
+            continue
         if not _condition_matches(state, ability_source_unit, ability):
             continue
         if ability.optional and not _choose_optional_ability(
@@ -212,6 +215,21 @@ def _resolve_supported_abilities(
             handler = effect_handlers.get(str(step.get("effect")))
             if handler is not None:
                 handler(state, ability_source_unit, ability, ability_event, step)
+
+
+def _resolve_turn_end_keywords(state: GameState, unit: UnitState, cause_event: FactEvent) -> None:
+    if "indomitable" not in unit.keywords or not unit.exhausted:
+        return
+    unit.exhausted = False
+    state.event_store.append(
+        "unit_action_recovered",
+        round_no=state.round_no,
+        turn_no=state.turn_no,
+        actor_player_id=unit.owner_player_id,
+        cause_event_no=cause_event.event_no,
+        source=EventSource(card_no=unit.card_no, card_instance_id=unit.card_instance_id, unit_id=unit.unit_id),
+        payload={"unit_id": unit.unit_id, "reason": "keyword", "keyword": "indomitable"},
+    )
 
 
 def _choose_optional_ability(

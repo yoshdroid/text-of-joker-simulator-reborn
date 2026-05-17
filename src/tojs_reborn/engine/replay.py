@@ -119,6 +119,7 @@ def snapshot_initial_state(state: GameState) -> dict[str, Any]:
                 "base_bp_modifiers": list(unit.base_bp_modifiers),
                 "bp_modifiers": list(unit.bp_modifiers),
                 "stacked_card_instance_ids": list(unit.stacked_card_instance_ids),
+                "keywords": list(unit.keywords),
             }
             for unit_id, unit in sorted(state.units.items())
         },
@@ -168,6 +169,7 @@ def state_from_snapshot(
         unit.base_bp_modifiers = list(item.get("base_bp_modifiers", []))
         unit.bp_modifiers = list(item.get("bp_modifiers", []))
         unit.stacked_card_instance_ids = list(item.get("stacked_card_instance_ids", [item["card_instance_id"]]))
+        unit.keywords = list(item.get("keywords", []))
         state.units[unit_id] = unit
     state.next_unit_no = int(snapshot["next_unit_no"])
     return state
@@ -198,6 +200,7 @@ def state_digest(state: GameState) -> dict[str, Any]:
             "base_bp_modifiers": list(unit.base_bp_modifiers),
             "bp_modifiers": list(unit.bp_modifiers),
             "stacked_card_instance_ids": list(unit.stacked_card_instance_ids),
+            "keywords": list(unit.keywords),
         }
         for unit_id, unit in sorted(state.units.items())
     }

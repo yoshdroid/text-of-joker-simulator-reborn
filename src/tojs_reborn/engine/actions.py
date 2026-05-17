@@ -241,6 +241,16 @@ def drive_unit(
         ),
         payload={"owner_player_id": player_id},
     )
+    for keyword in unit.keywords:
+        state.event_store.append(
+            "keyword_granted",
+            round_no=state.round_no,
+            turn_no=state.turn_no,
+            actor_player_id=player_id,
+            cause_event_no=enter_event.event_no,
+            source=EventSource(card_no=unit.card_no, card_instance_id=card_instance_id, unit_id=unit.unit_id),
+            payload={"unit_id": unit.unit_id, "keyword": keyword, "duration": "permanent"},
+        )
     resolve_unit_entered(state, unit, enter_event, get_effect_handlers(), optional_ability_choice, ability_cost_choice)
     if unit.level >= 3:
         _resolve_drive_overclock(state, unit, enter_event.event_no, optional_ability_choice, ability_cost_choice)

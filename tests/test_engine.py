@@ -1622,10 +1622,24 @@ class EngineTest(unittest.TestCase):
         end_turn(state, "P1")
 
         self.assertFalse(raimal.exhausted)
-        self.assertEqual(
-            [event.source.ability_id for event in state.event_store.events if event.type == "ability_resolved"],
-            ["1-0-021:a1"],
-        )
+        self.assertEqual(raimal.keywords, ["indomitable"])
+        recover_events = [event for event in state.event_store.events if event.type == "unit_action_recovered"]
+        self.assertEqual(recover_events[-1].payload["reason"], "keyword")
+        self.assertEqual(recover_events[-1].payload["keyword"], "indomitable")
+        self.assertNotIn("1-0-021:a1", [event.source.ability_id for event in state.event_store.events if event.type == "ability_resolved"])
+
+    def test_indomitable_keyword_is_granted_when_unit_enters(self) -> None:
+        state = create_game_state(self.catalog)
+        state.turn_player_id = "P1"
+        raimal_card = state.create_card_instance("1-0-021", "P1")
+        state.players["P1"].hand.add(raimal_card.instance_id)
+        state.players["P1"].current_cp = 10
+
+        raimal = drive_unit(state, "P1", raimal_card.instance_id)
+
+        self.assertEqual(raimal.keywords, ["indomitable"])
+        keyword_events = [event for event in state.event_store.events if event.type == "keyword_granted"]
+        self.assertEqual(keyword_events[-1].payload["keyword"], "indomitable")
 
     def test_hand_override_levels_card_and_level3_drive_resolves_self_oc_after_cip(self) -> None:
         state = create_game_state(self.catalog)
