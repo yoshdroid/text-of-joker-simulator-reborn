@@ -22,6 +22,7 @@ python -m tojs_reborn.io.scenario_cli --cards carddata/generated/cards.normalize
 | `new_armor_trigger` | 新品の鎧 | `1-0-061` 新品の鎧が unit enter 後に強制発動し、deck から intercept を探して手札に加える。 | ✓ |
 | `rairyu_evolve_damage` | 雷龍 | `1-0-024` 雷龍を黄ユニットに進化ドライブし、進化元が捨札へ移動し、疲弊した相手ユニットへ7000ダメージを与えて破壊する。 |  |
 | `lina_discard_choice` | 見習い魔導士リーナ | `1-0-031` 見習い魔導士リーナを手札オーバーライドで LV1->LV2->LV3 にし、ドライブ時の OC で捨札選択と `choice_selected` を確認する。LV3には追加オーバーライドできない。 | ✓ |
+| `viper_discard_unit_recover` | バイパー | `1-0-033` バイパーをドライブし、捨札の unit だけが候補になって同じカードインスタンスが手札へ戻る。 |  |
 
 ## GUI で開く
 

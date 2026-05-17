@@ -1579,6 +1579,7 @@ class ProtocolTest(unittest.TestCase):
                 "lina_discard_choice",
                 "new_armor_trigger",
                 "rairyu_evolve_damage",
+                "viper_discard_unit_recover",
             },
         )
         bishamon = json.loads((output_dir / "bishamon_evolve_destroy_all.json").read_text(encoding="utf-8"))
@@ -1607,6 +1608,10 @@ class ProtocolTest(unittest.TestCase):
         self.assertEqual([event for event in rairyu["events"] if event["type"] == "damage_dealt"][-1]["payload"].get("amount"), 7000)
         lina = json.loads((output_dir / "lina_discard_choice.json").read_text(encoding="utf-8"))
         self.assertIn("choice_selected", [event["type"] for event in lina["events"]])
+        viper = json.loads((output_dir / "viper_discard_unit_recover.json").read_text(encoding="utf-8"))
+        random_events = [event for event in viper["events"] if event["type"] == "random_resolved"]
+        self.assertEqual(random_events[-1]["payload"].get("kind"), "discard_pile_card")
+        self.assertEqual(random_events[-1]["payload"].get("category"), "unit")
 
     def test_replay_gui_render_ignores_scale_set_callback_reentry(self) -> None:
         class FakeCanvas:

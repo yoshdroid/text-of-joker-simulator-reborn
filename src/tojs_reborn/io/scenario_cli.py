@@ -28,6 +28,7 @@ SCENARIOS: dict[str, ScenarioBuilder] = {
     "new_armor_trigger": lambda catalog: _scenario_new_armor_trigger(catalog),
     "lina_discard_choice": lambda catalog: _scenario_lina_discard_choice(catalog),
     "rairyu_evolve_damage": lambda catalog: _scenario_rairyu_evolve_damage(catalog),
+    "viper_discard_unit_recover": lambda catalog: _scenario_viper_discard_unit_recover(catalog),
 }
 
 
@@ -256,6 +257,24 @@ def _scenario_lina_discard_choice(catalog: dict[str, Any]) -> tuple[GameState, d
     override_card(state, "P1", lina.instance_id, first_material.instance_id)
     override_card(state, "P1", lina.instance_id, second_material.instance_id)
     drive_unit(state, "P1", lina.instance_id)
+    return state, initial_state
+
+
+def _scenario_viper_discard_unit_recover(catalog: dict[str, Any]) -> tuple[GameState, dict[str, Any]]:
+    from tojs_reborn.engine.state import create_game_state
+
+    state = create_game_state(catalog, seed=33)
+    state.turn_player_id = "P1"
+    viper = state.create_card_instance("1-0-033", "P1")
+    discarded_unit = state.create_card_instance("1-0-001", "P1")
+    discarded_trigger = state.create_card_instance("1-0-061", "P1")
+    state.players["P1"].hand.add(viper.instance_id)
+    state.players["P1"].discard_pile.add(discarded_trigger.instance_id)
+    state.players["P1"].discard_pile.add(discarded_unit.instance_id)
+    state.players["P1"].current_cp = 10
+    initial_state = snapshot_initial_state(state)
+
+    drive_unit(state, "P1", viper.instance_id)
     return state, initial_state
 
 
