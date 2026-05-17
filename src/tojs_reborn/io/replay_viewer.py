@@ -88,13 +88,7 @@ def format_replay_actions(
             response = choice.get("response")
             if not isinstance(legal_actions, list) or not isinstance(response, dict):
                 continue
-            legal_summary = [_format_action_summary(action, catalog, instance_lookup) for action in legal_actions]
-            selected_summary = _format_action_summary(response, catalog, instance_lookup)
-            lines.append(
-                "     "
-                f"action intent={intent_index} choice={choice_index} player={choice.get('player_id')} "
-                f"role={choice.get('role')} selected={selected_summary} legal=[{', '.join(legal_summary)}]"
-            )
+            lines.append(_format_replay_action_choice(intent_index, choice_index, choice, catalog, instance_lookup))
     return lines
 
 
@@ -428,6 +422,28 @@ def _format_action_summary(
         if isinstance(value, str):
             parts.append(f"{key}={value}")
     return " ".join(parts)
+
+
+def _format_replay_action_choice(
+    intent_index: int,
+    choice_index: int,
+    choice: dict[str, Any],
+    card_catalog: dict[str, CardDefinition],
+    instance_card_nos: dict[str, str],
+) -> str:
+    legal_actions = choice.get("legal_actions") or []
+    response = choice.get("response") or {}
+    legal_summary = [
+        _format_action_summary(action, card_catalog, instance_card_nos)
+        for action in legal_actions
+        if isinstance(action, dict)
+    ]
+    selected_summary = _format_action_summary(response, card_catalog, instance_card_nos)
+    return (
+        "     "
+        f"action intent={intent_index} choice={choice_index} player={choice.get('player_id')} "
+        f"role={choice.get('role')} selected={selected_summary} legal=[{', '.join(legal_summary)}]"
+    )
 
 
 def _replace_card_instance_ids(

@@ -6,7 +6,13 @@ from typing import Any
 from tojs_reborn.engine.state import CardDefinition
 
 from .gui_view_model import find_card_image
-from .replay_viewer import ReplayViewerState, _collect_card_instances, format_event_line, format_replay_actions
+from .replay_viewer import (
+    ReplayViewerState,
+    _collect_card_instances,
+    _format_replay_action_choice,
+    format_event_line,
+    format_replay_actions,
+)
 
 
 def build_replay_gui_model(
@@ -33,6 +39,12 @@ def build_replay_gui_model(
         for event in events
     ]
     action_lines = format_replay_actions(replay_record, card_catalog=catalog, instance_card_nos=instance_card_nos)
+    action_lines_by_event_index = _action_lines_by_event_index(
+        replay_record,
+        events,
+        card_catalog=catalog,
+        instance_card_nos=instance_card_nos,
+    )
     frames = [
         _frame(
             replay_record,
@@ -69,6 +81,7 @@ def build_replay_gui_model(
         "match_result": replay_record.get("match_result") or _match_result_from_events(events),
         "event_lines": event_lines,
         "action_lines": action_lines,
+        "action_lines_by_event_index": action_lines_by_event_index,
         "frames": frames,
     }
 
@@ -278,6 +291,96 @@ def _match_result_from_events(events: list[dict[str, Any]]) -> dict[str, Any] | 
         if event.get("type") == "match_ended":
             return event.get("payload") or {}
     return None
+
+
+def _action_lines_by_event_index(
+    replay_record: dict[str, Any],
+    events: list[dict[str, Any]],
+    *,
+    card_catalog: dict[str, CardDefinition],
+    instance_card_nos: dict[str, str],
+) -> list[list[str]]:
+    result: list[list[str]] = [[] for _ in events]
+    choices = _recorded_action_choices(replay_record)
+    used_choice_indexes: set[int] = set()
+    for event_index, event in enumerate(events):
+        expected_action = _event_selected_action_type(event)
+        if expected_action is None:
+            continue
+        choice_index = _find_matching_choice_index(event, expected_action, choices, used_choice_indexes)
+        if choice_index is None:
+            continue
+        used_choice_indexes.add(choice_index)
+        intent_index, inner_choice_index, choice = choices[choice_index]
+        result[event_index].append(
+            _format_replay_action_choice(intent_index, inner_choice_index, choice, card_catalog, instance_card_nos)
+        )
+    return result
+
+
+def _recorded_action_choices(replay_record: dict[str, Any]) -> list[tuple[int, int, dict[str, Any]]]:
+    result: list[tuple[int, int, dict[str, Any]]] = []
+    for intent_index, intent in enumerate(replay_record.get("intents") or []):
+        for choice_index, choice in enumerate(intent.get("choices") or []):
+            if isinstance(choice, dict) and isinstance(choice.get("response"), dict):
+                result.append((intent_index, choice_index, choice))
+    return result
+
+
+def _event_selected_action_type(event: dict[str, Any]) -> str | None:
+    payload = event.get("payload") or {}
+    event_type = event.get("type")
+    if event_type == "action_declared":
+        action_type = payload.get("action")
+        return str(action_type) if action_type is not None else None
+    if event_type == "block_declared":
+        return "block"
+    if event_type == "intercept_activated":
+        return "activate_intercept"
+    if event_type == "intercept_passed":
+        return "pass_window"
+    return None
+
+
+def _find_matching_choice_index(
+    event: dict[str, Any],
+    expected_action: str,
+    choices: list[tuple[int, int, dict[str, Any]]],
+    used_choice_indexes: set[int],
+) -> int | None:
+    actor = event.get("actor_player_id")
+    payload = event.get("payload") or {}
+    source = event.get("source") or {}
+    for require_actor in (True, False):
+        for index, (_intent_index, _choice_index, choice) in enumerate(choices):
+            if index in used_choice_indexes:
+                continue
+            if require_actor and actor is not None and choice.get("player_id") != actor:
+                continue
+            response = choice.get("response")
+            if not isinstance(response, dict) or response.get("type") != expected_action:
+                continue
+            if _action_response_matches_event(response, payload, source):
+                return index
+    return None
+
+
+def _action_response_matches_event(response: dict[str, Any], payload: dict[str, Any], source: dict[str, Any]) -> bool:
+    for key in (
+        "card_instance_id",
+        "target_card_instance_id",
+        "material_card_instance_id",
+        "attacker_unit_id",
+        "blocker_unit_id",
+        "evolve_target_unit_id",
+    ):
+        expected = response.get(key)
+        if expected is None:
+            continue
+        if payload.get(key) == expected or source.get(key) == expected:
+            continue
+        return False
+    return True
 
 
 def _collect_card_instance_levels(replay_record: dict[str, Any]) -> dict[str, int]:

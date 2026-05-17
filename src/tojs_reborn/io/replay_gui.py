@@ -267,17 +267,21 @@ class ReplayTkGui:
         self.log.configure(state=self.tk.NORMAL)
         self.log.delete("1.0", self.tk.END)
         current_index = int(frame.get("event_index", -1))
-        action_lines = self.model.get("action_lines") or []
-        for line in action_lines:
-            self.log.insert(self.tk.END, line + "\n", "action")
-        if action_lines:
-            self.log.insert(self.tk.END, "\n")
+        action_lines_by_event_index = self.model.get("action_lines_by_event_index") or []
+        current_log_line = 1
+        line_no = 1
         for index, line in enumerate(self.model.get("event_lines") or []):
+            if index == current_index:
+                current_log_line = line_no
+            for action_line in _action_lines_for_index(action_lines_by_event_index, index):
+                self.log.insert(self.tk.END, action_line + "\n", "action")
+                line_no += 1
             prefix = "> " if index == current_index else "  "
             self.log.insert(self.tk.END, prefix + line + "\n")
+            line_no += 1
         self.log.configure(state=self.tk.DISABLED)
         if current_index >= 0:
-            self.log.see(f"{len(action_lines) + (1 if action_lines else 0) + current_index + 1}.0")
+            self.log.see(f"{current_log_line}.0")
 
     def _load_image(self, image_path: str | None, width: int, height: int, *, tapped: bool = False) -> Any | None:
         if not image_path:
@@ -333,6 +337,15 @@ def _frame_summary(model: dict[str, Any], frame_index: int) -> dict[str, Any]:
         ],
         "match_result": model.get("match_result"),
     }
+
+
+def _action_lines_for_index(action_lines_by_event_index: Any, index: int) -> list[str]:
+    if not isinstance(action_lines_by_event_index, list) or index >= len(action_lines_by_event_index):
+        return []
+    lines = action_lines_by_event_index[index]
+    if not isinstance(lines, list):
+        return []
+    return [line for line in lines if isinstance(line, str)]
 
 
 def main() -> None:

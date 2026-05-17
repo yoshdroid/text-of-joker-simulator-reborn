@@ -1019,6 +1019,118 @@ class ProtocolTest(unittest.TestCase):
         self.assertIn("selected=drive_unit", lines[0])
         self.assertIn(self.catalog["1-0-040"].name, lines[0])
 
+    def test_replay_gui_model_places_action_lines_on_matching_events(self) -> None:
+        replay_record = {
+            "initial_state": {
+                "round_no": 1,
+                "turn_no": 1,
+                "turn_player_id": "P1",
+                "card_instances": {
+                    "c0001": {"card_no": "1-0-040", "owner_player_id": "P1", "level": 1},
+                    "c0002": {"card_no": "1-0-001", "owner_player_id": "P1", "level": 1},
+                    "c0003": {"card_no": "1-0-004", "owner_player_id": "P1", "level": 1},
+                },
+                "players": {},
+                "units": {},
+            },
+            "intents": [
+                {
+                    "type": "match_turn_action",
+                    "player_id": "P1",
+                    "choices": [
+                        {
+                            "player_id": "P1",
+                            "role": "turn_action",
+                            "legal_actions": [{"type": "drive_unit", "card_instance_id": "c0001"}],
+                            "response": {"type": "drive_unit", "card_instance_id": "c0001"},
+                        },
+                        {
+                            "player_id": "P1",
+                            "role": "turn_action",
+                            "legal_actions": [{"type": "set_trigger", "card_instance_id": "c0002"}],
+                            "response": {"type": "set_trigger", "card_instance_id": "c0002"},
+                        },
+                        {
+                            "player_id": "P1",
+                            "role": "turn_action",
+                            "legal_actions": [
+                                {
+                                    "type": "override_card",
+                                    "target_card_instance_id": "c0002",
+                                    "material_card_instance_id": "c0003",
+                                }
+                            ],
+                            "response": {
+                                "type": "override_card",
+                                "target_card_instance_id": "c0002",
+                                "material_card_instance_id": "c0003",
+                            },
+                        },
+                        {
+                            "player_id": "P1",
+                            "role": "turn_action",
+                            "legal_actions": [{"type": "attack", "attacker_unit_id": "u0001"}],
+                            "response": {"type": "attack", "attacker_unit_id": "u0001"},
+                        },
+                    ],
+                }
+            ],
+            "events": [
+                {
+                    "event_no": 1,
+                    "type": "action_declared",
+                    "round_no": 1,
+                    "turn_no": 1,
+                    "actor_player_id": "P1",
+                    "cause_event_no": None,
+                    "source": {"card_no": "1-0-040", "card_instance_id": "c0001", "unit_id": None, "ability_id": None},
+                    "payload": {"action": "drive_unit", "card_instance_id": "c0001"},
+                },
+                {
+                    "event_no": 2,
+                    "type": "action_declared",
+                    "round_no": 1,
+                    "turn_no": 1,
+                    "actor_player_id": "P1",
+                    "cause_event_no": None,
+                    "source": {"card_no": "1-0-001", "card_instance_id": "c0002", "unit_id": None, "ability_id": None},
+                    "payload": {"action": "set_trigger", "card_instance_id": "c0002"},
+                },
+                {
+                    "event_no": 3,
+                    "type": "action_declared",
+                    "round_no": 1,
+                    "turn_no": 1,
+                    "actor_player_id": "P1",
+                    "cause_event_no": None,
+                    "source": {"card_no": "1-0-001", "card_instance_id": "c0002", "unit_id": None, "ability_id": None},
+                    "payload": {
+                        "action": "override_card",
+                        "target_card_instance_id": "c0002",
+                        "material_card_instance_id": "c0003",
+                    },
+                },
+                {
+                    "event_no": 4,
+                    "type": "action_declared",
+                    "round_no": 1,
+                    "turn_no": 1,
+                    "actor_player_id": "P1",
+                    "cause_event_no": None,
+                    "source": {"card_no": "1-0-040", "card_instance_id": "c0001", "unit_id": "u0001", "ability_id": None},
+                    "payload": {"action": "attack", "attacker_unit_id": "u0001"},
+                },
+            ],
+        }
+
+        model = build_replay_gui_model(replay_record, card_catalog=self.catalog)
+
+        action_lines = model["action_lines_by_event_index"]
+        self.assertIn("selected=drive_unit", action_lines[0][0])
+        self.assertIn("selected=set_trigger", action_lines[1][0])
+        self.assertIn("selected=override_card", action_lines[2][0])
+        self.assertIn("selected=attack", action_lines[3][0])
+
     def test_replay_gui_model_builds_seekable_full_information_frames(self) -> None:
         replay_record = {
             "seed": 7,
