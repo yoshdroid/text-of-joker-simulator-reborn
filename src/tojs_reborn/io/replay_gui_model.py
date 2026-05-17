@@ -6,7 +6,7 @@ from typing import Any
 from tojs_reborn.engine.state import CardDefinition
 
 from .gui_view_model import find_card_image
-from .replay_viewer import ReplayViewerState, _collect_card_instances, format_event_line
+from .replay_viewer import ReplayViewerState, _collect_card_instances, format_event_line, format_replay_actions
 
 
 def build_replay_gui_model(
@@ -20,6 +20,7 @@ def build_replay_gui_model(
         raise ValueError("replay record must contain an events list")
     catalog = card_catalog or {}
     instance_card_nos = _collect_card_instances(replay_record)
+    instance_levels = _collect_card_instance_levels(replay_record)
     image_root = Path(images_dir) if images_dir is not None else None
     viewer_state = ReplayViewerState.from_replay_record(replay_record)
     event_lines = [
@@ -31,6 +32,7 @@ def build_replay_gui_model(
         )
         for event in events
     ]
+    action_lines = format_replay_actions(replay_record, card_catalog=catalog, instance_card_nos=instance_card_nos)
     frames = [
         _frame(
             replay_record,
@@ -38,8 +40,10 @@ def build_replay_gui_model(
             current_event=None,
             event_index=-1,
             event_lines=event_lines,
+            action_lines=action_lines,
             card_catalog=catalog,
             instance_card_nos=instance_card_nos,
+            instance_levels=instance_levels,
             image_root=image_root,
         )
     ]
@@ -52,8 +56,10 @@ def build_replay_gui_model(
                 current_event=event,
                 event_index=index,
                 event_lines=event_lines,
+                action_lines=action_lines,
                 card_catalog=catalog,
                 instance_card_nos=instance_card_nos,
+                instance_levels=instance_levels,
                 image_root=image_root,
             )
         )
@@ -62,6 +68,7 @@ def build_replay_gui_model(
         "seed": replay_record.get("seed"),
         "match_result": replay_record.get("match_result") or _match_result_from_events(events),
         "event_lines": event_lines,
+        "action_lines": action_lines,
         "frames": frames,
     }
 
@@ -73,13 +80,16 @@ def _frame(
     current_event: dict[str, Any] | None,
     event_index: int,
     event_lines: list[str],
+    action_lines: list[str],
     card_catalog: dict[str, CardDefinition],
     instance_card_nos: dict[str, str],
+    instance_levels: dict[str, int],
     image_root: Path | None,
 ) -> dict[str, Any]:
     return {
         "event_index": event_index,
         "event_count": len(event_lines),
+        "action_count": len(action_lines),
         "current_event": _event_summary(current_event),
         "round_no": _current_number(replay_record, current_event, "round_no"),
         "turn_no": _current_number(replay_record, current_event, "turn_no"),
@@ -90,6 +100,7 @@ def _frame(
                 viewer_state,
                 card_catalog=card_catalog,
                 instance_card_nos=instance_card_nos,
+                instance_levels=instance_levels,
                 image_root=image_root,
             )
             for player_id in sorted(viewer_state.players)
@@ -103,6 +114,7 @@ def _player_model(
     *,
     card_catalog: dict[str, CardDefinition],
     instance_card_nos: dict[str, str],
+    instance_levels: dict[str, int],
     image_root: Path | None,
 ) -> dict[str, Any]:
     player = viewer_state.players[player_id]
@@ -123,6 +135,7 @@ def _player_model(
                 viewer_state,
                 card_catalog=card_catalog,
                 instance_card_nos=instance_card_nos,
+                instance_levels=instance_levels,
                 image_root=image_root,
             )
             for unit_id in player.battlefield
@@ -132,6 +145,7 @@ def _player_model(
                 card_instance_id,
                 card_catalog=card_catalog,
                 instance_card_nos=instance_card_nos,
+                instance_levels=instance_levels,
                 image_root=image_root,
             )
             for card_instance_id in player.hand
@@ -141,6 +155,7 @@ def _player_model(
                 card_instance_id,
                 card_catalog=card_catalog,
                 instance_card_nos=instance_card_nos,
+                instance_levels=instance_levels,
                 image_root=image_root,
             )
             for card_instance_id in player.trigger_zone
@@ -150,6 +165,7 @@ def _player_model(
                 card_instance_id,
                 card_catalog=card_catalog,
                 instance_card_nos=instance_card_nos,
+                instance_levels=instance_levels,
                 image_root=image_root,
             )
             for card_instance_id in player.discard_pile
@@ -159,6 +175,7 @@ def _player_model(
                 card_instance_id,
                 card_catalog=card_catalog,
                 instance_card_nos=instance_card_nos,
+                instance_levels=instance_levels,
                 image_root=image_root,
             )
             for card_instance_id in player.deck
@@ -172,6 +189,7 @@ def _unit_tile(
     *,
     card_catalog: dict[str, CardDefinition],
     instance_card_nos: dict[str, str],
+    instance_levels: dict[str, int],
     image_root: Path | None,
 ) -> dict[str, Any]:
     card_instance_id = viewer_state.unit_card_instance_ids.get(unit_id, "")
@@ -179,13 +197,21 @@ def _unit_tile(
         card_instance_id,
         card_catalog=card_catalog,
         instance_card_nos=instance_card_nos,
+        instance_levels=instance_levels,
         image_root=image_root,
     )
+    card_no = tile.get("card_no")
     tile.update(
         {
             "kind": "unit",
             "unit_id": unit_id,
             "level": viewer_state.unit_levels.get(unit_id, tile.get("level", 1)),
+            "exhausted": viewer_state.unit_exhausted.get(unit_id, False),
+            "damage": viewer_state.unit_damage.get(unit_id, 0),
+            "current_bp": viewer_state.unit_bp.get(
+                unit_id,
+                _printed_bp(card_catalog.get(str(card_no)), viewer_state.unit_levels.get(unit_id, 1)),
+            ),
         }
     )
     return tile
@@ -196,6 +222,7 @@ def _card_tile(
     *,
     card_catalog: dict[str, CardDefinition],
     instance_card_nos: dict[str, str],
+    instance_levels: dict[str, int],
     image_root: Path | None,
 ) -> dict[str, Any]:
     card_no = instance_card_nos.get(card_instance_id, "")
@@ -208,6 +235,7 @@ def _card_tile(
         "category": card.category if card is not None else None,
         "color": card.color if card is not None else None,
         "cp": card.cp if card is not None else None,
+        "level": instance_levels.get(card_instance_id, 1),
         "image_path": find_card_image(image_root, card_no) if image_root is not None and card_no else None,
     }
 
@@ -250,3 +278,25 @@ def _match_result_from_events(events: list[dict[str, Any]]) -> dict[str, Any] | 
         if event.get("type") == "match_ended":
             return event.get("payload") or {}
     return None
+
+
+def _collect_card_instance_levels(replay_record: dict[str, Any]) -> dict[str, int]:
+    result: dict[str, int] = {}
+    for state_key in ("initial_state", "final_state"):
+        state = replay_record.get(state_key)
+        if not isinstance(state, dict):
+            continue
+        card_instances = state.get("card_instances")
+        if not isinstance(card_instances, dict):
+            continue
+        for instance_id, item in card_instances.items():
+            if isinstance(item, dict):
+                result[instance_id] = int(item.get("level", 1))
+    return result
+
+
+def _printed_bp(card: CardDefinition | None, level: int) -> int | None:
+    if card is None or not card.bp_by_level:
+        return None
+    index = max(0, min(level, len(card.bp_by_level)) - 1)
+    return int(card.bp_by_level[index])

@@ -152,6 +152,9 @@ class ReplayViewerState:
     players: dict[str, ReplayViewerPlayerState]
     unit_card_instance_ids: dict[str, str] = field(default_factory=dict)
     unit_levels: dict[str, int] = field(default_factory=dict)
+    unit_exhausted: dict[str, bool] = field(default_factory=dict)
+    unit_damage: dict[str, int] = field(default_factory=dict)
+    unit_bp: dict[str, int] = field(default_factory=dict)
 
     @classmethod
     def from_replay_record(cls, replay_record: dict[str, Any]) -> "ReplayViewerState":
@@ -173,6 +176,8 @@ class ReplayViewerState:
             )
         unit_card_instance_ids: dict[str, str] = {}
         unit_levels: dict[str, int] = {}
+        unit_exhausted: dict[str, bool] = {}
+        unit_damage: dict[str, int] = {}
         for unit_id, item in (initial_state.get("units") or {}).items():
             if not isinstance(item, dict):
                 continue
@@ -180,7 +185,15 @@ class ReplayViewerState:
             if isinstance(card_instance_id, str):
                 unit_card_instance_ids[unit_id] = card_instance_id
             unit_levels[unit_id] = int(item.get("level", 1))
-        return cls(players=players, unit_card_instance_ids=unit_card_instance_ids, unit_levels=unit_levels)
+            unit_exhausted[unit_id] = bool(item.get("exhausted", False))
+            unit_damage[unit_id] = int(item.get("current_damage", 0))
+        return cls(
+            players=players,
+            unit_card_instance_ids=unit_card_instance_ids,
+            unit_levels=unit_levels,
+            unit_exhausted=unit_exhausted,
+            unit_damage=unit_damage,
+        )
 
     def apply_event(self, event: dict[str, Any]) -> None:
         payload = event.get("payload") or {}
@@ -200,6 +213,32 @@ class ReplayViewerState:
             unit_id = (event.get("source") or {}).get("unit_id")
             if isinstance(unit_id, str):
                 self.unit_levels[unit_id] = int(payload.get("after_level", self.unit_levels.get(unit_id, 1)))
+        elif event_type == "unit_attacked":
+            unit_id = payload.get("attacker_unit_id")
+            if isinstance(unit_id, str):
+                self.unit_exhausted[unit_id] = True
+        elif event_type == "unit_action_consumed":
+            unit_id = payload.get("unit_id")
+            if isinstance(unit_id, str):
+                self.unit_exhausted[unit_id] = True
+        elif event_type == "unit_action_recovered":
+            unit_id = payload.get("unit_id")
+            if isinstance(unit_id, str):
+                self.unit_exhausted[unit_id] = False
+        elif event_type == "damage_dealt":
+            unit_id = payload.get("target_unit_id")
+            if isinstance(unit_id, str):
+                self.unit_damage[unit_id] = int(payload.get("after_damage", self.unit_damage.get(unit_id, 0)))
+        elif event_type == "unit_damage_cleared":
+            unit_id = payload.get("unit_id")
+            if isinstance(unit_id, str):
+                self.unit_damage[unit_id] = int(payload.get("after_damage", 0))
+        elif event_type in {"bp_modified", "base_bp_modified"}:
+            unit_id = payload.get("target_unit_id")
+            if isinstance(unit_id, str):
+                after_bp = payload.get("after_bp", payload.get("after_base_bp"))
+                if after_bp is not None:
+                    self.unit_bp[unit_id] = int(after_bp)
         elif event_type == "mulligan_performed" and isinstance(actor, str):
             player = self._player(actor)
             player.hand = list(payload.get("hand_card_instance_ids") or [])
@@ -244,6 +283,8 @@ class ReplayViewerState:
         unit_id = source.get("unit_id")
         if isinstance(unit_id, str):
             self.unit_card_instance_ids.setdefault(unit_id, card_instance_id)
+            self.unit_exhausted.setdefault(unit_id, False)
+            self.unit_damage.setdefault(unit_id, 0)
         self._remove_from_zone(player, from_zone, card_instance_id, unit_id)
         self._add_to_zone(player, to_zone, card_instance_id, unit_id)
 

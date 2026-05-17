@@ -30,6 +30,10 @@ python -m tojs_reborn.io.replay_gui --replay test_output/replay.json --start-eve
 カード画像が見つからない場合は、card no と card name のテキストタイルで表示する。
 既定のカード幅は 36px とし、以前の 72px 表示に対して面積がおよそ 1/4 になる。
 大きく表示したい場合は `--card-width` で指定できる。
+Battlefield の unit は LV / BP を表示し、行動権を失っている場合は 90 度タップ表示にする。
+Hand のカードは LV を表示する。
+Deck / Discard はさらに半分のサイズで表示する。
+右ペインの event log 上部には、replay intent に記録された player action summary を太字で表示する。
 
 ## replay viewer の action 表示
 

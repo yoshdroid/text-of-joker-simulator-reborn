@@ -51,7 +51,7 @@ class ReplayTkGui:
         self.frame_index = start_frame_index
         self.card_width = card_width
         self.card_height = int(card_width * 1.42)
-        self.image_cache: dict[tuple[str, int], Any] = {}
+        self.image_cache: dict[tuple[str, int, int, bool], Any] = {}
         self.playing = False
         self._updating_scale = False
         self._sash_initialized = False
@@ -79,6 +79,7 @@ class ReplayTkGui:
             font=("Consolas", 9),
             wrap=tk.NONE,
         )
+        self.log.tag_configure("action", font=("Consolas", 9, "bold"), foreground="#ffffff")
         self.main.add(self.board_canvas, minsize=360, stretch="always")
         self.main.add(self.log, minsize=360, stretch="always")
 
@@ -189,64 +190,99 @@ class ReplayTkGui:
             ("Discard", "discard_pile"),
             ("Deck", "deck"),
         ):
-            y = self._render_zone(y, label, player.get(zone) or [])
+            y = self._render_zone(y, label, zone, player.get(zone) or [])
         return y + 8
 
-    def _render_zone(self, y: int, label: str, tiles: list[dict[str, Any]]) -> int:
+    def _render_zone(self, y: int, label: str, zone: str, tiles: list[dict[str, Any]]) -> int:
         self.board_canvas.create_text(24, y, anchor="nw", fill="#9fb0c1", font=("TkDefaultFont", 9, "bold"), text=f"{label} ({len(tiles)})")
         x = 120
         row_y = y - 4
         if not tiles:
             self.board_canvas.create_text(x, y, anchor="nw", fill="#697887", font=("TkDefaultFont", 9), text="empty")
             return y + 28
+        row_height = 0
         for tile in tiles[:16]:
-            self._render_tile(x, row_y, tile)
-            x += self.card_width + 8
+            tile_width, tile_height = self._tile_dimensions(zone, tile)
+            self._render_tile(x, row_y, tile, zone)
+            x += tile_width + 8
+            row_height = max(row_height, tile_height)
         if len(tiles) > 16:
             self.board_canvas.create_text(x + 4, y, anchor="nw", fill="#dbe2ea", text=f"+{len(tiles) - 16}")
-        return y + self.card_height + 10
+        return y + row_height + 10
 
-    def _render_tile(self, x: int, y: int, tile: dict[str, Any]) -> None:
+    def _render_tile(self, x: int, y: int, tile: dict[str, Any], zone: str) -> None:
+        tile_width, tile_height = self._tile_dimensions(zone, tile)
         self.board_canvas.create_rectangle(
             x,
             y,
-            x + self.card_width,
-            y + self.card_height,
+            x + tile_width,
+            y + tile_height,
             fill="#303842",
             outline="#6f7d8d" if tile.get("kind") == "unit" else "#465360",
         )
-        image = self._load_image(tile.get("image_path"))
+        image = self._load_image(tile.get("image_path"), tile_width, tile_height, tapped=bool(tile.get("exhausted")))
         if image is not None:
             self.board_canvas.create_image(x, y, anchor="nw", image=image)
+            self._render_tile_overlay(x, y, tile_width, tile_height, tile, zone)
             return
         text = f"{tile.get('card_no')}\n{tile.get('name') or ''}"
         if tile.get("kind") == "unit":
-            text += f"\nU {tile.get('unit_id')} LV{tile.get('level')}"
+            text += f"\nU {tile.get('unit_id')}\nLV{tile.get('level')} BP{tile.get('current_bp')}"
+            if tile.get("exhausted"):
+                text += "\nTAPPED"
+        elif zone == "hand":
+            text += f"\nLV{tile.get('level', 1)}"
         self.board_canvas.create_text(
-            x + self.card_width // 2,
-            y + self.card_height // 2,
+            x + tile_width // 2,
+            y + tile_height // 2,
             anchor="center",
             fill="#f2f5f8",
-            width=self.card_width - 8,
+            width=max(20, tile_width - 8),
             font=("TkDefaultFont", 8),
             text=text,
         )
+        self._render_tile_overlay(x, y, tile_width, tile_height, tile, zone)
+
+    def _render_tile_overlay(self, x: int, y: int, width: int, height: int, tile: dict[str, Any], zone: str) -> None:
+        if tile.get("kind") == "unit":
+            text = f"LV{tile.get('level')} BP{tile.get('current_bp')}"
+            if tile.get("exhausted"):
+                text += " TAP"
+        elif zone == "hand":
+            text = f"LV{tile.get('level', 1)}"
+        else:
+            return
+        self.board_canvas.create_rectangle(x + 1, y + height - 15, x + width - 1, y + height - 1, fill="#101419", outline="")
+        self.board_canvas.create_text(x + 3, y + height - 13, anchor="nw", fill="#f2f5f8", font=("TkDefaultFont", 7), text=text)
+
+    def _tile_dimensions(self, zone: str, tile: dict[str, Any]) -> tuple[int, int]:
+        scale = 0.5 if zone in {"deck", "discard_pile"} else 1.0
+        width = max(18, int(self.card_width * scale))
+        height = max(26, int(self.card_height * scale))
+        if tile.get("kind") == "unit" and tile.get("exhausted"):
+            return height, width
+        return width, height
 
     def _render_log(self, frame: dict[str, Any]) -> None:
         self.log.configure(state=self.tk.NORMAL)
         self.log.delete("1.0", self.tk.END)
         current_index = int(frame.get("event_index", -1))
+        action_lines = self.model.get("action_lines") or []
+        for line in action_lines:
+            self.log.insert(self.tk.END, line + "\n", "action")
+        if action_lines:
+            self.log.insert(self.tk.END, "\n")
         for index, line in enumerate(self.model.get("event_lines") or []):
             prefix = "> " if index == current_index else "  "
             self.log.insert(self.tk.END, prefix + line + "\n")
         self.log.configure(state=self.tk.DISABLED)
         if current_index >= 0:
-            self.log.see(f"{current_index + 1}.0")
+            self.log.see(f"{len(action_lines) + (1 if action_lines else 0) + current_index + 1}.0")
 
-    def _load_image(self, image_path: str | None) -> Any | None:
+    def _load_image(self, image_path: str | None, width: int, height: int, *, tapped: bool = False) -> Any | None:
         if not image_path:
             return None
-        cache_key = (image_path, self.card_width)
+        cache_key = (image_path, width, height, tapped)
         if cache_key in self.image_cache:
             return self.image_cache[cache_key]
         try:
@@ -255,7 +291,10 @@ class ReplayTkGui:
             return None
         try:
             image = Image.open(image_path)
-            image = image.resize((self.card_width, self.card_height))
+            if tapped:
+                image = image.resize((height, width)).rotate(90, expand=True)
+            else:
+                image = image.resize((width, height))
             photo = ImageTk.PhotoImage(image)
             self.image_cache[cache_key] = photo
             return photo

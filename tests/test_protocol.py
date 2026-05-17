@@ -1066,6 +1066,16 @@ class ProtocolTest(unittest.TestCase):
                 },
                 {
                     "event_no": 2,
+                    "type": "unit_attacked",
+                    "round_no": 1,
+                    "turn_no": 1,
+                    "actor_player_id": "P1",
+                    "cause_event_no": 1,
+                    "source": {"card_no": "1-0-040", "card_instance_id": "c0001", "unit_id": "u0001", "ability_id": None},
+                    "payload": {"attacker_unit_id": "u0001"},
+                },
+                {
+                    "event_no": 3,
                     "type": "match_ended",
                     "round_no": 1,
                     "turn_no": 1,
@@ -1085,15 +1095,21 @@ class ProtocolTest(unittest.TestCase):
 
         self.assertEqual(model["seed"], 7)
         self.assertEqual(model["match_result"]["winner_player_id"], "P1")
-        self.assertEqual(len(model["frames"]), 3)
+        self.assertEqual(len(model["frames"]), 4)
         initial_p1 = model["frames"][0]["players"][0]
         after_move_p1 = model["frames"][1]["players"][0]
+        after_attack_p1 = model["frames"][2]["players"][0]
         self.assertEqual(initial_p1["status"]["hand_count"], 1)
         self.assertEqual(initial_p1["status"]["deck_count"], 1)
+        self.assertEqual(initial_p1["hand"][0]["level"], 1)
         self.assertEqual(after_move_p1["status"]["hand_count"], 0)
         self.assertEqual(after_move_p1["status"]["battlefield_count"], 1)
         self.assertEqual(after_move_p1["battlefield"][0]["unit_id"], "u0001")
         self.assertEqual(after_move_p1["battlefield"][0]["image_path"], str(image_path))
+        self.assertEqual(after_move_p1["battlefield"][0]["level"], 1)
+        self.assertEqual(after_move_p1["battlefield"][0]["current_bp"], self.catalog["1-0-040"].bp_by_level[0])
+        self.assertFalse(after_move_p1["battlefield"][0]["exhausted"])
+        self.assertTrue(after_attack_p1["battlefield"][0]["exhausted"])
         self.assertEqual(model["frames"][1]["current_event"]["description"], "#1 card_moved actor=P1")
 
     def test_replay_viewer_cli_prints_match_cli_replay(self) -> None:
@@ -1272,6 +1288,15 @@ class ProtocolTest(unittest.TestCase):
 
     def test_replay_gui_default_card_width_keeps_tiles_compact(self) -> None:
         self.assertEqual(DEFAULT_REPLAY_CARD_WIDTH, 36)
+
+    def test_replay_gui_uses_zone_specific_tile_dimensions(self) -> None:
+        gui = ReplayTkGui.__new__(ReplayTkGui)
+        gui.card_width = 36
+        gui.card_height = 51
+
+        self.assertEqual(gui._tile_dimensions("battlefield", {"kind": "unit", "exhausted": False}), (36, 51))
+        self.assertEqual(gui._tile_dimensions("battlefield", {"kind": "unit", "exhausted": True}), (51, 36))
+        self.assertEqual(gui._tile_dimensions("deck", {"kind": "card"}), (18, 26))
 
     def test_json_line_player_uses_valid_action_response(self) -> None:
         legal_actions = [{"type": "pass"}, {"type": "drive_unit", "card_instance_id": "c0001"}]
