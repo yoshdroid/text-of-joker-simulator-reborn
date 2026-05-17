@@ -9,7 +9,7 @@ if SRC_PATH.exists():
     sys.path.insert(0, str(SRC_PATH))
 
 from tojs_reborn.cardpool.normalizer import normalize_cardpool
-from tojs_reborn.engine.actions import draw_cards, drive_unit, overclock_unit, override_card, set_trigger
+from tojs_reborn.engine.actions import EFFECT_FIZZLED_REASONS, draw_cards, drive_unit, overclock_unit, override_card, set_trigger
 from tojs_reborn.engine.combat import attack_player, attack_unit, declare_attack, destroy_lethal_units
 from tojs_reborn.engine.events import EventStore
 from tojs_reborn.engine.integrity import assert_game_state_integrity
@@ -1374,6 +1374,8 @@ class EngineTest(unittest.TestCase):
         ability_events = [event for event in state.event_store.events if event.type == "ability_resolved"]
         self.assertEqual([event.source.ability_id for event in ability_events], ["1-0-004:a1"])
         self.assertIn("effect_fizzled", [event.type for event in state.event_store.events])
+        fizzled_event = next(event for event in state.event_store.events if event.type == "effect_fizzled")
+        self.assertIn(fizzled_event.payload["reason"], EFFECT_FIZZLED_REASONS)
 
     def test_grind_beetle_cip_changes_cp(self) -> None:
         state = create_game_state(self.catalog)

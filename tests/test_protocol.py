@@ -33,7 +33,7 @@ from tojs_reborn.io.process_player import start_process_player
 from tojs_reborn.io.replay_cli import run_replay_cli
 from tojs_reborn.io.replay_gui import DEFAULT_REPLAY_CARD_WIDTH, ReplayTkGui, run_replay_gui_cli
 from tojs_reborn.io.replay_gui_model import build_replay_gui_model
-from tojs_reborn.io.replay_viewer import format_replay_events, run_replay_viewer_cli
+from tojs_reborn.io.replay_viewer import format_replay_actions, format_replay_events, run_replay_viewer_cli
 from tojs_reborn.io.sample_strategies import SampleStrategyPlayer, choose_aggressive_action, choose_sample_action
 from tojs_reborn.io.views import build_private_view, build_public_state
 from tojs_reborn.io.protocol import (
@@ -741,6 +741,13 @@ class ProtocolTest(unittest.TestCase):
         replay = json.loads(replay_path.read_text(encoding="utf-8"))
         self.assertEqual(replay["seed"], 7)
         self.assertIn(replay["match_result"]["reason"], {"max_turns", "life_zero", "max_actions_per_turn"})
+        action_choices = [
+            choice
+            for intent in replay["intents"]
+            for choice in intent.get("choices", [])
+            if choice.get("role") == "turn_action"
+        ]
+        self.assertTrue(any("legal_actions" in choice for choice in action_choices))
 
     def test_match_batch_cli_runs_multiple_seeds_with_replay_verification(self) -> None:
         self.assertEqual(parse_seed_spec("1,3-5"), [1, 3, 4, 5])
@@ -975,6 +982,42 @@ class ProtocolTest(unittest.TestCase):
 
         self.assertEqual(lines[0], "     state:")
         self.assertIn("P1 life=7 cp=0 hand=2 deck=2 discard=0", lines[1])
+
+    def test_replay_viewer_formats_recorded_legal_and_selected_actions(self) -> None:
+        replay_record = {
+            "initial_state": {
+                "card_instances": {
+                    "c0001": {"card_no": "1-0-040", "owner_player_id": "P1", "level": 1}
+                },
+                "players": {},
+                "units": {},
+            },
+            "intents": [
+                {
+                    "type": "match_turn_action",
+                    "player_id": "P1",
+                    "choices": [
+                        {
+                            "player_id": "P1",
+                            "role": "turn_action",
+                            "legal_actions": [
+                                {"type": "drive_unit", "card_instance_id": "c0001"},
+                                {"type": "pass"},
+                            ],
+                            "response": {"type": "drive_unit", "card_instance_id": "c0001"},
+                        }
+                    ],
+                }
+            ],
+            "events": [],
+        }
+
+        lines = format_replay_actions(replay_record, card_catalog=self.catalog)
+
+        self.assertEqual(len(lines), 1)
+        self.assertIn("role=turn_action", lines[0])
+        self.assertIn("selected=drive_unit", lines[0])
+        self.assertIn(self.catalog["1-0-040"].name, lines[0])
 
     def test_replay_gui_model_builds_seekable_full_information_frames(self) -> None:
         replay_record = {

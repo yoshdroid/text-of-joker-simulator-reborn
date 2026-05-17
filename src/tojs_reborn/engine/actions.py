@@ -6,6 +6,15 @@ from .resolver import AbilityCostChoice, OptionalAbilityChoice, resolve_unit_ent
 from .state import AbilityDefinition, GameState, UnitState
 
 
+EFFECT_FIZZLED_REASONS = {
+    "no_valid_target",
+    "selector_missing",
+    "target_already_exhausted",
+    "target_not_exhausted",
+    "target_not_on_battlefield",
+}
+
+
 def get_effect_handlers():
     return {
         "change_cp": _handle_change_cp,
@@ -1132,6 +1141,8 @@ def _append_effect_fizzled(
     step: dict,
     reason: str,
 ) -> None:
+    if reason not in EFFECT_FIZZLED_REASONS:
+        raise ValueError(f"unknown effect_fizzled reason: {reason}")
     state.event_store.append(
         "effect_fizzled",
         round_no=state.round_no,

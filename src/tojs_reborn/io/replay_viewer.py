@@ -17,6 +17,7 @@ def run_replay_viewer_cli(argv: Sequence[str] | None = None) -> int:
     parser.add_argument("--no-payload", action="store_true")
     parser.add_argument("--event-type", action="append", dest="event_types")
     parser.add_argument("--only-state", action="store_true")
+    parser.add_argument("--show-actions", action="store_true")
     args = parser.parse_args(argv)
 
     try:
@@ -28,6 +29,7 @@ def run_replay_viewer_cli(argv: Sequence[str] | None = None) -> int:
             include_payload=not args.no_payload,
             event_types=set(args.event_types) if args.event_types else None,
             only_state=args.only_state,
+            include_actions=args.show_actions,
         ):
             print(line)
     except (FileNotFoundError, ValueError, KeyError, json.JSONDecodeError) as exc:
@@ -43,6 +45,7 @@ def format_replay_events(
     include_payload: bool = True,
     event_types: set[str] | None = None,
     only_state: bool = False,
+    include_actions: bool = False,
 ) -> list[str]:
     events = replay_record.get("events")
     if not isinstance(events, list):
@@ -50,6 +53,8 @@ def format_replay_events(
     instance_card_nos = _collect_card_instances(replay_record)
     viewer_state = ReplayViewerState.from_replay_record(replay_record)
     lines: list[str] = []
+    if include_actions:
+        lines.extend(format_replay_actions(replay_record, card_catalog=card_catalog or {}, instance_card_nos=instance_card_nos))
     for event in events:
         viewer_state.apply_event(event)
         event_type = event.get("type")
@@ -65,6 +70,31 @@ def format_replay_events(
             )
         if event_type in {"turn_ended", "match_ended"} and should_show_event:
             lines.extend(viewer_state.format_state_lines(card_catalog=card_catalog or {}, instance_card_nos=instance_card_nos))
+    return lines
+
+
+def format_replay_actions(
+    replay_record: dict[str, Any],
+    *,
+    card_catalog: dict[str, CardDefinition] | None = None,
+    instance_card_nos: dict[str, str] | None = None,
+) -> list[str]:
+    catalog = card_catalog or {}
+    instance_lookup = instance_card_nos or _collect_card_instances(replay_record)
+    lines: list[str] = []
+    for intent_index, intent in enumerate(replay_record.get("intents") or []):
+        for choice_index, choice in enumerate(intent.get("choices") or []):
+            legal_actions = choice.get("legal_actions")
+            response = choice.get("response")
+            if not isinstance(legal_actions, list) or not isinstance(response, dict):
+                continue
+            legal_summary = [_format_action_summary(action, catalog, instance_lookup) for action in legal_actions]
+            selected_summary = _format_action_summary(response, catalog, instance_lookup)
+            lines.append(
+                "     "
+                f"action intent={intent_index} choice={choice_index} player={choice.get('player_id')} "
+                f"role={choice.get('role')} selected={selected_summary} legal=[{', '.join(legal_summary)}]"
+            )
     return lines
 
 
@@ -335,6 +365,28 @@ def _format_payload(
 ) -> str:
     visible_payload = _replace_card_instance_ids(payload, card_catalog, instance_card_nos)
     return json.dumps(visible_payload, ensure_ascii=False, separators=(",", ":"))
+
+
+def _format_action_summary(
+    action: dict[str, Any],
+    card_catalog: dict[str, CardDefinition],
+    instance_card_nos: dict[str, str],
+) -> str:
+    action_type = str(action.get("type"))
+    parts = [action_type]
+    for key in ("card_instance_id", "target_card_instance_id", "material_card_instance_id"):
+        value = action.get(key)
+        if isinstance(value, str):
+            card_no = instance_card_nos.get(value)
+            if card_no is not None:
+                parts.append(f"{key}={value}:{_format_card(card_no, card_catalog)}")
+            else:
+                parts.append(f"{key}={value}")
+    for key in ("attacker_unit_id", "blocker_unit_id", "evolve_target_unit_id"):
+        value = action.get(key)
+        if isinstance(value, str):
+            parts.append(f"{key}={value}")
+    return " ".join(parts)
 
 
 def _replace_card_instance_ids(

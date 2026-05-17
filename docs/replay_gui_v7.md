@@ -30,3 +30,12 @@ python -m tojs_reborn.io.replay_gui --replay test_output/replay.json --start-eve
 カード画像が見つからない場合は、card no と card name のテキストタイルで表示する。
 既定のカード幅は 36px とし、以前の 72px 表示に対して面積がおよそ 1/4 になる。
 大きく表示したい場合は `--card-width` で指定できる。
+
+## replay viewer の action 表示
+
+`match_cli` / `match_batch_cli` で保存する replay intent には、選択時の `legal_actions` と `response` が残る。
+テキスト viewer では `--show-actions` を付けると、各選択の selected action と legal action summary を確認できる。
+
+```powershell
+python -m tojs_reborn.io.replay_viewer --cards carddata/generated/cards.normalized.json --replay test_output/replay.json --show-actions --no-payload
+```

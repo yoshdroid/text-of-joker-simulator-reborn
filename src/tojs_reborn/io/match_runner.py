@@ -360,6 +360,7 @@ class MatchRunner:
                 {
                     "player_id": player_id,
                     "role": role,
+                    "legal_actions": list(legal_actions),
                     "response": response,
                 }
             )
