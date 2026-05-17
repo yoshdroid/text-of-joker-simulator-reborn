@@ -28,7 +28,6 @@ def build_replay_gui_model(
         raise ValueError("replay record must contain an events list")
     catalog = card_catalog or {}
     instance_card_nos = _collect_card_instances(replay_record)
-    instance_levels = _collect_card_instance_levels(replay_record)
     image_root = Path(images_dir) if images_dir is not None else None
     viewer_state = ReplayViewerState.from_replay_record(replay_record)
     event_lines = [
@@ -57,7 +56,6 @@ def build_replay_gui_model(
             action_lines=action_lines,
             card_catalog=catalog,
             instance_card_nos=instance_card_nos,
-            instance_levels=instance_levels,
             image_root=image_root,
         )
     ]
@@ -73,7 +71,6 @@ def build_replay_gui_model(
                 action_lines=action_lines,
                 card_catalog=catalog,
                 instance_card_nos=instance_card_nos,
-                instance_levels=instance_levels,
                 image_root=image_root,
             )
         )
@@ -98,7 +95,6 @@ def _frame(
     action_lines: list[str],
     card_catalog: dict[str, CardDefinition],
     instance_card_nos: dict[str, str],
-    instance_levels: dict[str, int],
     image_root: Path | None,
 ) -> dict[str, Any]:
     return {
@@ -115,7 +111,6 @@ def _frame(
                 viewer_state,
                 card_catalog=card_catalog,
                 instance_card_nos=instance_card_nos,
-                instance_levels=instance_levels,
                 image_root=image_root,
             )
             for player_id in sorted(viewer_state.players)
@@ -129,10 +124,10 @@ def _player_model(
     *,
     card_catalog: dict[str, CardDefinition],
     instance_card_nos: dict[str, str],
-    instance_levels: dict[str, int],
     image_root: Path | None,
 ) -> dict[str, Any]:
     player = viewer_state.players[player_id]
+    instance_levels = viewer_state.card_instance_levels
     return {
         "player_id": player_id,
         "status": {
@@ -150,7 +145,6 @@ def _player_model(
                 viewer_state,
                 card_catalog=card_catalog,
                 instance_card_nos=instance_card_nos,
-                instance_levels=instance_levels,
                 image_root=image_root,
             )
             for unit_id in player.battlefield
@@ -204,7 +198,6 @@ def _unit_tile(
     *,
     card_catalog: dict[str, CardDefinition],
     instance_card_nos: dict[str, str],
-    instance_levels: dict[str, int],
     image_root: Path | None,
 ) -> dict[str, Any]:
     card_instance_id = viewer_state.unit_card_instance_ids.get(unit_id, "")
@@ -212,7 +205,7 @@ def _unit_tile(
         card_instance_id,
         card_catalog=card_catalog,
         instance_card_nos=instance_card_nos,
-        instance_levels=instance_levels,
+        instance_levels=viewer_state.card_instance_levels,
         image_root=image_root,
     )
     card_no = tile.get("card_no")
@@ -497,21 +490,6 @@ def _format_choice_value(
         card_label = f"{card.name}({card_no})" if card is not None else card_no
         return f"{value}:{card_label}"
     return str(value)
-
-
-def _collect_card_instance_levels(replay_record: dict[str, Any]) -> dict[str, int]:
-    result: dict[str, int] = {}
-    for state_key in ("initial_state", "final_state"):
-        state = replay_record.get(state_key)
-        if not isinstance(state, dict):
-            continue
-        card_instances = state.get("card_instances")
-        if not isinstance(card_instances, dict):
-            continue
-        for instance_id, item in card_instances.items():
-            if isinstance(item, dict):
-                result[instance_id] = int(item.get("level", 1))
-    return result
 
 
 def _printed_bp(card: CardDefinition | None, level: int) -> int | None:

@@ -1751,6 +1751,19 @@ class EngineTest(unittest.TestCase):
         event_types = [event.type for event in state.event_store.events]
         self.assertLess(event_types.index("unit_entered"), event_types.index("unit_overclocked"))
 
+    def test_hand_override_rejects_level_three_target(self) -> None:
+        state = create_game_state(self.catalog)
+        target = state.create_card_instance("1-0-031", "P1", level=3)
+        material = state.create_card_instance("1-0-031", "P1")
+        state.players["P1"].hand.add(target.instance_id)
+        state.players["P1"].hand.add(material.instance_id)
+
+        with self.assertRaisesRegex(ValueError, "already level 3"):
+            override_card(state, "P1", target.instance_id, material.instance_id)
+
+        self.assertEqual(state.players["P1"].hand.cards, [target.instance_id, material.instance_id])
+        self.assertEqual(state.players["P1"].discard_pile.cards, [])
+
     def test_bloodhound_level3_drive_resolves_self_oc_damage_to_rival_unit(self) -> None:
         state = create_game_state(self.catalog)
         state.turn_player_id = "P1"

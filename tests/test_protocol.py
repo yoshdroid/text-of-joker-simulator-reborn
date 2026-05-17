@@ -1217,6 +1217,80 @@ class ProtocolTest(unittest.TestCase):
         self.assertIn("event=3", action_lines[2][0])
         self.assertIn("c0003", action_lines[2][0])
 
+    def test_replay_gui_model_updates_hand_card_level_by_event_timing(self) -> None:
+        replay_record = {
+            "initial_state": {
+                "round_no": 1,
+                "turn_no": 1,
+                "turn_player_id": "P1",
+                "card_instances": {
+                    "c0001": {"card_no": "1-0-031", "owner_player_id": "P1", "level": 1},
+                    "c0002": {"card_no": "1-0-031", "owner_player_id": "P1", "level": 1},
+                    "c0003": {"card_no": "1-0-031", "owner_player_id": "P1", "level": 1},
+                },
+                "players": {
+                    "P1": {
+                        "life": 7,
+                        "current_cp": 10,
+                        "deck": [],
+                        "hand": ["c0001", "c0002", "c0003"],
+                        "battlefield": [],
+                        "trigger_zone": [],
+                        "discard_pile": [],
+                    }
+                },
+                "units": {},
+            },
+            "events": [
+                {
+                    "event_no": 1,
+                    "type": "card_moved",
+                    "round_no": 1,
+                    "turn_no": 1,
+                    "actor_player_id": "P1",
+                    "cause_event_no": None,
+                    "source": {"card_no": "1-0-031", "card_instance_id": "c0002", "unit_id": None, "ability_id": None},
+                    "payload": {"from_zone": "hand", "to_zone": "discard_pile", "owner_player_id": "P1"},
+                },
+                {
+                    "event_no": 2,
+                    "type": "card_level_changed",
+                    "round_no": 1,
+                    "turn_no": 1,
+                    "actor_player_id": "P1",
+                    "cause_event_no": None,
+                    "source": {"card_no": "1-0-031", "card_instance_id": "c0001", "unit_id": None, "ability_id": None},
+                    "payload": {"before_level": 1, "after_level": 2, "zone": "hand"},
+                },
+                {
+                    "event_no": 3,
+                    "type": "card_moved",
+                    "round_no": 1,
+                    "turn_no": 1,
+                    "actor_player_id": "P1",
+                    "cause_event_no": None,
+                    "source": {"card_no": "1-0-031", "card_instance_id": "c0003", "unit_id": None, "ability_id": None},
+                    "payload": {"from_zone": "hand", "to_zone": "discard_pile", "owner_player_id": "P1"},
+                },
+                {
+                    "event_no": 4,
+                    "type": "card_level_changed",
+                    "round_no": 1,
+                    "turn_no": 1,
+                    "actor_player_id": "P1",
+                    "cause_event_no": None,
+                    "source": {"card_no": "1-0-031", "card_instance_id": "c0001", "unit_id": None, "ability_id": None},
+                    "payload": {"before_level": 2, "after_level": 3, "zone": "hand"},
+                },
+            ],
+        }
+
+        model = build_replay_gui_model(replay_record, card_catalog=self.catalog)
+
+        self.assertEqual(model["frames"][0]["players"][0]["hand"][0]["level"], 1)
+        self.assertEqual(model["frames"][2]["players"][0]["hand"][0]["level"], 2)
+        self.assertEqual(model["frames"][4]["players"][0]["hand"][0]["level"], 3)
+
     def test_replay_gui_model_builds_seekable_full_information_frames(self) -> None:
         replay_record = {
             "seed": 7,

@@ -144,6 +144,7 @@ class ReplayViewerPlayerState:
 @dataclass
 class ReplayViewerState:
     players: dict[str, ReplayViewerPlayerState]
+    card_instance_levels: dict[str, int] = field(default_factory=dict)
     unit_card_instance_ids: dict[str, str] = field(default_factory=dict)
     unit_levels: dict[str, int] = field(default_factory=dict)
     unit_exhausted: dict[str, bool] = field(default_factory=dict)
@@ -172,6 +173,11 @@ class ReplayViewerState:
         unit_levels: dict[str, int] = {}
         unit_exhausted: dict[str, bool] = {}
         unit_damage: dict[str, int] = {}
+        card_instance_levels = {
+            instance_id: int(item.get("level", 1))
+            for instance_id, item in (initial_state.get("card_instances") or {}).items()
+            if isinstance(item, dict)
+        }
         for unit_id, item in (initial_state.get("units") or {}).items():
             if not isinstance(item, dict):
                 continue
@@ -183,6 +189,7 @@ class ReplayViewerState:
             unit_damage[unit_id] = int(item.get("current_damage", 0))
         return cls(
             players=players,
+            card_instance_levels=card_instance_levels,
             unit_card_instance_ids=unit_card_instance_ids,
             unit_levels=unit_levels,
             unit_exhausted=unit_exhausted,
@@ -203,6 +210,12 @@ class ReplayViewerState:
                 self._player(player_id).life = int(payload.get("after_life", self._player(player_id).life))
         elif event_type == "card_moved":
             self._apply_card_moved(event)
+        elif event_type == "card_level_changed":
+            card_instance_id = (event.get("source") or {}).get("card_instance_id")
+            if isinstance(card_instance_id, str):
+                self.card_instance_levels[card_instance_id] = int(
+                    payload.get("after_level", self.card_instance_levels.get(card_instance_id, 1))
+                )
         elif event_type == "unit_level_changed":
             unit_id = (event.get("source") or {}).get("unit_id")
             if isinstance(unit_id, str):
@@ -277,6 +290,7 @@ class ReplayViewerState:
         unit_id = source.get("unit_id")
         if isinstance(unit_id, str):
             self.unit_card_instance_ids.setdefault(unit_id, card_instance_id)
+            self.unit_levels.setdefault(unit_id, self.card_instance_levels.get(card_instance_id, 1))
             self.unit_exhausted.setdefault(unit_id, False)
             self.unit_damage.setdefault(unit_id, 0)
         self._remove_from_zone(player, from_zone, card_instance_id, unit_id)
