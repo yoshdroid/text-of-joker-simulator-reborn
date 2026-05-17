@@ -39,6 +39,7 @@ def build_replay_gui_model(
         )
         for event in events
     ]
+    event_line_tags = [_event_line_tag(event) for event in events]
     action_lines = format_replay_actions(replay_record, card_catalog=catalog, instance_card_nos=instance_card_nos)
     action_lines_by_event_index = _action_lines_by_event_index(
         replay_record,
@@ -79,6 +80,7 @@ def build_replay_gui_model(
         "seed": replay_record.get("seed"),
         "match_result": replay_record.get("match_result") or _match_result_from_events(events),
         "event_lines": event_lines,
+        "event_line_tags": event_line_tags,
         "action_lines": action_lines,
         "action_lines_by_event_index": action_lines_by_event_index,
         "frames": frames,
@@ -265,6 +267,12 @@ def _event_description(event: dict[str, Any]) -> str:
     event_type = event.get("type")
     actor = event.get("actor_player_id") or "-"
     return f"#{event_no} {event_type} actor={actor}"
+
+
+def _event_line_tag(event: dict[str, Any]) -> str | None:
+    if event.get("type") == "ability_resolved":
+        return "action"
+    return None
 
 
 def _current_number(replay_record: dict[str, Any], current_event: dict[str, Any] | None, key: str) -> int | None:

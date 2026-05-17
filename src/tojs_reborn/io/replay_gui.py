@@ -290,6 +290,7 @@ class ReplayTkGui:
         self.log.delete("1.0", self.tk.END)
         current_index = int(frame.get("event_index", -1))
         action_lines_by_event_index = self.model.get("action_lines_by_event_index") or []
+        event_line_tags = self.model.get("event_line_tags") or []
         current_log_line = 1
         line_no = 1
         for index, line in enumerate(self.model.get("event_lines") or []):
@@ -299,7 +300,11 @@ class ReplayTkGui:
                 self.log.insert(self.tk.END, action_line + "\n", "action")
                 line_no += 1
             prefix = "> " if index == current_index else "  "
-            self.log.insert(self.tk.END, prefix + line + "\n")
+            tag = event_line_tags[index] if index < len(event_line_tags) else None
+            if isinstance(tag, str):
+                self.log.insert(self.tk.END, prefix + line + "\n", tag)
+            else:
+                self.log.insert(self.tk.END, prefix + line + "\n")
             line_no += 1
         self.log.configure(state=self.tk.DISABLED)
         if current_index >= 0:
