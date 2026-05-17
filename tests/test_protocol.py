@@ -35,6 +35,7 @@ from tojs_reborn.io.replay_cli import run_replay_cli
 from tojs_reborn.io.replay_gui import DEFAULT_REPLAY_CARD_WIDTH, ReplayTkGui, run_replay_gui_cli
 from tojs_reborn.io.replay_gui_model import build_replay_gui_model
 from tojs_reborn.io.replay_viewer import format_replay_actions, format_replay_events, run_replay_viewer_cli
+from tojs_reborn.io.scenario_cli import run_scenario_cli
 from tojs_reborn.io.sample_strategies import SampleStrategyPlayer, choose_aggressive_action, choose_sample_action
 from tojs_reborn.io.views import build_private_view, build_public_state
 from tojs_reborn.io.protocol import (
@@ -1449,6 +1450,36 @@ class ProtocolTest(unittest.TestCase):
         self.assertEqual(summary["current_event"]["type"], "card_moved")
         self.assertEqual(summary["players"][0]["status"]["hand_count"], 0)
         self.assertEqual(summary["players"][0]["status"]["battlefield_count"], 1)
+
+    def test_scenario_cli_generates_replays_for_gui_inspection(self) -> None:
+        output_dir = ROOT / "test_output" / "scenario_cli"
+        output_dir.mkdir(parents=True, exist_ok=True)
+
+        output = StringIO()
+        with redirect_stdout(output):
+            exit_code = run_scenario_cli(
+                [
+                    "--cards",
+                    "carddata/generated/cards.normalized.json",
+                    "--scenario",
+                    "all",
+                    "--output-dir",
+                    str(output_dir),
+                    "--verify",
+                ]
+            )
+
+        self.assertEqual(exit_code, 0)
+        result = json.loads(output.getvalue())
+        scenario_names = {item["scenario"] for item in result["outputs"]}
+        self.assertEqual(scenario_names, {"hand_limit_draw", "lina_discard_choice", "new_armor_trigger"})
+        hand_limit = json.loads((output_dir / "hand_limit_draw.json").read_text(encoding="utf-8"))
+        self.assertEqual(hand_limit["scenario"]["name"], "hand_limit_draw")
+        self.assertIn("draw_skipped", [event["type"] for event in hand_limit["events"]])
+        new_armor = json.loads((output_dir / "new_armor_trigger.json").read_text(encoding="utf-8"))
+        self.assertIn("trigger_activated", [event["type"] for event in new_armor["events"]])
+        lina = json.loads((output_dir / "lina_discard_choice.json").read_text(encoding="utf-8"))
+        self.assertIn("choice_selected", [event["type"] for event in lina["events"]])
 
     def test_replay_gui_render_ignores_scale_set_callback_reentry(self) -> None:
         class FakeCanvas:
