@@ -30,6 +30,7 @@ from tojs_reborn.io.player_runner import (
 )
 from tojs_reborn.io.process_player import start_process_player
 from tojs_reborn.io.replay_cli import run_replay_cli
+from tojs_reborn.io.replay_gui_model import build_replay_gui_model
 from tojs_reborn.io.replay_viewer import format_replay_events, run_replay_viewer_cli
 from tojs_reborn.io.views import build_private_view, build_public_state
 from tojs_reborn.io.protocol import (
@@ -874,6 +875,83 @@ class ProtocolTest(unittest.TestCase):
 
         self.assertEqual(lines[0], "     state:")
         self.assertIn("P1 life=7 cp=0 hand=2 deck=2 discard=0", lines[1])
+
+    def test_replay_gui_model_builds_seekable_full_information_frames(self) -> None:
+        replay_record = {
+            "seed": 7,
+            "initial_state": {
+                "round_no": 1,
+                "turn_no": 1,
+                "turn_player_id": "P1",
+                "card_instances": {
+                    "c0001": {"card_no": "1-0-040", "owner_player_id": "P1", "level": 1},
+                    "c0002": {"card_no": "1-0-001", "owner_player_id": "P1", "level": 1},
+                    "c0003": {"card_no": "1-0-004", "owner_player_id": "P2", "level": 1},
+                },
+                "players": {
+                    "P1": {
+                        "life": 7,
+                        "current_cp": 2,
+                        "deck": ["c0002"],
+                        "hand": ["c0001"],
+                        "battlefield": [],
+                        "trigger_zone": [],
+                        "discard_pile": [],
+                    },
+                    "P2": {
+                        "life": 7,
+                        "current_cp": 3,
+                        "deck": ["c0003"],
+                        "hand": [],
+                        "battlefield": [],
+                        "trigger_zone": [],
+                        "discard_pile": [],
+                    },
+                },
+                "units": {},
+            },
+            "events": [
+                {
+                    "event_no": 1,
+                    "type": "card_moved",
+                    "round_no": 1,
+                    "turn_no": 1,
+                    "actor_player_id": "P1",
+                    "cause_event_no": None,
+                    "source": {"card_no": "1-0-040", "card_instance_id": "c0001", "unit_id": "u0001", "ability_id": None},
+                    "payload": {"from_zone": "hand", "to_zone": "battlefield", "owner_player_id": "P1"},
+                },
+                {
+                    "event_no": 2,
+                    "type": "match_ended",
+                    "round_no": 1,
+                    "turn_no": 1,
+                    "actor_player_id": None,
+                    "cause_event_no": None,
+                    "source": {"card_no": None, "card_instance_id": None, "unit_id": None, "ability_id": None},
+                    "payload": {"winner_player_id": "P1", "reason": "test", "turn_count": 1},
+                },
+            ],
+        }
+        image_dir = ROOT / "test_output" / "replay_gui_images"
+        image_dir.mkdir(parents=True, exist_ok=True)
+        image_path = image_dir / "1-0-040_sample.jpg"
+        image_path.write_bytes(b"fake image")
+
+        model = build_replay_gui_model(replay_record, card_catalog=self.catalog, images_dir=image_dir)
+
+        self.assertEqual(model["seed"], 7)
+        self.assertEqual(model["match_result"]["winner_player_id"], "P1")
+        self.assertEqual(len(model["frames"]), 3)
+        initial_p1 = model["frames"][0]["players"][0]
+        after_move_p1 = model["frames"][1]["players"][0]
+        self.assertEqual(initial_p1["status"]["hand_count"], 1)
+        self.assertEqual(initial_p1["status"]["deck_count"], 1)
+        self.assertEqual(after_move_p1["status"]["hand_count"], 0)
+        self.assertEqual(after_move_p1["status"]["battlefield_count"], 1)
+        self.assertEqual(after_move_p1["battlefield"][0]["unit_id"], "u0001")
+        self.assertEqual(after_move_p1["battlefield"][0]["image_path"], str(image_path))
+        self.assertEqual(model["frames"][1]["current_event"]["description"], "#1 card_moved actor=P1")
 
     def test_replay_viewer_cli_prints_match_cli_replay(self) -> None:
         output_dir = ROOT / "test_output" / "replay_viewer"
