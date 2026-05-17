@@ -1131,6 +1131,90 @@ class ProtocolTest(unittest.TestCase):
         self.assertIn("selected=override_card", action_lines[2][0])
         self.assertIn("selected=attack", action_lines[3][0])
 
+    def test_replay_gui_model_places_all_choice_selected_lines_on_matching_events(self) -> None:
+        replay_record = {
+            "initial_state": {
+                "round_no": 1,
+                "turn_no": 1,
+                "turn_player_id": "P1",
+                "card_instances": {
+                    "c0001": {"card_no": "1-0-040", "owner_player_id": "P1", "level": 1},
+                    "c0002": {"card_no": "1-0-001", "owner_player_id": "P1", "level": 1},
+                    "c0003": {"card_no": "1-0-004", "owner_player_id": "P1", "level": 1},
+                },
+                "players": {},
+                "units": {},
+            },
+            "intents": [
+                {
+                    "type": "match_turn_action",
+                    "player_id": "P1",
+                    "choices": [
+                        {
+                            "player_id": "P1",
+                            "role": "optional_ability",
+                            "response": {"type": "use_ability", "ability_id": "a1"},
+                        },
+                        {
+                            "player_id": "P1",
+                            "role": "cost_payment",
+                            "response": {"card_instance_ids": ["c0001", "c0002"]},
+                        },
+                    ],
+                }
+            ],
+            "events": [
+                {
+                    "event_no": 1,
+                    "type": "choice_selected",
+                    "round_no": 1,
+                    "turn_no": 1,
+                    "actor_player_id": "P1",
+                    "cause_event_no": 0,
+                    "source": {"card_no": "1-0-040", "card_instance_id": "c0001", "unit_id": "u0001", "ability_id": "a1"},
+                    "payload": {"type": "optional_ability", "ability_id": "a1", "choice": "use_ability"},
+                },
+                {
+                    "event_no": 2,
+                    "type": "choice_selected",
+                    "round_no": 1,
+                    "turn_no": 1,
+                    "actor_player_id": "P1",
+                    "cause_event_no": 0,
+                    "source": {"card_no": "1-0-040", "card_instance_id": "c0001", "unit_id": "u0001", "ability_id": "a1"},
+                    "payload": {
+                        "type": "cost_payment",
+                        "effect": "discard_from_hand",
+                        "choice": {"card_instance_ids": ["c0001", "c0002"]},
+                    },
+                },
+                {
+                    "event_no": 3,
+                    "type": "choice_selected",
+                    "round_no": 1,
+                    "turn_no": 1,
+                    "actor_player_id": "P1",
+                    "cause_event_no": 0,
+                    "source": {"card_no": "1-0-040", "card_instance_id": "c0001", "unit_id": "u0001", "ability_id": "a1"},
+                    "payload": {
+                        "choice_id": "target",
+                        "chosen_card_instance_id": "c0003",
+                        "fallback": "first_legal",
+                    },
+                },
+            ],
+        }
+
+        model = build_replay_gui_model(replay_record, card_catalog=self.catalog)
+
+        action_lines = model["action_lines_by_event_index"]
+        self.assertIn("role=optional_ability", action_lines[0][0])
+        self.assertIn("selected=use_ability", action_lines[0][0])
+        self.assertIn("role=cost_payment", action_lines[1][0])
+        self.assertIn("c0002", action_lines[1][0])
+        self.assertIn("event=3", action_lines[2][0])
+        self.assertIn("c0003", action_lines[2][0])
+
     def test_replay_gui_model_builds_seekable_full_information_frames(self) -> None:
         replay_record = {
             "seed": 7,

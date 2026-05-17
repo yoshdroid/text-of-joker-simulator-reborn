@@ -9,6 +9,7 @@ from .gui_view_model import find_card_image
 from .replay_viewer import (
     ReplayViewerState,
     _collect_card_instances,
+    _format_action_summary,
     _format_replay_action_choice,
     format_event_line,
     format_replay_actions,
@@ -301,9 +302,20 @@ def _action_lines_by_event_index(
     instance_card_nos: dict[str, str],
 ) -> list[list[str]]:
     result: list[list[str]] = [[] for _ in events]
-    choices = _recorded_action_choices(replay_record)
+    choices = _recorded_choices(replay_record)
     used_choice_indexes: set[int] = set()
     for event_index, event in enumerate(events):
+        if event.get("type") == "choice_selected":
+            choice_index = _find_matching_recorded_choice_index(event, choices, used_choice_indexes)
+            if choice_index is not None:
+                used_choice_indexes.add(choice_index)
+                intent_index, inner_choice_index, choice = choices[choice_index]
+                result[event_index].append(
+                    _format_recorded_choice_line(intent_index, inner_choice_index, choice, card_catalog, instance_card_nos)
+                )
+            else:
+                result[event_index].append(_format_event_choice_selected_line(event, card_catalog, instance_card_nos))
+            continue
         expected_action = _event_selected_action_type(event)
         if expected_action is None:
             continue
@@ -318,13 +330,47 @@ def _action_lines_by_event_index(
     return result
 
 
-def _recorded_action_choices(replay_record: dict[str, Any]) -> list[tuple[int, int, dict[str, Any]]]:
+def _recorded_choices(replay_record: dict[str, Any]) -> list[tuple[int, int, dict[str, Any]]]:
     result: list[tuple[int, int, dict[str, Any]]] = []
     for intent_index, intent in enumerate(replay_record.get("intents") or []):
         for choice_index, choice in enumerate(intent.get("choices") or []):
             if isinstance(choice, dict) and isinstance(choice.get("response"), dict):
                 result.append((intent_index, choice_index, choice))
     return result
+
+
+def _format_recorded_choice_line(
+    intent_index: int,
+    choice_index: int,
+    choice: dict[str, Any],
+    card_catalog: dict[str, CardDefinition],
+    instance_card_nos: dict[str, str],
+) -> str:
+    if isinstance(choice.get("legal_actions"), list):
+        return _format_replay_action_choice(intent_index, choice_index, choice, card_catalog, instance_card_nos)
+    selected_summary = _format_choice_value(choice.get("response"), card_catalog, instance_card_nos)
+    return (
+        "     "
+        f"choice intent={intent_index} choice={choice_index} player={choice.get('player_id')} "
+        f"role={choice.get('role')} selected={selected_summary}"
+    )
+
+
+def _format_event_choice_selected_line(
+    event: dict[str, Any],
+    card_catalog: dict[str, CardDefinition],
+    instance_card_nos: dict[str, str],
+) -> str:
+    payload = event.get("payload") or {}
+    selected = payload.get("choice")
+    if selected is None:
+        selected = _selected_choice_from_event_payload(payload)
+    choice_type = payload.get("type") or payload.get("choice_id") or "choice"
+    return (
+        "     "
+        f"choice event={event.get('event_no')} player={event.get('actor_player_id')} "
+        f"role={choice_type} selected={_format_choice_value(selected, card_catalog, instance_card_nos)}"
+    )
 
 
 def _event_selected_action_type(event: dict[str, Any]) -> str | None:
@@ -365,6 +411,27 @@ def _find_matching_choice_index(
     return None
 
 
+def _find_matching_recorded_choice_index(
+    event: dict[str, Any],
+    choices: list[tuple[int, int, dict[str, Any]]],
+    used_choice_indexes: set[int],
+) -> int | None:
+    actor = event.get("actor_player_id")
+    payload = event.get("payload") or {}
+    for require_actor in (True, False):
+        for index, (_intent_index, _choice_index, choice) in enumerate(choices):
+            if index in used_choice_indexes:
+                continue
+            if isinstance(choice.get("legal_actions"), list):
+                continue
+            if require_actor and actor is not None and choice.get("player_id") != actor:
+                continue
+            response = choice.get("response")
+            if isinstance(response, dict) and _choice_response_matches_event(response, payload):
+                return index
+    return None
+
+
 def _action_response_matches_event(response: dict[str, Any], payload: dict[str, Any], source: dict[str, Any]) -> bool:
     for key in (
         "card_instance_id",
@@ -381,6 +448,54 @@ def _action_response_matches_event(response: dict[str, Any], payload: dict[str, 
             continue
         return False
     return True
+
+
+def _choice_response_matches_event(response: dict[str, Any], payload: dict[str, Any]) -> bool:
+    selected = payload.get("choice")
+    if isinstance(selected, dict):
+        return _normalized_choice(response) == _normalized_choice(selected)
+    if isinstance(selected, str):
+        return response.get("type") == selected
+    payload_selected = _selected_choice_from_event_payload(payload)
+    if isinstance(payload_selected, dict):
+        return _normalized_choice(response) == _normalized_choice(payload_selected)
+    return False
+
+
+def _selected_choice_from_event_payload(payload: dict[str, Any]) -> Any:
+    if isinstance(payload.get("chosen_card_instance_id"), str):
+        return {"card_instance_id": payload["chosen_card_instance_id"]}
+    if isinstance(payload.get("chosen_unit_id"), str):
+        return {"unit_id": payload["chosen_unit_id"]}
+    return None
+
+
+def _normalized_choice(value: dict[str, Any]) -> dict[str, Any]:
+    return {key: item for key, item in value.items() if key not in {"display", "target", "card"}}
+
+
+def _format_choice_value(
+    value: Any,
+    card_catalog: dict[str, CardDefinition],
+    instance_card_nos: dict[str, str],
+) -> str:
+    if isinstance(value, dict) and isinstance(value.get("type"), str):
+        return _format_action_summary(value, card_catalog, instance_card_nos)
+    if isinstance(value, dict):
+        parts = []
+        for key, item in value.items():
+            if key in {"display", "target", "card"}:
+                continue
+            parts.append(f"{key}={_format_choice_value(item, card_catalog, instance_card_nos)}")
+        return " ".join(parts) if parts else "{}"
+    if isinstance(value, list):
+        return "[" + ", ".join(_format_choice_value(item, card_catalog, instance_card_nos) for item in value) + "]"
+    if isinstance(value, str) and value in instance_card_nos:
+        card_no = instance_card_nos[value]
+        card = card_catalog.get(card_no)
+        card_label = f"{card.name}({card_no})" if card is not None else card_no
+        return f"{value}:{card_label}"
+    return str(value)
 
 
 def _collect_card_instance_levels(replay_record: dict[str, Any]) -> dict[str, int]:

@@ -33,7 +33,7 @@ python -m tojs_reborn.io.replay_gui --replay test_output/replay.json --start-eve
 Battlefield の unit は LV / BP を表示し、行動権を失っている場合は 90 度タップ表示にする。
 Hand のカードは LV を表示する。
 Deck / Discard はさらに半分のサイズで表示する。
-右ペインの event log では、replay intent に記録された player action summary を対応する event の発生位置に太字で表示する。
+右ペインの event log では、replay intent に記録された player action summary と `choice_selected` の選択内容を、対応する event の発生位置に太字で表示する。
 
 ## replay viewer の action 表示
 
