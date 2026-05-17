@@ -1571,6 +1571,7 @@ class ProtocolTest(unittest.TestCase):
         self.assertEqual(
             scenario_names,
             {
+                "bishamon_evolve_destroy_all",
                 "bloodhound_level3_damage",
                 "hand_limit_draw",
                 "happaloid_cip_draw",
@@ -1580,6 +1581,8 @@ class ProtocolTest(unittest.TestCase):
                 "rairyu_evolve_damage",
             },
         )
+        bishamon = json.loads((output_dir / "bishamon_evolve_destroy_all.json").read_text(encoding="utf-8"))
+        self.assertEqual([event["type"] for event in bishamon["events"]].count("unit_destroyed"), 3)
         bloodhound = json.loads((output_dir / "bloodhound_level3_damage.json").read_text(encoding="utf-8"))
         damage_events = [event for event in bloodhound["events"] if event["type"] == "damage_dealt"]
         self.assertEqual(damage_events[-1]["payload"].get("amount"), 4000)
