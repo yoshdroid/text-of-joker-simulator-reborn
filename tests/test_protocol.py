@@ -1571,6 +1571,7 @@ class ProtocolTest(unittest.TestCase):
         self.assertEqual(
             scenario_names,
             {
+                "bloodhound_level3_damage",
                 "hand_limit_draw",
                 "happaloid_cip_draw",
                 "kaim_cip_trigger_search",
@@ -1578,6 +1579,10 @@ class ProtocolTest(unittest.TestCase):
                 "new_armor_trigger",
             },
         )
+        bloodhound = json.loads((output_dir / "bloodhound_level3_damage.json").read_text(encoding="utf-8"))
+        damage_events = [event for event in bloodhound["events"] if event["type"] == "damage_dealt"]
+        self.assertEqual(damage_events[-1]["payload"].get("amount"), 4000)
+        self.assertIn("unit_destroyed", [event["type"] for event in bloodhound["events"]])
         happaloid = json.loads((output_dir / "happaloid_cip_draw.json").read_text(encoding="utf-8"))
         self.assertIn("cards_drawn", [event["type"] for event in happaloid["events"]])
         hand_limit = json.loads((output_dir / "hand_limit_draw.json").read_text(encoding="utf-8"))

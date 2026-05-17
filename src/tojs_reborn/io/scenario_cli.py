@@ -20,6 +20,7 @@ ScenarioBuilder = Callable[[dict[str, Any]], tuple[GameState, dict[str, Any]]]
 
 
 SCENARIOS: dict[str, ScenarioBuilder] = {
+    "bloodhound_level3_damage": lambda catalog: _scenario_bloodhound_level3_damage(catalog),
     "happaloid_cip_draw": lambda catalog: _scenario_happaloid_cip_draw(catalog),
     "hand_limit_draw": lambda catalog: _scenario_hand_limit_draw(catalog),
     "kaim_cip_trigger_search": lambda catalog: _scenario_kaim_cip_trigger_search(catalog),
@@ -86,6 +87,29 @@ def _scenario_replay_path(args: argparse.Namespace, scenario_name: str) -> Path:
             raise ValueError("--replay cannot be used with --scenario all")
         return Path(args.replay)
     return Path(args.output_dir) / f"{scenario_name}.json"
+
+
+def _scenario_bloodhound_level3_damage(catalog: dict[str, Any]) -> tuple[GameState, dict[str, Any]]:
+    from tojs_reborn.engine.state import create_game_state
+
+    state = create_game_state(catalog, seed=1)
+    state.turn_player_id = "P1"
+    target = state.create_card_instance("1-0-001", "P1")
+    first_material = state.create_card_instance("1-0-001", "P1")
+    second_material = state.create_card_instance("1-0-001", "P1")
+    rival_card = state.create_card_instance("1-0-004", "P2")
+    rival = state.create_unit(rival_card.instance_id)
+    state.players["P1"].hand.add(target.instance_id)
+    state.players["P1"].hand.add(first_material.instance_id)
+    state.players["P1"].hand.add(second_material.instance_id)
+    state.players["P2"].battlefield.add(rival.unit_id)
+    state.players["P1"].current_cp = 10
+    initial_state = snapshot_initial_state(state)
+
+    override_card(state, "P1", target.instance_id, first_material.instance_id)
+    override_card(state, "P1", target.instance_id, second_material.instance_id)
+    drive_unit(state, "P1", target.instance_id)
+    return state, initial_state
 
 
 def _scenario_happaloid_cip_draw(catalog: dict[str, Any]) -> tuple[GameState, dict[str, Any]]:
