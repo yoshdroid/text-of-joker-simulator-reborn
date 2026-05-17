@@ -26,6 +26,7 @@ SCENARIOS: dict[str, ScenarioBuilder] = {
     "kaim_cip_trigger_search": lambda catalog: _scenario_kaim_cip_trigger_search(catalog),
     "new_armor_trigger": lambda catalog: _scenario_new_armor_trigger(catalog),
     "lina_discard_choice": lambda catalog: _scenario_lina_discard_choice(catalog),
+    "rairyu_evolve_damage": lambda catalog: _scenario_rairyu_evolve_damage(catalog),
 }
 
 
@@ -176,6 +177,24 @@ def _scenario_kaim_cip_trigger_search(catalog: dict[str, Any]) -> tuple[GameStat
     return state, initial_state
 
 
+def _scenario_rairyu_evolve_damage(catalog: dict[str, Any]) -> tuple[GameState, dict[str, Any]]:
+    from tojs_reborn.engine.state import create_game_state
+
+    state = create_game_state(catalog, seed=24)
+    state.turn_player_id = "P1"
+    _base_card, base_unit = _add_battlefield_unit(state, "P1", "1-0-021")
+    ready_card, ready_unit = _add_battlefield_unit(state, "P2", "1-0-040")
+    exhausted_card, exhausted_unit = _add_battlefield_unit(state, "P2", "1-0-048")
+    exhausted_unit.exhausted = True
+    entering_card = state.create_card_instance("1-0-024", "P1")
+    state.players["P1"].hand.add(entering_card.instance_id)
+    state.players["P1"].current_cp = 10
+    initial_state = snapshot_initial_state(state)
+
+    drive_unit(state, "P1", entering_card.instance_id, evolve_target_unit_id=base_unit.unit_id)
+    return state, initial_state
+
+
 def _scenario_new_armor_trigger(catalog: dict[str, Any]) -> tuple[GameState, dict[str, Any]]:
     from tojs_reborn.engine.state import create_game_state
 
@@ -219,6 +238,13 @@ def _scenario_lina_discard_choice(catalog: dict[str, Any]) -> tuple[GameState, d
     override_card(state, "P1", lina.instance_id, second_material.instance_id)
     drive_unit(state, "P1", lina.instance_id)
     return state, initial_state
+
+
+def _add_battlefield_unit(state: GameState, player_id: str, card_no: str, *, level: int = 1):
+    card = state.create_card_instance(card_no, player_id, level=level)
+    unit = state.create_unit(card.instance_id)
+    state.players[player_id].battlefield.add(unit.unit_id)
+    return card, unit
 
 
 def main() -> None:

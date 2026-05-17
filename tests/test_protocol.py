@@ -1577,6 +1577,7 @@ class ProtocolTest(unittest.TestCase):
                 "kaim_cip_trigger_search",
                 "lina_discard_choice",
                 "new_armor_trigger",
+                "rairyu_evolve_damage",
             },
         )
         bloodhound = json.loads((output_dir / "bloodhound_level3_damage.json").read_text(encoding="utf-8"))
@@ -1596,6 +1597,11 @@ class ProtocolTest(unittest.TestCase):
         self.assertEqual(kaim_deck_moves[-1]["payload"].get("category"), "trigger")
         new_armor = json.loads((output_dir / "new_armor_trigger.json").read_text(encoding="utf-8"))
         self.assertIn("trigger_activated", [event["type"] for event in new_armor["events"]])
+        rairyu = json.loads((output_dir / "rairyu_evolve_damage.json").read_text(encoding="utf-8"))
+        self.assertTrue(
+            any(event["type"] == "card_moved" and event["payload"].get("reason") == "evolve_source" for event in rairyu["events"])
+        )
+        self.assertEqual([event for event in rairyu["events"] if event["type"] == "damage_dealt"][-1]["payload"].get("amount"), 7000)
         lina = json.loads((output_dir / "lina_discard_choice.json").read_text(encoding="utf-8"))
         self.assertIn("choice_selected", [event["type"] for event in lina["events"]])
 
