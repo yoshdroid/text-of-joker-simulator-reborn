@@ -56,7 +56,11 @@ def draw_cards(
 ) -> list[str]:
     player = state.players[player_id]
     drawn: list[str] = []
-    for _ in range(count):
+    skipped_count = 0
+    for draw_index in range(count):
+        if len(player.hand.cards) >= MAX_HAND_SIZE:
+            skipped_count = count - draw_index
+            break
         if not player.deck.cards:
             _refresh_deck(state, player_id, cause_event_no=cause_event_no, source=source)
         card_instance_id = player.deck.draw_top()
@@ -79,6 +83,22 @@ def draw_cards(
                 "from_zone": "deck",
                 "to_zone": "hand",
                 "owner_player_id": player_id,
+            },
+        )
+    if skipped_count:
+        state.event_store.append(
+            "draw_skipped",
+            round_no=state.round_no,
+            turn_no=state.turn_no,
+            actor_player_id=player_id,
+            cause_event_no=cause_event_no,
+            source=source or EventSource(),
+            payload={
+                "reason": "hand_limit",
+                "hand_limit": MAX_HAND_SIZE,
+                "skipped_count": skipped_count,
+                "requested_count": count,
+                "drawn_count": len(drawn),
             },
         )
     state.event_store.append(
@@ -1195,7 +1215,11 @@ def _handle_draw_card_by_category(
     category = step.get("category")
     count = int(step.get("count", 1))
     drawn: list[str] = []
-    for _ in range(count):
+    skipped_count = 0
+    for draw_index in range(count):
+        if len(player.hand.cards) >= MAX_HAND_SIZE:
+            skipped_count = count - draw_index
+            break
         if not player.deck.cards:
             _refresh_deck(state, unit.owner_player_id, cause_event_no=ability_event.event_no, source=ability_event.source)
         matched_index = None
@@ -1222,6 +1246,23 @@ def _handle_draw_card_by_category(
                 "to_zone": "hand",
                 "owner_player_id": unit.owner_player_id,
                 "reason": "effect",
+                "category": category,
+            },
+        )
+    if skipped_count:
+        state.event_store.append(
+            "draw_skipped",
+            round_no=state.round_no,
+            turn_no=state.turn_no,
+            actor_player_id=unit.owner_player_id,
+            cause_event_no=ability_event.event_no,
+            source=ability_event.source,
+            payload={
+                "reason": "hand_limit",
+                "hand_limit": MAX_HAND_SIZE,
+                "skipped_count": skipped_count,
+                "requested_count": count,
+                "drawn_count": len(drawn),
                 "category": category,
             },
         )

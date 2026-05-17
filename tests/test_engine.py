@@ -20,7 +20,7 @@ from tojs_reborn.engine.replay import (
     snapshot_initial_state,
     verify_replay_record,
 )
-from tojs_reborn.engine.rules import MAX_TRIGGER_ZONE_CARDS, get_unit_base_bp, get_unit_bp, ruleset_to_dict, turn_cp_for
+from tojs_reborn.engine.rules import MAX_HAND_SIZE, MAX_TRIGGER_ZONE_CARDS, get_unit_base_bp, get_unit_bp, ruleset_to_dict, turn_cp_for
 from tojs_reborn.engine.state import AbilityDefinition, CardDefinition, create_game_state
 from tojs_reborn.engine.turn import end_turn, start_turn
 from tojs_reborn.engine.windows import list_trigger_intercept_window, process_intercept_window, process_trigger_window
@@ -736,6 +736,52 @@ class EngineTest(unittest.TestCase):
         self.assertEqual(state.turn_player_id, "P1")
         self.assertEqual(state.round_no, 2)
         self.assertEqual(state.turn_no, 3)
+
+    def test_turn_draw_respects_hand_limit_across_repeated_turns(self) -> None:
+        state = create_game_state(self.catalog)
+        state.turn_player_id = "P1"
+        for _ in range(3):
+            state.players["P1"].hand.add(state.create_card_instance("1-0-001", "P1").instance_id)
+        for _ in range(2):
+            state.players["P2"].hand.add(state.create_card_instance("1-0-001", "P2").instance_id)
+        for _ in range(12):
+            state.players["P1"].deck.cards.append(state.create_card_instance("1-0-040", "P1").instance_id)
+            state.players["P2"].deck.cards.append(state.create_card_instance("1-0-040", "P2").instance_id)
+
+        start_turn(state, "P1", draw_count=0, cp=2)
+        self.assertEqual(len(state.players["P1"].hand.cards), 3)
+        end_turn(state, "P1")
+        start_turn(state, "P2", draw_count=2, cp=3)
+        self.assertEqual(len(state.players["P2"].hand.cards), 4)
+        end_turn(state, "P2")
+        start_turn(state, "P1", draw_count=2, cp=3)
+        self.assertEqual(len(state.players["P1"].hand.cards), 5)
+        end_turn(state, "P1")
+        start_turn(state, "P2", draw_count=2, cp=3)
+        self.assertEqual(len(state.players["P2"].hand.cards), 6)
+        end_turn(state, "P2")
+        start_turn(state, "P1", draw_count=2, cp=4)
+        self.assertEqual(len(state.players["P1"].hand.cards), MAX_HAND_SIZE)
+        end_turn(state, "P1")
+
+        p2_deck_before_six_to_seven = len(state.players["P2"].deck.cards)
+        start_turn(state, "P2", draw_count=2, cp=4)
+        self.assertEqual(len(state.players["P2"].hand.cards), MAX_HAND_SIZE)
+        self.assertEqual(len(state.players["P2"].deck.cards), p2_deck_before_six_to_seven - 1)
+        p2_skip = [event for event in state.event_store.events if event.type == "draw_skipped"][-1]
+        self.assertEqual(p2_skip.payload["drawn_count"], 1)
+        self.assertEqual(p2_skip.payload["skipped_count"], 1)
+        end_turn(state, "P2")
+
+        p1_deck_before_full = len(state.players["P1"].deck.cards)
+        start_turn(state, "P1", draw_count=2, cp=5)
+        self.assertEqual(len(state.players["P1"].hand.cards), MAX_HAND_SIZE)
+        self.assertEqual(len(state.players["P1"].deck.cards), p1_deck_before_full)
+        p1_skip = [event for event in state.event_store.events if event.type == "draw_skipped"][-1]
+        self.assertEqual(p1_skip.payload["drawn_count"], 0)
+        self.assertEqual(p1_skip.payload["skipped_count"], 2)
+        cards_drawn = [event for event in state.event_store.events if event.type == "cards_drawn"][-1]
+        self.assertEqual(cards_drawn.payload["count"], 0)
 
     def test_attack_player_deals_one_life_damage(self) -> None:
         state = create_game_state(self.catalog)
@@ -1530,6 +1576,36 @@ class EngineTest(unittest.TestCase):
         self.assertEqual(state.players["P1"].discard_pile.cards, [trigger_card.instance_id])
         self.assertEqual(state.players["P1"].hand.cards, [draw_target.instance_id])
         self.assertIn("trigger_activated", [event.type for event in state.event_store.events])
+
+    def test_new_armor_trigger_draws_intercept_from_deck_without_reordering_other_cards(self) -> None:
+        state = create_game_state(self.catalog)
+        state.turn_player_id = "P1"
+        trigger_card = state.create_card_instance("1-0-061", "P1")
+        entering = state.create_card_instance("1-0-001", "P1")
+        unit_card = state.create_card_instance("1-0-004", "P1")
+        intercept_card = state.create_card_instance("1-0-097", "P1")
+        second_intercept = state.create_card_instance("1-0-099", "P1")
+        state.players["P1"].trigger_zone.add(trigger_card.instance_id)
+        state.players["P1"].hand.add(entering.instance_id)
+        state.players["P1"].deck.cards.extend([unit_card.instance_id, intercept_card.instance_id, second_intercept.instance_id])
+        state.players["P1"].current_cp = 1
+
+        drive_unit(state, "P1", entering.instance_id)
+        from tojs_reborn.engine.windows import process_windows_for_events
+
+        process_windows_for_events(state, 1)
+
+        self.assertEqual(state.players["P1"].trigger_zone.cards, [])
+        self.assertEqual(state.players["P1"].discard_pile.cards, [trigger_card.instance_id])
+        self.assertEqual(state.players["P1"].hand.cards, [intercept_card.instance_id])
+        self.assertEqual(state.players["P1"].deck.cards, [unit_card.instance_id, second_intercept.instance_id])
+        cards_drawn = [event for event in state.event_store.events if event.type == "cards_drawn"][-1]
+        self.assertEqual(cards_drawn.payload["count"], 1)
+        move_events = [
+            event for event in state.event_store.events
+            if event.type == "card_moved" and event.payload.get("from_zone") == "deck"
+        ]
+        self.assertEqual(move_events[-1].payload["category"], "intercept")
 
     def test_new_armor_trigger_fires_and_draws_zero_when_no_intercept_in_deck(self) -> None:
         state = create_game_state(self.catalog)

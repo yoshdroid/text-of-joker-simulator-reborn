@@ -64,6 +64,10 @@ class CardpoolNormalizerTest(unittest.TestCase):
         self.assertEqual(tailwind["effect_steps"], [{"effect": "change_cp", "player": "owner", "amount": 4}])
         self.assertEqual(howling["timing"], "INTERCEPT_UNIT_ENTERED")
         self.assertEqual(howling["effect_steps"], [{"effect": "draw_cards", "player": "owner", "count": 2}])
+        lina = card_by_no["1-0-031"]["abilities"][0]
+        self.assertEqual(lina["timing"], "SELF_OC")
+        self.assertEqual(lina["selector"]["type"], "discard_pile_card")
+        self.assertEqual(lina["effect_steps"], [{"effect": "move_discard_to_hand", "target": "target"}])
 
     def test_normalize_cardpool_accepts_window_timing_prefixes(self) -> None:
         card = excel_card("1-0-040")
