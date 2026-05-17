@@ -14,6 +14,7 @@ python -m tojs_reborn.io.scenario_cli --cards carddata/generated/cards.normalize
 
 | scenario | 確認対象 | 期待する目視ポイント | v7 |
 | --- | --- | --- | --- |
+| `happaloid_cip_draw` | ハッパロイド | `1-0-040` ハッパロイドをドライブし、CIP でデッキトップのカードが手札に移る。 |  |
 | `hand_limit_draw` | 手札上限 | 自分の手札3枚、相手の手札2枚から開始し、ターン冒頭ドローで 6->7 は増え、7->7 は `draw_skipped` になって手札上限7を超えない。 | ✓ |
 | `new_armor_trigger` | 新品の鎧 | `1-0-061` 新品の鎧が unit enter 後に強制発動し、deck から intercept を探して手札に加える。 | ✓ |
 | `lina_discard_choice` | 見習い魔導士リーナ | `1-0-031` 見習い魔導士リーナを手札オーバーライドで LV1->LV2->LV3 にし、ドライブ時の OC で捨札選択と `choice_selected` を確認する。LV3には追加オーバーライドできない。 | ✓ |

@@ -1568,7 +1568,12 @@ class ProtocolTest(unittest.TestCase):
         self.assertEqual(exit_code, 0)
         result = json.loads(output.getvalue())
         scenario_names = {item["scenario"] for item in result["outputs"]}
-        self.assertEqual(scenario_names, {"hand_limit_draw", "lina_discard_choice", "new_armor_trigger"})
+        self.assertEqual(
+            scenario_names,
+            {"hand_limit_draw", "happaloid_cip_draw", "lina_discard_choice", "new_armor_trigger"},
+        )
+        happaloid = json.loads((output_dir / "happaloid_cip_draw.json").read_text(encoding="utf-8"))
+        self.assertIn("cards_drawn", [event["type"] for event in happaloid["events"]])
         hand_limit = json.loads((output_dir / "hand_limit_draw.json").read_text(encoding="utf-8"))
         self.assertEqual(hand_limit["scenario"]["name"], "hand_limit_draw")
         self.assertIn("draw_skipped", [event["type"] for event in hand_limit["events"]])

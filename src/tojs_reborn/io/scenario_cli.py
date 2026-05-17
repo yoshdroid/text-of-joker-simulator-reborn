@@ -20,6 +20,7 @@ ScenarioBuilder = Callable[[dict[str, Any]], tuple[GameState, dict[str, Any]]]
 
 
 SCENARIOS: dict[str, ScenarioBuilder] = {
+    "happaloid_cip_draw": lambda catalog: _scenario_happaloid_cip_draw(catalog),
     "hand_limit_draw": lambda catalog: _scenario_hand_limit_draw(catalog),
     "new_armor_trigger": lambda catalog: _scenario_new_armor_trigger(catalog),
     "lina_discard_choice": lambda catalog: _scenario_lina_discard_choice(catalog),
@@ -84,6 +85,22 @@ def _scenario_replay_path(args: argparse.Namespace, scenario_name: str) -> Path:
             raise ValueError("--replay cannot be used with --scenario all")
         return Path(args.replay)
     return Path(args.output_dir) / f"{scenario_name}.json"
+
+
+def _scenario_happaloid_cip_draw(catalog: dict[str, Any]) -> tuple[GameState, dict[str, Any]]:
+    from tojs_reborn.engine.state import create_game_state
+
+    state = create_game_state(catalog, seed=40)
+    state.turn_player_id = "P1"
+    happaloid = state.create_card_instance("1-0-040", "P1")
+    draw_target = state.create_card_instance("1-0-001", "P1")
+    state.players["P1"].hand.add(happaloid.instance_id)
+    state.players["P1"].deck.cards.append(draw_target.instance_id)
+    state.players["P1"].current_cp = 1
+    initial_state = snapshot_initial_state(state)
+
+    drive_unit(state, "P1", happaloid.instance_id)
+    return state, initial_state
 
 
 def _scenario_hand_limit_draw(catalog: dict[str, Any]) -> tuple[GameState, dict[str, Any]]:
