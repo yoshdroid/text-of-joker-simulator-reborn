@@ -13,6 +13,7 @@ from .decklist import DecklistError, load_decklist
 from .match_runner import ActionPlayer, FirstLegalPlayer, MatchRunner, replay_match_record, snapshot_match_initial_state
 from .match_setup import MatchSetupConfig, setup_match_state
 from .process_player import start_process_player
+from .sample_strategies import SampleStrategyPlayer
 
 
 @dataclass
@@ -49,7 +50,10 @@ def run_match_cli(argv: Sequence[str] | None = None) -> int:
             {"P1": deck1, "P2": deck2},
             config=MatchSetupConfig(seed=args.seed),
         )
-        players = {"P1": _build_player(args.p1), "P2": _build_player(args.p2)}
+        players = {
+            "P1": _build_player(args.p1, seed=args.seed, player_id="P1"),
+            "P2": _build_player(args.p2, seed=args.seed, player_id="P2"),
+        }
         try:
             initial_state = snapshot_match_initial_state(state)
             runner = MatchRunner(state, players=players)
@@ -94,11 +98,15 @@ def run_match_cli(argv: Sequence[str] | None = None) -> int:
     return 0
 
 
-def _build_player(spec: str) -> ActionPlayer:
+def _build_player(spec: str, *, seed: int = 0, player_id: str = "") -> ActionPlayer:
     if spec == "sample:first":
         return FirstLegalPlayer()
     if spec == "sample:pass":
         return PassPlayer()
+    if spec == "sample:random":
+        return SampleStrategyPlayer(mode="random", seed=seed, player_id_hint=player_id)
+    if spec == "sample:aggressive":
+        return SampleStrategyPlayer(mode="aggressive", seed=seed, player_id_hint=player_id)
     if spec.startswith("cmd:"):
         return start_process_player(spec.removeprefix("cmd:"))
     raise ValueError(f"unknown player spec: {spec}")

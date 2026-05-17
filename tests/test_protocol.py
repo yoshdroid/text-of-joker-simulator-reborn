@@ -33,6 +33,7 @@ from tojs_reborn.io.replay_cli import run_replay_cli
 from tojs_reborn.io.replay_gui import DEFAULT_REPLAY_CARD_WIDTH, ReplayTkGui, run_replay_gui_cli
 from tojs_reborn.io.replay_gui_model import build_replay_gui_model
 from tojs_reborn.io.replay_viewer import format_replay_events, run_replay_viewer_cli
+from tojs_reborn.io.sample_strategies import SampleStrategyPlayer, choose_aggressive_action, choose_sample_action
 from tojs_reborn.io.views import build_private_view, build_public_state
 from tojs_reborn.io.protocol import (
     action_selected_message,
@@ -266,6 +267,33 @@ class ProtocolTest(unittest.TestCase):
         self.assertEqual(action["type"], "pass")
         self.assertEqual(choice, {"unit_id": "u0001"})
         self.assertFalse(do_mulligan)
+
+    def test_sample_random_is_seeded_and_aggressive_prioritizes_pressure(self) -> None:
+        legal_actions = [
+            {"type": "pass"},
+            {"type": "set_trigger", "card_instance_id": "c0001"},
+            {"type": "attack", "attacker_unit_id": "u0001"},
+            {"type": "drive_unit", "card_instance_id": "c0002"},
+        ]
+        first_random = SampleStrategyPlayer(mode="random", seed=12, player_id_hint="P1")
+        second_random = SampleStrategyPlayer(mode="random", seed=12, player_id_hint="P1")
+
+        self.assertEqual(
+            [first_random.choose_action("P1", legal_actions) for _ in range(5)],
+            [second_random.choose_action("P1", legal_actions) for _ in range(5)],
+        )
+        self.assertEqual(choose_aggressive_action(legal_actions)["type"], "attack")
+        self.assertEqual(
+            choose_aggressive_action(
+                [
+                    {"type": "pass"},
+                    {"type": "drive_unit", "card_instance_id": "c0001"},
+                    {"type": "drive_unit", "card_instance_id": "c0002", "evolve_target_unit_id": "u0001"},
+                ]
+            )["evolve_target_unit_id"],
+            "u0001",
+        )
+        self.assertEqual(choose_sample_action(legal_actions, "pass")["type"], "pass")
 
     def test_state_update_and_mulligan_messages_round_trip(self) -> None:
         state = create_game_state(self.catalog)
@@ -679,6 +707,38 @@ class ProtocolTest(unittest.TestCase):
         replay = json.loads(replay_path.read_text(encoding="utf-8"))
         self.assertEqual(replay["match_result"]["reason"], "max_turns")
         self.assertEqual(replay["intents"][0]["type"], "match_started")
+
+    def test_match_cli_runs_random_and_aggressive_sample_players(self) -> None:
+        output_dir = ROOT / "test_output" / "match_cli_v7_bots"
+        output_dir.mkdir(parents=True, exist_ok=True)
+        replay_path = output_dir / "replay.json"
+        with redirect_stdout(StringIO()):
+            exit_code = run_match_cli(
+                [
+                    "--cards",
+                    "carddata/generated/cards.normalized.json",
+                    "--deck1",
+                    "decklists/sample_p1.json",
+                    "--deck2",
+                    "decklists/sample_p2.json",
+                    "--p1",
+                    "sample:random",
+                    "--p2",
+                    "sample:aggressive",
+                    "--seed",
+                    "7",
+                    "--max-turns",
+                    "2",
+                    "--replay",
+                    str(replay_path),
+                    "--verify-replay",
+                ]
+            )
+
+        self.assertEqual(exit_code, 0)
+        replay = json.loads(replay_path.read_text(encoding="utf-8"))
+        self.assertEqual(replay["seed"], 7)
+        self.assertIn(replay["match_result"]["reason"], {"max_turns", "life_zero", "max_actions_per_turn"})
 
     def test_replay_cli_verifies_match_cli_replay(self) -> None:
         output_dir = ROOT / "test_output" / "replay_cli"

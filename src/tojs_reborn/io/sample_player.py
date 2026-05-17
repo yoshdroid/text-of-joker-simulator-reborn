@@ -4,24 +4,19 @@ import argparse
 import sys
 
 from .protocol import action_selected_message, choice_selected_message, decode_message, encode_message, mulligan_selected_message
+from .sample_strategies import SampleStrategyPlayer, choose_sample_action
 
 
 def choose_action(legal_actions: list[dict], mode: str) -> dict:
-    if mode == "pass":
-        for action in legal_actions:
-            if action.get("type") in {"pass", "no_block", "pass_window"}:
-                return action
-        return legal_actions[0]
-    for action in legal_actions:
-        if action.get("type") not in {"pass", "no_block", "pass_window"}:
-            return action
-    return legal_actions[0]
+    return choose_sample_action(legal_actions, mode)
 
 
 def main() -> None:
     parser = argparse.ArgumentParser(description="Sample JSON Lines player.")
-    parser.add_argument("--mode", choices=["first", "pass"], default="first")
+    parser.add_argument("--mode", choices=["first", "pass", "random", "aggressive"], default="first")
+    parser.add_argument("--seed", type=int, default=0)
     args = parser.parse_args()
+    player = SampleStrategyPlayer(mode=args.mode, seed=args.seed)
 
     for line in sys.stdin:
         try:
@@ -41,7 +36,12 @@ def main() -> None:
             if not isinstance(legal_choices, list) or not legal_choices:
                 continue
             response = choice_selected_message(
-                legal_choices[0],
+                player.choose_choice(
+                    message["player_id"],
+                    request_id=message["request_id"],
+                    choice=message.get("choice") or {},
+                    legal_choices=legal_choices,
+                ),
                 request_id=message["request_id"],
                 player_id=message["player_id"],
             )
@@ -49,7 +49,7 @@ def main() -> None:
             legal_actions = message.get("legal_actions", [])
             if not isinstance(legal_actions, list) or not legal_actions:
                 continue
-            action = choose_action(legal_actions, args.mode)
+            action = player.choose_action(message["player_id"], legal_actions)
             response = action_selected_message(
                 action,
                 request_id=message["request_id"],
