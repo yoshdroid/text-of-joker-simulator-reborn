@@ -4,6 +4,7 @@ from typing import Any
 
 from .actions import drive_unit, override_card, set_trigger
 from .combat import attack_player, attack_unit
+from .rules import ruleset_to_dict
 from .state import CardDefinition, GameState, create_game_state
 from .turn import end_turn, start_turn
 
@@ -17,6 +18,7 @@ def build_replay_record(
     return {
         "schema_version": 1,
         "engine_version": "reborn-v1-minimal",
+        "ruleset": ruleset_to_dict(),
         "seed": state.seed,
         "initial_state": initial_state,
         "intents": intents or [],

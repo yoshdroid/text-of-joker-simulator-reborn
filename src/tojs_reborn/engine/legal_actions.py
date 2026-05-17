@@ -2,7 +2,7 @@ from __future__ import annotations
 
 from typing import Any
 
-from .rules import MAX_BATTLEFIELD_UNITS, opponent_id
+from .rules import MAX_BATTLEFIELD_UNITS, MAX_TRIGGER_ZONE_CARDS, opponent_id
 from .state import GameState
 from tojs_reborn.io.views import card_instance_public_view, unit_public_view
 
@@ -105,6 +105,8 @@ def _drive_actions(state: GameState, player_id: str) -> list[dict[str, Any]]:
 
 def _set_trigger_actions(state: GameState, player_id: str) -> list[dict[str, Any]]:
     player = state.players[player_id]
+    if len(player.trigger_zone.cards) >= MAX_TRIGGER_ZONE_CARDS:
+        return []
     actions = []
     for card_instance_id in player.hand.cards:
         card_no = state.card_instances[card_instance_id].card_no

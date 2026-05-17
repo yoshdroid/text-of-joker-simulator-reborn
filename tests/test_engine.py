@@ -19,7 +19,7 @@ from tojs_reborn.engine.replay import (
     snapshot_initial_state,
     verify_replay_record,
 )
-from tojs_reborn.engine.rules import get_unit_base_bp, get_unit_bp
+from tojs_reborn.engine.rules import MAX_TRIGGER_ZONE_CARDS, get_unit_base_bp, get_unit_bp, ruleset_to_dict, turn_cp_for
 from tojs_reborn.engine.state import AbilityDefinition, CardDefinition, create_game_state
 from tojs_reborn.engine.turn import end_turn, start_turn
 from tojs_reborn.engine.windows import list_trigger_intercept_window, process_intercept_window, process_trigger_window
@@ -1296,6 +1296,7 @@ class EngineTest(unittest.TestCase):
         replay_record = build_replay_record(state)
 
         self.assertTrue(verify_replay_record(state, replay_record))
+        self.assertEqual(replay_record["ruleset"]["max_trigger_zone_cards"], ruleset_to_dict()["max_trigger_zone_cards"])
         replay_record["events"][0]["type"] = "changed"
         self.assertFalse(verify_replay_record(state, replay_record))
 
@@ -1425,6 +1426,23 @@ class EngineTest(unittest.TestCase):
         self.assertEqual(state.players["P2"].trigger_zone.cards, [])
         self.assertIn(trigger_card.instance_id, state.players["P2"].discard_pile.cards)
         self.assertIn("random_resolved", [event.type for event in state.event_store.events])
+
+    def test_ruleset_controls_trigger_zone_limit_and_turn_cp(self) -> None:
+        state = create_game_state(self.catalog)
+        state.turn_player_id = "P1"
+        trigger_cards = [state.create_card_instance("1-0-097", "P1") for _ in range(MAX_TRIGGER_ZONE_CARDS + 1)]
+        for card in trigger_cards:
+            state.players["P1"].hand.add(card.instance_id)
+        for card in trigger_cards[:MAX_TRIGGER_ZONE_CARDS]:
+            set_trigger(state, "P1", card.instance_id)
+
+        legal_action_types = [action["type"] for action in list_legal_actions(state, "P1")]
+
+        self.assertNotIn("set_trigger", legal_action_types)
+        with self.assertRaisesRegex(ValueError, "trigger zone limit"):
+            set_trigger(state, "P1", trigger_cards[-1].instance_id)
+        self.assertEqual(turn_cp_for("P1", 99), 7)
+        self.assertEqual(turn_cp_for("P2", 1), 3)
 
     def test_trigger_intercept_window_lists_public_candidates(self) -> None:
         state = create_game_state(self.catalog)

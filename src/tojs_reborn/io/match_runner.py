@@ -9,7 +9,7 @@ from tojs_reborn.engine.actions import drive_unit, override_card, set_trigger
 from tojs_reborn.engine.combat import declare_attack, declare_block, resolve_unblocked_attack
 from tojs_reborn.engine.legal_actions import list_block_actions, list_legal_actions
 from tojs_reborn.engine.replay import build_replay_record, snapshot_initial_state, state_from_snapshot
-from tojs_reborn.engine.rules import opponent_id
+from tojs_reborn.engine.rules import opponent_id, turn_cp_for
 from tojs_reborn.engine.state import AbilityDefinition, GameState, UnitState
 from tojs_reborn.engine.turn import end_turn, start_turn
 from tojs_reborn.engine.windows import process_windows_for_events
@@ -619,12 +619,7 @@ def snapshot_match_initial_state(state: GameState) -> dict:
 
 
 def _turn_cp(player_id: str, player_turn_count: int) -> int:
-    if player_id == "P1":
-        schedule = [2, 3, 4, 5, 6, 7]
-    else:
-        schedule = [3, 3, 4, 5, 6, 7]
-    index = min(player_turn_count, len(schedule)) - 1
-    return schedule[index]
+    return turn_cp_for(player_id, player_turn_count)
 
 
 def _turn_draw_count(player_id: str, player_turn_count: int) -> int:

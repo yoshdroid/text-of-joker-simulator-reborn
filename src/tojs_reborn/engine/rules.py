@@ -1,10 +1,39 @@
 from __future__ import annotations
 
+from dataclasses import asdict, dataclass
+
 from .state import GameState, UnitState
 
 
-MAX_HAND_SIZE = 7
-MAX_BATTLEFIELD_UNITS = 5
+@dataclass(frozen=True)
+class Ruleset:
+    max_hand_size: int = 7
+    max_battlefield_units: int = 5
+    max_trigger_zone_cards: int = 4
+    deck_size: int = 40
+    max_same_card_copies: int = 3
+    initial_hand_size: int = 4
+    initial_life: int = 7
+    max_cp: int = 12
+    first_player_cp_schedule: tuple[int, ...] = (2, 3, 4, 5, 6, 7)
+    second_player_cp_schedule: tuple[int, ...] = (3, 3, 4, 5, 6, 7)
+
+
+DEFAULT_RULESET = Ruleset()
+MAX_HAND_SIZE = DEFAULT_RULESET.max_hand_size
+MAX_BATTLEFIELD_UNITS = DEFAULT_RULESET.max_battlefield_units
+MAX_TRIGGER_ZONE_CARDS = DEFAULT_RULESET.max_trigger_zone_cards
+MAX_CP = DEFAULT_RULESET.max_cp
+
+
+def ruleset_to_dict(ruleset: Ruleset = DEFAULT_RULESET) -> dict:
+    return asdict(ruleset)
+
+
+def turn_cp_for(player_id: str, player_turn_count: int, ruleset: Ruleset = DEFAULT_RULESET) -> int:
+    schedule = ruleset.first_player_cp_schedule if player_id == "P1" else ruleset.second_player_cp_schedule
+    index = min(player_turn_count, len(schedule)) - 1
+    return min(ruleset.max_cp, schedule[index])
 
 
 def opponent_id(player_id: str) -> str:

@@ -1,7 +1,7 @@
 from __future__ import annotations
 
 from .events import EventSource, FactEvent
-from .rules import MAX_BATTLEFIELD_UNITS, MAX_HAND_SIZE, get_unit_base_bp, get_unit_bp, opponent_id
+from .rules import MAX_BATTLEFIELD_UNITS, MAX_CP, MAX_HAND_SIZE, MAX_TRIGGER_ZONE_CARDS, get_unit_base_bp, get_unit_bp, opponent_id
 from .resolver import AbilityCostChoice, OptionalAbilityChoice, resolve_unit_entered, resolve_unit_overclocked
 from .state import AbilityDefinition, GameState, UnitState
 
@@ -309,6 +309,8 @@ def override_card(
 def set_trigger(state: GameState, player_id: str, card_instance_id: str) -> None:
     player = state.players[player_id]
     instance = state.card_instances[card_instance_id]
+    if len(player.trigger_zone.cards) >= MAX_TRIGGER_ZONE_CARDS:
+        raise ValueError(f"trigger zone limit reached: max={MAX_TRIGGER_ZONE_CARDS}")
     action_event = state.event_store.append(
         "action_declared",
         round_no=state.round_no,
@@ -422,7 +424,7 @@ def change_cp(
 ) -> None:
     player = state.players[player_id]
     before_cp = player.current_cp
-    player.current_cp += amount
+    player.current_cp = max(0, min(MAX_CP, player.current_cp + amount))
     state.event_store.append(
         "cp_changed",
         round_no=state.round_no,
