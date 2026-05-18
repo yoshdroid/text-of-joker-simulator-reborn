@@ -283,3 +283,46 @@ v8以降とする。
 おすすめのカードをすべて実施する。
 - keyword layer を v7 で実装するか。
 既に記載、参照して。
+## v7 close notes
+
+v7 の最後に、通常 match replay を v8 の挙動確認ベースラインとして使えるところまで整備した。
+
+### match / replay baseline
+
+- 旧開発版 deck をカード名指定の 40 枚 decklist として取り込んだ。
+  - `decklists/g_b_controlbeat.json`
+  - `decklists/r_g_beatdown.json`
+- baseline replay 生成コマンド:
+
+```powershell
+python -m tojs_reborn.io.match_cli --cards carddata/generated/cards.normalized.json --deck1 decklists/g_b_controlbeat.json --deck2 decklists/r_g_beatdown.json --p1 sample:random --p2 sample:aggressive --seed 7 --max-turns 20 --replay test_output/g_b_controlbeat_vs_r_g_beatdown.json --verify-replay --check-integrity --strict-deck-rule
+```
+
+- baseline GUI 確認コマンド:
+
+```powershell
+python -m tojs_reborn.io.replay_gui --cards carddata/generated/cards.normalized.json --images carddata/images --replay test_output/g_b_controlbeat_vs_r_g_beatdown.json --fullscreen
+```
+
+### initial deck shuffle
+
+v7 では、ゲーム開始時にも deck refresh と同様に deck 順を shuffle してから初期手札を配る。
+
+- `initial_deck_card_nos` は元の deck 構成として保持する。
+- 実際の初期 deck は `initial_deck_card_nos` を shuffle して生成する。
+- mulligan 時は現在の手札を deck に戻し、その時点の deck を shuffle して再度初期手札枚数ぶん引く。
+- deck 0 の通常 draw / 効果 draw では、`initial_deck_card_nos` から新しい card instance を作成し、shuffle した deck を補充して draw する。
+- category search は deck refresh のきっかけにしない。deck が空なら search は不発とする。
+
+v7 実装では、初期 deck shuffle は replay 再現性を壊さないため、game state の RNG とは別の deterministic RNG を使っている。seed と player id から初期 shuffle 専用 RNG を作る。
+
+### v8 discussion item: RNG ownership
+
+v7 は現在の実装のまま close する。ただし v8 では RNG の責務分離について要討議とする。
+
+論点:
+
+- mulligan の shuffle は player が選択した後に発生するため、replay / intent と整合する RNG 再現性が必要。
+- 初期 deck shuffle も本質的には match setup のランダム処理なので、mulligan shuffle と RNG を共通化した方が仕様として自然な可能性がある。
+- 一方で、初期 shuffle が game state RNG を消費すると、replay は shuffle 後の initial_state から再生されるため、ゲーム中 random effect の RNG 消費順がずれやすい。
+- v8 では「setup RNG」「gameplay RNG」「replay 再生時に記録済み結果を使うランダム処理」の境界を明確にし、初期 shuffle / mulligan / deck refresh / random target selection を同じ設計で扱えるように検討する。
