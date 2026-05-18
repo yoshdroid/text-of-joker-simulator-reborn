@@ -1342,6 +1342,75 @@ class ProtocolTest(unittest.TestCase):
         self.assertEqual(model["frames"][2]["players"][0]["hand"][0]["level"], 2)
         self.assertEqual(model["frames"][4]["players"][0]["hand"][0]["level"], 3)
 
+    def test_replay_gui_model_applies_card_moved_after_level_to_returned_hand_card(self) -> None:
+        replay_record = {
+            "initial_state": {
+                "round_no": 1,
+                "turn_no": 1,
+                "turn_player_id": "P1",
+                "card_instances": {
+                    "c0001": {"card_no": "1-0-001", "owner_player_id": "P2", "level": 2},
+                },
+                "players": {
+                    "P1": {
+                        "life": 7,
+                        "current_cp": 0,
+                        "deck": [],
+                        "hand": [],
+                        "battlefield": [],
+                        "trigger_zone": [],
+                        "discard_pile": [],
+                    },
+                    "P2": {
+                        "life": 7,
+                        "current_cp": 0,
+                        "deck": [],
+                        "hand": [],
+                        "battlefield": ["u0001"],
+                        "trigger_zone": [],
+                        "discard_pile": [],
+                    },
+                },
+                "units": {
+                    "u0001": {
+                        "card_instance_id": "c0001",
+                        "card_no": "1-0-001",
+                        "owner_player_id": "P2",
+                        "level": 2,
+                        "exhausted": False,
+                        "attack_restricted_turn_no": None,
+                        "current_damage": 0,
+                    }
+                },
+            },
+            "events": [
+                {
+                    "event_no": 1,
+                    "type": "card_moved",
+                    "round_no": 1,
+                    "turn_no": 1,
+                    "actor_player_id": "P2",
+                    "cause_event_no": None,
+                    "source": {"card_no": "1-0-001", "card_instance_id": "c0001", "unit_id": "u0001", "ability_id": None},
+                    "payload": {
+                        "from_zone": "battlefield",
+                        "to_zone": "hand",
+                        "owner_player_id": "P2",
+                        "reason": "return_unit",
+                        "before_level": 2,
+                        "after_level": 1,
+                    },
+                }
+            ],
+        }
+
+        model = build_replay_gui_model(replay_record, card_catalog=self.catalog)
+
+        p2_after_return = model["frames"][1]["players"][1]
+        self.assertEqual(p2_after_return["battlefield"], [])
+        self.assertEqual(p2_after_return["hand"][0]["card_instance_id"], "c0001")
+        self.assertEqual(p2_after_return["hand"][0]["level"], 1)
+
     def test_replay_gui_model_builds_seekable_full_information_frames(self) -> None:
         replay_record = {
             "seed": 7,

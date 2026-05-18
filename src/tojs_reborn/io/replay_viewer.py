@@ -288,9 +288,13 @@ class ReplayViewerState:
         from_zone = payload.get("from_zone")
         to_zone = payload.get("to_zone")
         unit_id = source.get("unit_id")
+        if "after_level" in payload:
+            self.card_instance_levels[card_instance_id] = int(
+                payload.get("after_level", self.card_instance_levels.get(card_instance_id, 1))
+            )
         if isinstance(unit_id, str):
             self.unit_card_instance_ids.setdefault(unit_id, card_instance_id)
-            self.unit_levels.setdefault(unit_id, self.card_instance_levels.get(card_instance_id, 1))
+            self.unit_levels[unit_id] = int(payload.get("after_level", self.unit_levels.get(unit_id, 1)))
             self.unit_exhausted.setdefault(unit_id, False)
             self.unit_damage.setdefault(unit_id, 0)
         self._remove_from_zone(player, from_zone, card_instance_id, unit_id)
