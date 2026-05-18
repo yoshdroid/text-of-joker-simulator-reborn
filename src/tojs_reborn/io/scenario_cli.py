@@ -61,6 +61,7 @@ SCENARIOS: dict[str, ScenarioBuilder] = {
     "goliath_level3_life_damage": lambda catalog: _scenario_goliath_level3_life_damage(catalog),
     "happaloid_cip_draw": lambda catalog: _scenario_happaloid_cip_draw(catalog),
     "hand_limit_draw": lambda catalog: _scenario_hand_limit_draw(catalog),
+    "howling_intercept_draw_two": lambda catalog: _scenario_howling_intercept_draw_two(catalog),
     "jumpoo_bounce_hand_limit": lambda catalog: _scenario_jumpoo_bounce_hand_limit(catalog),
     "kaim_cip_trigger_search": lambda catalog: _scenario_kaim_cip_trigger_search(catalog),
     "new_armor_trigger": lambda catalog: _scenario_new_armor_trigger(catalog),
@@ -329,6 +330,26 @@ def _scenario_jumpoo_bounce_hand_limit(catalog: dict[str, Any]) -> tuple[GameSta
     return state, initial_state
 
 
+def _scenario_howling_intercept_draw_two(catalog: dict[str, Any]) -> tuple[GameState, dict[str, Any]]:
+    from tojs_reborn.engine.state import create_game_state
+
+    state = create_game_state(catalog, seed=99)
+    state.turn_player_id = "P1"
+    entering = _create_initial_deck_card(state, "P1", "1-0-001")
+    howling = _create_initial_deck_card(state, "P1", "1-0-099")
+    first_draw = _create_initial_deck_card(state, "P1", "1-0-004")
+    second_draw = _create_initial_deck_card(state, "P1", "1-0-005")
+    state.players["P1"].hand.add(entering.instance_id)
+    state.players["P1"].trigger_zone.add(howling.instance_id)
+    state.players["P1"].deck.cards.extend([first_draw.instance_id, second_draw.instance_id])
+    state.players["P1"].current_cp = 1
+    initial_state = snapshot_initial_state(state)
+
+    drive_unit(state, "P1", entering.instance_id)
+    process_windows_for_events(state, 1, choose_intercept=_choose_first_intercept)
+    return state, initial_state
+
+
 def _scenario_raguel_exhausted_damage(catalog: dict[str, Any]) -> tuple[GameState, dict[str, Any]]:
     from tojs_reborn.engine.state import create_game_state
 
@@ -462,6 +483,13 @@ def _add_deck_card(state: GameState, player_id: str, card_no: str, *, level: int
     card = _create_initial_deck_card(state, player_id, card_no, level=level)
     state.players[player_id].deck.cards.append(card.instance_id)
     return card
+
+
+def _choose_first_intercept(_player_id: str, actions: list[dict[str, Any]]) -> dict[str, Any]:
+    for action in actions:
+        if action.get("type") == "activate_intercept":
+            return action
+    return actions[-1]
 
 
 def main() -> None:

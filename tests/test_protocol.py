@@ -1687,6 +1687,7 @@ class ProtocolTest(unittest.TestCase):
                 "goliath_level3_life_damage",
                 "hand_limit_draw",
                 "happaloid_cip_draw",
+                "howling_intercept_draw_two",
                 "jumpoo_bounce_hand_limit",
                 "kaim_cip_trigger_search",
                 "lina_discard_choice",
@@ -1771,6 +1772,10 @@ class ProtocolTest(unittest.TestCase):
         hand_limit = json.loads((output_dir / "hand_limit_draw.json").read_text(encoding="utf-8"))
         self.assertEqual(hand_limit["scenario"]["name"], "hand_limit_draw")
         self.assertIn("draw_skipped", [event["type"] for event in hand_limit["events"]])
+        howling = json.loads((output_dir / "howling_intercept_draw_two.json").read_text(encoding="utf-8"))
+        self.assertIn("intercept_activated", [event["type"] for event in howling["events"]])
+        self.assertEqual([event for event in howling["events"] if event["type"] == "cards_drawn"][-1]["payload"].get("count"), 2)
+        self.assertEqual(len(howling["final_state"]["players"]["P1"]["hand"]), 2)
         kaim = json.loads((output_dir / "kaim_cip_trigger_search.json").read_text(encoding="utf-8"))
         kaim_deck_moves = [
             event for event in kaim["events"]
