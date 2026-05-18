@@ -7,7 +7,7 @@ from collections.abc import Callable
 from pathlib import Path
 from typing import Any, Sequence
 
-from tojs_reborn.engine.combat import attack_player
+from tojs_reborn.engine.combat import attack_player, attack_unit
 from tojs_reborn.engine.actions import drive_unit, override_card
 from tojs_reborn.engine.replay import build_replay_record, snapshot_initial_state, verify_replay_record
 from tojs_reborn.engine.state import GameState, load_card_catalog
@@ -64,6 +64,7 @@ SCENARIOS: dict[str, ScenarioBuilder] = {
     "howling_intercept_draw_two": lambda catalog: _scenario_howling_intercept_draw_two(catalog),
     "jumpoo_bounce_hand_limit": lambda catalog: _scenario_jumpoo_bounce_hand_limit(catalog),
     "kaim_cip_trigger_search": lambda catalog: _scenario_kaim_cip_trigger_search(catalog),
+    "leafia_block_bp_modifier": lambda catalog: _scenario_leafia_block_bp_modifier(catalog),
     "new_armor_trigger": lambda catalog: _scenario_new_armor_trigger(catalog),
     "lina_discard_choice": lambda catalog: _scenario_lina_discard_choice(catalog),
     "raguel_exhausted_damage": lambda catalog: _scenario_raguel_exhausted_damage(catalog),
@@ -303,6 +304,21 @@ def _scenario_kaim_cip_trigger_search(catalog: dict[str, Any]) -> tuple[GameStat
     initial_state = snapshot_initial_state(state)
 
     drive_unit(state, "P1", kaim.instance_id)
+    return state, initial_state
+
+
+def _scenario_leafia_block_bp_modifier(catalog: dict[str, Any]) -> tuple[GameState, dict[str, Any]]:
+    from tojs_reborn.engine.state import create_game_state
+
+    state = create_game_state(catalog, seed=45)
+    state.turn_no = 3
+    state.turn_player_id = "P1"
+    _attacker_card, attacker = _add_battlefield_unit(state, "P1", "1-0-001")
+    _blocker_card, blocker = _add_battlefield_unit(state, "P2", "1-0-045")
+    initial_state = snapshot_initial_state(state)
+
+    attack_unit(state, "P1", attacker.unit_id, blocker.unit_id)
+    end_turn(state, "P1")
     return state, initial_state
 
 

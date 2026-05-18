@@ -1690,6 +1690,7 @@ class ProtocolTest(unittest.TestCase):
                 "howling_intercept_draw_two",
                 "jumpoo_bounce_hand_limit",
                 "kaim_cip_trigger_search",
+                "leafia_block_bp_modifier",
                 "lina_discard_choice",
                 "new_armor_trigger",
                 "raguel_exhausted_damage",
@@ -1792,6 +1793,10 @@ class ProtocolTest(unittest.TestCase):
         self.assertEqual([event["payload"].get("after_level") for event in jumpoo_return_moves], [1, 1])
         self.assertFalse(jumpoo_return_moves[0]["payload"].get("hand_limit_exceeded"))
         self.assertTrue(jumpoo_return_moves[1]["payload"].get("hand_limit_exceeded"))
+        leafia = json.loads((output_dir / "leafia_block_bp_modifier.json").read_text(encoding="utf-8"))
+        self.assertIn("block_declared", [event["type"] for event in leafia["events"]])
+        self.assertIn("bp_modified", [event["type"] for event in leafia["events"]])
+        self.assertIn("modifier_expired", [event["type"] for event in leafia["events"]])
         new_armor = json.loads((output_dir / "new_armor_trigger.json").read_text(encoding="utf-8"))
         self.assertIn("trigger_activated", [event["type"] for event in new_armor["events"]])
         raguel = json.loads((output_dir / "raguel_exhausted_damage.json").read_text(encoding="utf-8"))
