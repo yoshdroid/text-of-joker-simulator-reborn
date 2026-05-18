@@ -111,7 +111,7 @@ def _frame(
         },
         "round_no": _current_number(replay_record, current_event, "round_no"),
         "turn_no": _current_number(replay_record, current_event, "turn_no"),
-        "turn_player_id": _current_value(replay_record, current_event, "turn_player_id"),
+        "turn_player_id": viewer_state.turn_player_id,
         "players": [
             _player_model(
                 player_id,

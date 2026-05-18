@@ -12,6 +12,7 @@ from .replay_gui_model import build_replay_gui_model
 
 
 DEFAULT_REPLAY_CARD_WIDTH = 36
+DEFAULT_PLAY_DELAY_MS = 225
 
 
 def run_replay_gui_cli(argv: Sequence[str] | None = None) -> int:
@@ -21,6 +22,7 @@ def run_replay_gui_cli(argv: Sequence[str] | None = None) -> int:
     parser.add_argument("--images", default="carddata/images")
     parser.add_argument("--start-event-no", type=int)
     parser.add_argument("--card-width", type=int, default=DEFAULT_REPLAY_CARD_WIDTH)
+    parser.add_argument("--play-delay-ms", type=int, default=DEFAULT_PLAY_DELAY_MS)
     parser.add_argument("--fullscreen", action="store_true", help="Start the Tk window maximized/fullscreen.")
     parser.add_argument("--no-window", action="store_true", help="Print the selected frame summary instead of opening Tk.")
     args = parser.parse_args(argv)
@@ -37,6 +39,7 @@ def run_replay_gui_cli(argv: Sequence[str] | None = None) -> int:
             model=model,
             start_frame_index=frame_index,
             card_width=args.card_width,
+            play_delay_ms=args.play_delay_ms,
             fullscreen=args.fullscreen,
         ).run()
     except (FileNotFoundError, ValueError, KeyError, json.JSONDecodeError) as exc:
@@ -52,6 +55,7 @@ class ReplayTkGui:
         model: dict[str, Any],
         start_frame_index: int,
         card_width: int,
+        play_delay_ms: int,
         fullscreen: bool = False,
     ) -> None:
         import tkinter as tk
@@ -64,6 +68,7 @@ class ReplayTkGui:
         self.frame_index = start_frame_index
         self.card_width = card_width
         self.card_height = int(card_width * 1.42)
+        self.play_delay_ms = max(1, play_delay_ms)
         self.image_cache: dict[tuple[str, int, int, bool], Any] = {}
         self.playing = False
         self._updating_scale = False
@@ -130,7 +135,7 @@ class ReplayTkGui:
         self.playing = not self.playing
         self.play_button.configure(text="Pause" if self.playing else "Play")
         if self.playing:
-            self.root.after(450, self._play_tick)
+            self.root.after(self.play_delay_ms, self._play_tick)
 
     def _play_tick(self) -> None:
         if not self.playing:
@@ -140,7 +145,7 @@ class ReplayTkGui:
             self.play_button.configure(text="Play")
             return
         self.go(1)
-        self.root.after(450, self._play_tick)
+        self.root.after(self.play_delay_ms, self._play_tick)
 
     def go(self, delta: int) -> None:
         self.frame_index = max(0, min(len(self.frames) - 1, self.frame_index + delta))
@@ -179,10 +184,7 @@ class ReplayTkGui:
 
     def _render_board(self, frame: dict[str, Any]) -> None:
         event = frame.get("current_event") or {}
-        header = (
-            f"Replay seed={self.model.get('seed')} R{frame.get('round_no')} T{frame.get('turn_no')} "
-            f"turn={frame.get('turn_player_id')}"
-        )
+        header = self._frame_header(frame)
         self.board_canvas.create_text(16, 12, anchor="nw", fill="#f2f5f8", font=("TkDefaultFont", 13, "bold"), text=header)
         self.board_canvas.create_text(
             16,
@@ -195,6 +197,9 @@ class ReplayTkGui:
         y = 72
         for player in frame.get("players") or []:
             y = self._render_player(y, player)
+
+    def _frame_header(self, frame: dict[str, Any]) -> str:
+        return f"Replay seed={self.model.get('seed')} R{frame.get('round_no')} turn={frame.get('turn_player_id')}"
 
     def _render_player(self, y: int, player: dict[str, Any]) -> int:
         status = player.get("status") or {}

@@ -1,0 +1,21 @@
+{
+  "deck_name": "r_g_beatdown",
+  "cards": [
+    { "card_name": "ソードファイター", "count": 3 },
+    { "card_name": "ランサー", "count": 3 },
+    { "card_name": "ゴライアス", "count": 3 },
+    { "card_name": "不知火伍式", "count": 2 },
+    { "card_name": "ハッパロイド", "count": 3 },
+    { "card_name": "キャットムル", "count": 3 },
+    { "card_name": "ギガマムート", "count": 3 },
+    { "card_name": "魔槍のリリム", "count": 2 },
+    { "card_name": "バルバトス", "count": 2 },
+    { "card_name": "サプライズボックス", "count": 3 },
+    { "card_name": "新品の鎧", "count": 3 },
+    { "card_name": "何でも屋の陳列台", "count": 2 },
+    { "card_name": "悪の覚醒", "count": 3 },
+    { "card_name": "不可侵防壁", "count": 3 },
+    { "card_name": "パワーショーテージ", "count": 1 },
+    { "card_name": "英雄の剣", "count": 1 }
+  ]
+}

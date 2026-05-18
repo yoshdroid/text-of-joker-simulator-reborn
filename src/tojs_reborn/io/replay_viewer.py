@@ -144,6 +144,7 @@ class ReplayViewerPlayerState:
 @dataclass
 class ReplayViewerState:
     players: dict[str, ReplayViewerPlayerState]
+    turn_player_id: str | None = None
     card_instance_levels: dict[str, int] = field(default_factory=dict)
     unit_card_instance_ids: dict[str, str] = field(default_factory=dict)
     unit_levels: dict[str, int] = field(default_factory=dict)
@@ -189,6 +190,7 @@ class ReplayViewerState:
             unit_damage[unit_id] = int(item.get("current_damage", 0))
         return cls(
             players=players,
+            turn_player_id=initial_state.get("turn_player_id"),
             card_instance_levels=card_instance_levels,
             unit_card_instance_ids=unit_card_instance_ids,
             unit_levels=unit_levels,
@@ -200,6 +202,8 @@ class ReplayViewerState:
         payload = event.get("payload") or {}
         event_type = event.get("type")
         actor = event.get("actor_player_id")
+        if event_type == "turn_started" and isinstance(actor, str):
+            self.turn_player_id = actor
         if event_type == "cp_set" and isinstance(actor, str):
             self._player(actor).current_cp = int(payload.get("after_cp", self._player(actor).current_cp))
         elif event_type == "cp_changed" and isinstance(actor, str):

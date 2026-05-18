@@ -17,7 +17,7 @@ if SRC_PATH.exists():
 from tests.test_engine import build_catalog, draw_window_card
 from tojs_reborn.engine.rules import card_bp_to_game_bp
 from tojs_reborn.engine.state import AbilityDefinition, CardDefinition, create_game_state
-from tojs_reborn.io.decklist import parse_decklist
+from tojs_reborn.io.decklist import load_decklist, parse_decklist
 from tojs_reborn.io.gui_player import build_model_from_message, make_response, tile_display_size
 from tojs_reborn.io.gui_view_model import build_gui_view_model, find_card_image
 from tojs_reborn.io.match_runner import FirstLegalPlayer, MatchRunner, replay_match_record, snapshot_match_initial_state
@@ -528,6 +528,9 @@ class ProtocolTest(unittest.TestCase):
         self.assertEqual(event_types[0], "match_started")
         self.assertIn("turn_started", event_types)
         self.assertEqual(event_types[-1], "match_ended")
+        self.assertEqual(state.event_store.events[-1].round_no, 1)
+        self.assertEqual(state.event_store.events[-1].turn_no, 2)
+        self.assertEqual(state.turn_player_id, "P2")
 
     def test_full_match_replay_record_replays_match_events(self) -> None:
         deck1 = parse_decklist({"cards": [{"card_no": "1-0-040", "count": 4}]}, self.catalog)
@@ -547,6 +550,16 @@ class ProtocolTest(unittest.TestCase):
         self.assertEqual(replayed.event_store.to_list(), state.event_store.to_list())
         self.assertEqual(record["intents"][0]["type"], "match_started")
         self.assertEqual(record["intents"][-1]["type"], "match_ended")
+        self.assertEqual(record["events"][-1]["round_no"], 1)
+
+    def test_imported_controlbeat_decklists_load_with_strict_rules(self) -> None:
+        deck1 = load_decklist(ROOT / "decklists" / "g_b_controlbeat.json", self.catalog, strict_deck_rule=True)
+        deck2 = load_decklist(ROOT / "decklists" / "r_g_beatdown.json", self.catalog, strict_deck_rule=True)
+
+        self.assertEqual(deck1.deck_name, "g_b_controlbeat")
+        self.assertEqual(deck2.deck_name, "r_g_beatdown")
+        self.assertEqual(len(deck1.expanded_card_nos()), 40)
+        self.assertEqual(len(deck2.expanded_card_nos()), 40)
 
     def test_match_runner_mulligan_phase_records_and_replays_result(self) -> None:
         class MulliganOncePlayer:
@@ -1292,6 +1305,57 @@ class ProtocolTest(unittest.TestCase):
 
         self.assertEqual(model["event_line_tags"], [None, "action"])
         self.assertIn("ability_resolved", model["event_lines"][1])
+
+    def test_replay_gui_model_tracks_turn_player_from_turn_started_events(self) -> None:
+        replay_record = {
+            "seed": 1,
+            "initial_state": {
+                "round_no": 1,
+                "turn_no": 1,
+                "turn_player_id": "P1",
+                "card_instances": {},
+                "players": {},
+                "units": {},
+            },
+            "events": [
+                {
+                    "event_no": 1,
+                    "type": "turn_started",
+                    "round_no": 1,
+                    "turn_no": 1,
+                    "actor_player_id": "P1",
+                    "cause_event_no": None,
+                    "source": {"card_no": None, "card_instance_id": None, "unit_id": None, "ability_id": None},
+                    "payload": {},
+                },
+                {
+                    "event_no": 2,
+                    "type": "turn_ended",
+                    "round_no": 1,
+                    "turn_no": 1,
+                    "actor_player_id": "P1",
+                    "cause_event_no": None,
+                    "source": {"card_no": None, "card_instance_id": None, "unit_id": None, "ability_id": None},
+                    "payload": {},
+                },
+                {
+                    "event_no": 3,
+                    "type": "turn_started",
+                    "round_no": 1,
+                    "turn_no": 2,
+                    "actor_player_id": "P2",
+                    "cause_event_no": None,
+                    "source": {"card_no": None, "card_instance_id": None, "unit_id": None, "ability_id": None},
+                    "payload": {},
+                },
+            ],
+        }
+
+        model = build_replay_gui_model(replay_record, card_catalog=self.catalog)
+
+        self.assertEqual(model["frames"][0]["turn_player_id"], "P1")
+        self.assertEqual(model["frames"][2]["turn_player_id"], "P1")
+        self.assertEqual(model["frames"][3]["turn_player_id"], "P2")
 
     def test_replay_gui_model_highlights_current_event_source_and_targets(self) -> None:
         replay_record = {
@@ -2206,6 +2270,15 @@ class ProtocolTest(unittest.TestCase):
 
     def test_replay_gui_default_card_width_keeps_tiles_compact(self) -> None:
         self.assertEqual(DEFAULT_REPLAY_CARD_WIDTH, 36)
+
+    def test_replay_gui_header_omits_turn_number(self) -> None:
+        gui = ReplayTkGui.__new__(ReplayTkGui)
+        gui.model = {"seed": 9}
+
+        header = gui._frame_header({"round_no": 10, "turn_no": 20, "turn_player_id": "P2"})
+
+        self.assertEqual(header, "Replay seed=9 R10 turn=P2")
+        self.assertNotIn("T20", header)
 
     def test_replay_gui_uses_zone_specific_tile_dimensions(self) -> None:
         gui = ReplayTkGui.__new__(ReplayTkGui)

@@ -141,6 +141,7 @@ class MatchRunner:
                 if result is not None:
                     return self._finish_match(result, event_delay_seconds=event_delay_seconds)
 
+        self._restore_final_turn_end_time_if_needed()
         return self._finish_match(
             MatchResult(
                 winner_player_id=_winner_by_life(self.state),
@@ -530,6 +531,16 @@ class MatchRunner:
         if self.check_integrity:
             assert_game_state_integrity(self.state)
 
+    def _restore_final_turn_end_time_if_needed(self) -> None:
+        if not self.state.event_store.events:
+            return
+        last_event = self.state.event_store.events[-1]
+        if last_event.type != "turn_ended" or last_event.actor_player_id != "P2":
+            return
+        self.state.round_no = last_event.round_no
+        self.state.turn_no = last_event.turn_no
+        self.state.turn_player_id = last_event.actor_player_id
+
 
 @dataclass
 class ScriptedChoicePlayer:
@@ -612,6 +623,17 @@ def replay_match_record(card_catalog, replay_record_data: dict) -> GameState:
             )
             runner.run_turn_action(intent["player_id"])
         elif intent["type"] == "match_ended":
+            expected_event_index = len(state.event_store.events)
+            expected_events = replay_record_data.get("events", [])
+            if expected_event_index < len(expected_events):
+                expected_event = expected_events[expected_event_index]
+                if expected_event.get("type") == "match_ended":
+                    state.round_no = int(expected_event.get("round_no", state.round_no))
+                    state.turn_no = int(expected_event.get("turn_no", state.turn_no))
+                    final_state = replay_record_data.get("final_state") or {}
+                    final_turn_player_id = final_state.get("turn_player_id")
+                    if isinstance(final_turn_player_id, str):
+                        state.turn_player_id = final_turn_player_id
             state.event_store.append(
                 "match_ended",
                 round_no=state.round_no,
