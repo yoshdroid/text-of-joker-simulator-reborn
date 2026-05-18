@@ -270,19 +270,28 @@ def _scenario_lina_discard_choice(catalog: dict[str, Any]) -> tuple[GameState, d
     lina = state.create_card_instance("1-0-031", "P1")
     first_material = state.create_card_instance("1-0-031", "P1")
     second_material = state.create_card_instance("1-0-031", "P1")
-    first_discard = state.create_card_instance("1-0-061", "P1")
-    second_discard = state.create_card_instance("1-0-001", "P1")
-    state.players["P1"].current_cp = 10
+    viper = state.create_card_instance("1-0-033", "P1")
+    for card_no in ("1-0-001", "1-0-004", "1-0-040", "1-0-061"):
+        state.players["P1"].deck.cards.append(state.create_card_instance(card_no, "P1").instance_id)
     state.players["P1"].hand.add(lina.instance_id)
     state.players["P1"].hand.add(first_material.instance_id)
     state.players["P1"].hand.add(second_material.instance_id)
-    state.players["P1"].discard_pile.add(second_discard.instance_id)
-    state.players["P1"].discard_pile.add(first_discard.instance_id)
+    state.players["P1"].deck.cards.insert(0, viper.instance_id)
     initial_state = snapshot_initial_state(state)
 
+    start_turn(state, "P1", draw_count=1, cp=7)
     override_card(state, "P1", lina.instance_id, first_material.instance_id)
     override_card(state, "P1", lina.instance_id, second_material.instance_id)
+    drive_unit(state, "P1", viper.instance_id)
     drive_unit(state, "P1", lina.instance_id)
+    returned_linas = [
+        card_instance_id
+        for card_instance_id in state.players["P1"].hand.cards
+        if state.card_instances[card_instance_id].card_no == "1-0-031"
+    ]
+    if len(returned_linas) < 2:
+        raise AssertionError("lina scenario expected two returned Lina cards in hand")
+    override_card(state, "P1", returned_linas[0], returned_linas[1])
     return state, initial_state
 
 

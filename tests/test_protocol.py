@@ -1749,6 +1749,41 @@ class ProtocolTest(unittest.TestCase):
         self.assertEqual([event for event in rairyu["events"] if event["type"] == "damage_dealt"][-1]["payload"].get("amount"), 7000)
         lina = json.loads((output_dir / "lina_discard_choice.json").read_text(encoding="utf-8"))
         self.assertIn("choice_selected", [event["type"] for event in lina["events"]])
+        initial_lina_deck = lina["initial_state"]["players"]["P1"]["deck"]
+        self.assertEqual(len(initial_lina_deck), 5)
+        self.assertEqual(lina["initial_state"]["card_instances"][initial_lina_deck[0]]["card_no"], "1-0-033")
+        cp_set_events = [event for event in lina["events"] if event["type"] == "cp_set"]
+        self.assertEqual(cp_set_events[-1]["payload"].get("after_cp"), 7)
+        lina_drive_events = [
+            event
+            for event in lina["events"]
+            if event["type"] == "action_declared" and event["payload"].get("action") == "drive_unit"
+        ]
+        self.assertEqual([event["source"].get("card_no") for event in lina_drive_events], ["1-0-033", "1-0-031"])
+        lina_override_events = [
+            event
+            for event in lina["events"]
+            if event["type"] == "action_declared" and event["payload"].get("action") == "override_card"
+        ]
+        self.assertEqual([event["source"].get("card_no") for event in lina_override_events], ["1-0-031"] * 3)
+        cards_drawn_by_override = [
+            event
+            for event in lina["events"]
+            if event["type"] == "cards_drawn" and event["cause_event_no"] in {override["event_no"] for override in lina_override_events}
+        ]
+        self.assertEqual([event["payload"].get("count") for event in cards_drawn_by_override], [1, 1, 1])
+        final_lina = lina["final_state"]
+        final_lina_hand = [
+            card_instance_id
+            for card_instance_id in final_lina["players"]["P1"]["hand"]
+            if final_lina["card_instances"][card_instance_id]["card_no"] == "1-0-031"
+        ]
+        self.assertEqual(len(final_lina_hand), 1)
+        self.assertEqual(final_lina["card_instances"][final_lina_hand[0]]["level"], 2)
+        self.assertEqual(
+            [final_lina["units"][unit_id]["card_no"] for unit_id in final_lina["players"]["P1"]["battlefield"]],
+            ["1-0-033", "1-0-031"],
+        )
         viper = json.loads((output_dir / "viper_discard_unit_recover.json").read_text(encoding="utf-8"))
         random_events = [event for event in viper["events"] if event["type"] == "random_resolved"]
         self.assertEqual(random_events[-1]["payload"].get("kind"), "discard_pile_card")

@@ -917,6 +917,8 @@ class EngineTest(unittest.TestCase):
         second_material = state.create_card_instance("1-0-041", "P1")
         first_cost = state.create_card_instance("1-0-040", "P1")
         second_cost = state.create_card_instance("1-0-001", "P1")
+        override_draw_one = state.create_card_instance("1-0-006", "P1")
+        override_draw_two = state.create_card_instance("1-0-007", "P1")
         draw_one = state.create_card_instance("1-0-004", "P1")
         draw_two = state.create_card_instance("1-0-005", "P1")
         state.players["P1"].current_cp = 10
@@ -925,7 +927,9 @@ class EngineTest(unittest.TestCase):
         state.players["P1"].hand.add(second_material.instance_id)
         state.players["P1"].hand.add(first_cost.instance_id)
         state.players["P1"].hand.add(second_cost.instance_id)
-        state.players["P1"].deck.cards.extend([draw_one.instance_id, draw_two.instance_id])
+        state.players["P1"].deck.cards.extend(
+            [override_draw_one.instance_id, override_draw_two.instance_id, draw_one.instance_id, draw_two.instance_id]
+        )
 
         def choose_cost(_state, _source_unit, _ability, _request_event, _step, _legal_choices):
             return {"card_instance_ids": [first_cost.instance_id, second_cost.instance_id]}
@@ -938,7 +942,10 @@ class EngineTest(unittest.TestCase):
             set(state.players["P1"].discard_pile.cards),
             {first_material.instance_id, second_material.instance_id, first_cost.instance_id, second_cost.instance_id},
         )
-        self.assertEqual(state.players["P1"].hand.cards, [draw_one.instance_id, draw_two.instance_id])
+        self.assertEqual(
+            state.players["P1"].hand.cards,
+            [override_draw_one.instance_id, override_draw_two.instance_id, draw_one.instance_id, draw_two.instance_id],
+        )
         self.assertIn("ability_cost_paid", [event.type for event in state.event_store.events])
         self.assertIn("cards_drawn", [event.type for event in state.event_store.events])
 
@@ -1781,6 +1788,24 @@ class EngineTest(unittest.TestCase):
 
         self.assertEqual(state.players["P1"].hand.cards, [target.instance_id, material.instance_id])
         self.assertEqual(state.players["P1"].discard_pile.cards, [])
+
+    def test_hand_override_draws_one_card_after_leveling(self) -> None:
+        state = create_game_state(self.catalog)
+        target = state.create_card_instance("1-0-031", "P1")
+        material = state.create_card_instance("1-0-031", "P1")
+        draw_target = state.create_card_instance("1-0-033", "P1")
+        state.players["P1"].hand.add(target.instance_id)
+        state.players["P1"].hand.add(material.instance_id)
+        state.players["P1"].deck.cards.append(draw_target.instance_id)
+
+        override_card(state, "P1", target.instance_id, material.instance_id)
+
+        self.assertEqual(state.players["P1"].hand.cards, [target.instance_id, draw_target.instance_id])
+        self.assertEqual(state.card_instances[target.instance_id].level, 2)
+        self.assertEqual(state.players["P1"].discard_pile.cards, [material.instance_id])
+        event_types = [event.type for event in state.event_store.events]
+        self.assertEqual(event_types[-2:], ["card_moved", "cards_drawn"])
+        self.assertLess(event_types.index("card_level_changed"), event_types.index("cards_drawn"))
 
     def test_bloodhound_level3_drive_resolves_self_oc_damage_to_rival_unit(self) -> None:
         state = create_game_state(self.catalog)

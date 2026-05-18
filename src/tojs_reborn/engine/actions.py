@@ -53,6 +53,7 @@ def draw_cards(
     *,
     cause_event_no: int | None = None,
     source: EventSource | None = None,
+    refresh_if_empty: bool = True,
 ) -> list[str]:
     player = state.players[player_id]
     drawn: list[str] = []
@@ -61,7 +62,7 @@ def draw_cards(
         if len(player.hand.cards) >= MAX_HAND_SIZE:
             skipped_count = count - draw_index
             break
-        if not player.deck.cards:
+        if not player.deck.cards and refresh_if_empty:
             _refresh_deck(state, player_id, cause_event_no=cause_event_no, source=source)
         card_instance_id = player.deck.draw_top()
         if card_instance_id is None:
@@ -357,6 +358,14 @@ def override_card(
         cause_event_no=action_event.event_no,
         source=EventSource(card_no=target.card_no, card_instance_id=target_card_instance_id),
         payload={"before_level": before_level, "after_level": target.level, "zone": "hand"},
+    )
+    draw_cards(
+        state,
+        player_id,
+        1,
+        cause_event_no=action_event.event_no,
+        source=EventSource(card_no=target.card_no, card_instance_id=target_card_instance_id),
+        refresh_if_empty=False,
     )
 
 
