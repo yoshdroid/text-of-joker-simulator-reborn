@@ -213,7 +213,10 @@ def _scenario_dartagnan_cip_attack_draw(catalog: dict[str, Any]) -> tuple[GameSt
     initial_state = snapshot_initial_state(state)
 
     unit = drive_unit(state, "P1", dartagnan.instance_id)
-    state.turn_no += 2
+    end_turn(state, "P1")
+    start_turn(state, "P2", draw_count=0, cp=3)
+    end_turn(state, "P2")
+    start_turn(state, "P1", draw_count=0, cp=5)
     attack_player(state, "P1", unit.unit_id)
     return state, initial_state
 
