@@ -68,6 +68,7 @@ SCENARIOS: dict[str, ScenarioBuilder] = {
     "lina_discard_choice": lambda catalog: _scenario_lina_discard_choice(catalog),
     "raguel_exhausted_damage": lambda catalog: _scenario_raguel_exhausted_damage(catalog),
     "rairyu_evolve_damage": lambda catalog: _scenario_rairyu_evolve_damage(catalog),
+    "tailwind_intercept_cp": lambda catalog: _scenario_tailwind_intercept_cp(catalog),
     "viper_discard_unit_recover": lambda catalog: _scenario_viper_discard_unit_recover(catalog),
 }
 
@@ -366,6 +367,23 @@ def _scenario_raguel_exhausted_damage(catalog: dict[str, Any]) -> tuple[GameStat
     initial_state = snapshot_initial_state(state)
 
     drive_unit(state, "P1", entering_card.instance_id)
+    return state, initial_state
+
+
+def _scenario_tailwind_intercept_cp(catalog: dict[str, Any]) -> tuple[GameState, dict[str, Any]]:
+    from tojs_reborn.engine.state import create_game_state
+
+    state = create_game_state(catalog, seed=97)
+    state.turn_player_id = "P1"
+    entering = _create_initial_deck_card(state, "P1", "1-0-001")
+    tailwind = _create_initial_deck_card(state, "P1", "1-0-097")
+    state.players["P1"].hand.add(entering.instance_id)
+    state.players["P1"].trigger_zone.add(tailwind.instance_id)
+    state.players["P1"].current_cp = 1
+    initial_state = snapshot_initial_state(state)
+
+    drive_unit(state, "P1", entering.instance_id)
+    process_windows_for_events(state, 1, choose_intercept=_choose_first_intercept)
     return state, initial_state
 
 

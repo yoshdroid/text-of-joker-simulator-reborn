@@ -1694,6 +1694,7 @@ class ProtocolTest(unittest.TestCase):
                 "new_armor_trigger",
                 "raguel_exhausted_damage",
                 "rairyu_evolve_damage",
+                "tailwind_intercept_cp",
                 "viper_discard_unit_recover",
             },
         )
@@ -1804,6 +1805,11 @@ class ProtocolTest(unittest.TestCase):
             any(event["type"] == "card_moved" and event["payload"].get("reason") == "evolve_source" for event in rairyu["events"])
         )
         self.assertEqual([event for event in rairyu["events"] if event["type"] == "damage_dealt"][-1]["payload"].get("amount"), 7000)
+        tailwind = json.loads((output_dir / "tailwind_intercept_cp.json").read_text(encoding="utf-8"))
+        self.assertIn("intercept_activated", [event["type"] for event in tailwind["events"]])
+        tailwind_cp_events = [event for event in tailwind["events"] if event["type"] == "cp_changed"]
+        self.assertEqual(tailwind_cp_events[-1]["payload"].get("amount"), 4)
+        self.assertEqual(tailwind["final_state"]["players"]["P1"]["current_cp"], 4)
         lina = json.loads((output_dir / "lina_discard_choice.json").read_text(encoding="utf-8"))
         self.assertIn("choice_selected", [event["type"] for event in lina["events"]])
         initial_lina_deck = lina["initial_state"]["players"]["P1"]["deck"]
