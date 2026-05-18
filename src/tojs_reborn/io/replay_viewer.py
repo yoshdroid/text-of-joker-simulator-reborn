@@ -230,6 +230,14 @@ class ReplayViewerState:
                 after_bp = payload.get("after_bp")
                 if after_bp is not None:
                     self.unit_bp[unit_id] = int(after_bp)
+        elif event_type == "unit_overclocked":
+            unit_id = (event.get("source") or {}).get("unit_id")
+            level = payload.get("level")
+            if isinstance(unit_id, str) and level is not None:
+                self.unit_levels[unit_id] = int(level)
+                card_instance_id = self.unit_card_instance_ids.get(unit_id)
+                if card_instance_id is not None:
+                    self.card_instance_levels[card_instance_id] = self.unit_levels[unit_id]
         elif event_type == "unit_attacked":
             unit_id = payload.get("attacker_unit_id")
             if isinstance(unit_id, str):
@@ -303,8 +311,15 @@ class ReplayViewerState:
                 payload.get("after_level", self.card_instance_levels.get(card_instance_id, 1))
             )
         if isinstance(unit_id, str):
+            level = int(
+                payload.get(
+                    "after_level",
+                    payload.get("level", self.card_instance_levels.get(card_instance_id, self.unit_levels.get(unit_id, 1))),
+                )
+            )
             self.unit_card_instance_ids.setdefault(unit_id, card_instance_id)
-            self.unit_levels[unit_id] = int(payload.get("after_level", self.unit_levels.get(unit_id, 1)))
+            self.unit_levels[unit_id] = level
+            self.card_instance_levels[card_instance_id] = level
             self.unit_exhausted.setdefault(unit_id, False)
             self.unit_damage.setdefault(unit_id, 0)
         self._remove_from_zone(player, from_zone, card_instance_id, unit_id)

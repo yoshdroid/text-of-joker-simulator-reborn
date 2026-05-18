@@ -2050,6 +2050,16 @@ class ProtocolTest(unittest.TestCase):
         oc_refresh_frame = oc_model["frames"][oc_consume["events"].index(oc_refresh) + 1]
         self.assertEqual(oc_refresh_frame["players"][0]["status"]["discard_count"], 0)
         self.assertEqual(oc_refresh_frame["players"][0]["status"]["deck_count"], 6)
+        oc_drive_move = next(
+            event
+            for event in oc_consume["events"]
+            if event["type"] == "card_moved" and event["payload"].get("to_zone") == "battlefield"
+        )
+        oc_drive_frame = oc_model["frames"][oc_consume["events"].index(oc_drive_move) + 1]
+        self.assertEqual(oc_drive_frame["players"][0]["battlefield"][0]["level"], 3)
+        oc_overclock = next(event for event in oc_consume["events"] if event["type"] == "unit_overclocked")
+        oc_overclock_frame = oc_model["frames"][oc_consume["events"].index(oc_overclock) + 1]
+        self.assertEqual(oc_overclock_frame["players"][0]["battlefield"][0]["level"], 3)
         oc_consume_choices = [event for event in oc_consume["events"] if event["type"] == "choice_requested"]
         self.assertEqual(len(oc_consume_choices[-1]["payload"].get("candidate_unit_ids")), 1)
         raguel = json.loads((output_dir / "raguel_exhausted_damage.json").read_text(encoding="utf-8"))
