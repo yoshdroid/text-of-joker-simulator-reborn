@@ -56,6 +56,7 @@ FILLER_CARD_NOS = (
 SCENARIOS: dict[str, ScenarioBuilder] = {
     "bishamon_evolve_destroy_all": lambda catalog: _scenario_bishamon_evolve_destroy_all(catalog),
     "bloodhound_level3_damage": lambda catalog: _scenario_bloodhound_level3_damage(catalog),
+    "dartagnan_cip_attack_draw": lambda catalog: _scenario_dartagnan_cip_attack_draw(catalog),
     "display_stand_trigger_draw": lambda catalog: _scenario_display_stand_trigger_draw(catalog),
     "goliath_level3_life_damage": lambda catalog: _scenario_goliath_level3_life_damage(catalog),
     "happaloid_cip_draw": lambda catalog: _scenario_happaloid_cip_draw(catalog),
@@ -192,6 +193,25 @@ def _scenario_display_stand_trigger_draw(catalog: dict[str, Any]) -> tuple[GameS
 
     drive_unit(state, "P1", entering.instance_id)
     process_windows_for_events(state, 1)
+    return state, initial_state
+
+
+def _scenario_dartagnan_cip_attack_draw(catalog: dict[str, Any]) -> tuple[GameState, dict[str, Any]]:
+    from tojs_reborn.engine.state import create_game_state
+
+    state = create_game_state(catalog, seed=47)
+    state.turn_no = 3
+    state.turn_player_id = "P1"
+    dartagnan = _create_initial_deck_card(state, "P1", "1-0-047")
+    draw_target = _create_initial_deck_card(state, "P1", "1-0-001")
+    state.players["P1"].hand.add(dartagnan.instance_id)
+    state.players["P1"].deck.cards.append(draw_target.instance_id)
+    state.players["P1"].current_cp = 10
+    initial_state = snapshot_initial_state(state)
+
+    unit = drive_unit(state, "P1", dartagnan.instance_id)
+    state.turn_no += 2
+    attack_player(state, "P1", unit.unit_id)
     return state, initial_state
 
 

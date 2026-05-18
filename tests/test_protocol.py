@@ -1682,6 +1682,7 @@ class ProtocolTest(unittest.TestCase):
             {
                 "bishamon_evolve_destroy_all",
                 "bloodhound_level3_damage",
+                "dartagnan_cip_attack_draw",
                 "display_stand_trigger_draw",
                 "goliath_level3_life_damage",
                 "hand_limit_draw",
@@ -1750,6 +1751,13 @@ class ProtocolTest(unittest.TestCase):
         damage_events = [event for event in bloodhound["events"] if event["type"] == "damage_dealt"]
         self.assertEqual(damage_events[-1]["payload"].get("amount"), 4000)
         self.assertIn("unit_destroyed", [event["type"] for event in bloodhound["events"]])
+        dartagnan = json.loads((output_dir / "dartagnan_cip_attack_draw.json").read_text(encoding="utf-8"))
+        dartagnan_ability_ids = [
+            event["source"].get("ability_id") for event in dartagnan["events"] if event["type"] == "ability_resolved"
+        ]
+        self.assertEqual(dartagnan_ability_ids, ["1-0-047:a1", "1-0-047:a2"])
+        self.assertEqual([event for event in dartagnan["events"] if event["type"] == "cards_drawn"][-1]["payload"].get("count"), 1)
+        self.assertEqual(dartagnan["final_state"]["players"]["P2"]["life"], 6)
         display_stand = json.loads((output_dir / "display_stand_trigger_draw.json").read_text(encoding="utf-8"))
         self.assertIn("trigger_activated", [event["type"] for event in display_stand["events"]])
         self.assertIn("cards_drawn", [event["type"] for event in display_stand["events"]])
