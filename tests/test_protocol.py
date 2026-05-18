@@ -561,6 +561,37 @@ class ProtocolTest(unittest.TestCase):
         self.assertEqual(len(deck1.expanded_card_nos()), 40)
         self.assertEqual(len(deck2.expanded_card_nos()), 40)
 
+    def test_match_setup_shuffles_deck_before_initial_hand(self) -> None:
+        deck = parse_decklist(
+            {
+                "cards": [
+                    {"card_no": "1-0-001", "count": 1},
+                    {"card_no": "1-0-004", "count": 1},
+                    {"card_no": "1-0-007", "count": 1},
+                    {"card_no": "1-0-010", "count": 1},
+                    {"card_no": "1-0-040", "count": 1},
+                    {"card_no": "1-0-044", "count": 1},
+                    {"card_no": "1-0-048", "count": 1},
+                    {"card_no": "1-0-061", "count": 1},
+                ]
+            },
+            self.catalog,
+        )
+
+        state = setup_match_state(
+            self.catalog,
+            {"P1": deck, "P2": deck},
+            config=MatchSetupConfig(seed=9),
+        )
+
+        fixed_opening_card_nos = deck.expanded_card_nos()[:4]
+        actual_opening_card_nos = [
+            state.card_instances[card_instance_id].card_no
+            for card_instance_id in state.players["P1"].hand.cards
+        ]
+        self.assertNotEqual(actual_opening_card_nos, fixed_opening_card_nos)
+        self.assertEqual(state.players["P1"].initial_deck_card_nos, deck.expanded_card_nos())
+
     def test_match_runner_mulligan_phase_records_and_replays_result(self) -> None:
         class MulliganOncePlayer:
             def __init__(self) -> None:

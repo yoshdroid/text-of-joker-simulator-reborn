@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+import random
 from dataclasses import dataclass
 from pathlib import Path
 
@@ -14,7 +15,7 @@ class MatchSetupConfig:
     initial_life: int = 7
     initial_hand_size: int = 4
     first_player_id: str = "P1"
-    shuffle_deck: bool = False
+    shuffle_deck: bool = True
 
 
 def setup_match_state(
@@ -61,7 +62,7 @@ def _register_decklist(
 
     deck_card_nos = list(expanded_card_nos)
     if config.shuffle_deck:
-        state.rng.shuffle(deck_card_nos)
+        _initial_deck_rng(state.seed, player_id).shuffle(deck_card_nos)
     for card_no in deck_card_nos:
         instance = state.create_card_instance(card_no, player_id)
         player.deck.cards.append(instance.instance_id)
@@ -70,3 +71,7 @@ def _register_decklist(
         card_instance_id = player.deck.draw_top()
         if card_instance_id is not None:
             player.hand.add(card_instance_id)
+
+
+def _initial_deck_rng(seed: int, player_id: str) -> random.Random:
+    return random.Random(f"{seed}:{player_id}:initial_deck")
