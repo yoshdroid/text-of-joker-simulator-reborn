@@ -6,7 +6,7 @@ from dataclasses import dataclass, field
 from typing import Protocol
 
 from tojs_reborn.engine.actions import drive_unit, override_card, set_trigger
-from tojs_reborn.engine.combat import declare_attack, declare_block, resolve_unblocked_attack
+from tojs_reborn.engine.combat import attack_bypasses_block, declare_attack, declare_block, resolve_unblocked_attack
 from tojs_reborn.engine.integrity import assert_game_state_integrity
 from tojs_reborn.engine.legal_actions import list_block_actions, list_legal_actions
 from tojs_reborn.engine.replay import build_replay_record, snapshot_initial_state, state_from_snapshot
@@ -246,6 +246,11 @@ class MatchRunner:
                 self._choose_ability_cost,
             )
             self._process_windows_from(attack_event.event_no)
+            if attack_bypasses_block(self.state, action["attacker_unit_id"]):
+                damage_first_event_no = len(self.state.event_store.events) + 1
+                resolve_unblocked_attack(self.state, attack_event.event_no)
+                self._process_windows_from(damage_first_event_no)
+                return
             defender_player_id = action["defender_player_id"]
             block_actions = list_block_actions(self.state, defender_player_id, action["attacker_unit_id"])
             selected_block = self._choose_action(defender_player_id, block_actions, role="block_action")

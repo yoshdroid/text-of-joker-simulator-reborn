@@ -7,7 +7,7 @@ from collections.abc import Callable
 from pathlib import Path
 from typing import Any, Sequence
 
-from tojs_reborn.engine.combat import attack_player, attack_unit
+from tojs_reborn.engine.combat import attack_player, attack_unit, declare_attack, resolve_unblocked_attack
 from tojs_reborn.engine.actions import drive_unit, override_card
 from tojs_reborn.engine.replay import build_replay_record, snapshot_initial_state, verify_replay_record
 from tojs_reborn.engine.state import GameState, load_card_catalog
@@ -54,6 +54,9 @@ FILLER_CARD_NOS = (
 
 
 SCENARIOS: dict[str, ScenarioBuilder] = {
+    "attack_consume_action": lambda catalog: _scenario_attack_consume_action(catalog),
+    "attack_bp_modifier": lambda catalog: _scenario_attack_bp_modifier(catalog),
+    "block_bypass_player_attack": lambda catalog: _scenario_block_bypass_player_attack(catalog),
     "bishamon_evolve_destroy_all": lambda catalog: _scenario_bishamon_evolve_destroy_all(catalog),
     "bloodhound_level3_damage": lambda catalog: _scenario_bloodhound_level3_damage(catalog),
     "dartagnan_cip_attack_draw": lambda catalog: _scenario_dartagnan_cip_attack_draw(catalog),
@@ -66,6 +69,7 @@ SCENARIOS: dict[str, ScenarioBuilder] = {
     "kaim_cip_trigger_search": lambda catalog: _scenario_kaim_cip_trigger_search(catalog),
     "leafia_block_bp_modifier": lambda catalog: _scenario_leafia_block_bp_modifier(catalog),
     "new_armor_trigger": lambda catalog: _scenario_new_armor_trigger(catalog),
+    "oc_consume_action": lambda catalog: _scenario_oc_consume_action(catalog),
     "lina_discard_choice": lambda catalog: _scenario_lina_discard_choice(catalog),
     "raguel_exhausted_damage": lambda catalog: _scenario_raguel_exhausted_damage(catalog),
     "rairyu_evolve_damage": lambda catalog: _scenario_rairyu_evolve_damage(catalog),
@@ -234,6 +238,78 @@ def _scenario_happaloid_cip_draw(catalog: dict[str, Any]) -> tuple[GameState, di
     initial_state = snapshot_initial_state(state)
 
     drive_unit(state, "P1", happaloid.instance_id)
+    return state, initial_state
+
+
+def _scenario_attack_bp_modifier(catalog: dict[str, Any]) -> tuple[GameState, dict[str, Any]]:
+    from tojs_reborn.engine.state import create_game_state
+
+    state = create_game_state(catalog, seed=2)
+    state.turn_no = 3
+    state.turn_player_id = "P1"
+    _attacker_card, attacker = _add_battlefield_unit(state, "P1", "1-0-002")
+    initial_state = snapshot_initial_state(state)
+
+    attack_player(state, "P1", attacker.unit_id)
+    end_turn(state, "P1")
+    return state, initial_state
+
+
+def _scenario_block_bypass_player_attack(catalog: dict[str, Any]) -> tuple[GameState, dict[str, Any]]:
+    from tojs_reborn.engine.state import create_game_state
+
+    state = create_game_state(catalog, seed=8)
+    state.turn_no = 3
+    state.turn_player_id = "P1"
+    _attacker_card, attacker = _add_battlefield_unit(state, "P1", "1-0-008")
+    _blocker_card, _blocker = _add_battlefield_unit(state, "P2", "1-0-045")
+    initial_state = snapshot_initial_state(state)
+
+    attack_event = declare_attack(state, "P1", attacker.unit_id)
+    resolve_unblocked_attack(state, attack_event.event_no)
+    return state, initial_state
+
+
+def _scenario_attack_consume_action(catalog: dict[str, Any]) -> tuple[GameState, dict[str, Any]]:
+    from tojs_reborn.engine.state import create_game_state
+
+    state = create_game_state(catalog, seed=25)
+    state.turn_no = 3
+    state.turn_player_id = "P1"
+    _attacker_card, attacker = _add_battlefield_unit(state, "P1", "1-0-025")
+    _exhausted_card, exhausted = _add_battlefield_unit(state, "P2", "1-0-004")
+    _ready_card, ready = _add_battlefield_unit(state, "P2", "1-0-001")
+    exhausted.exhausted = True
+    initial_state = snapshot_initial_state(state)
+
+    attack_player(state, "P1", attacker.unit_id)
+    if not ready.exhausted:
+        raise AssertionError("attack consume scenario expected ready rival unit to be exhausted")
+    return state, initial_state
+
+
+def _scenario_oc_consume_action(catalog: dict[str, Any]) -> tuple[GameState, dict[str, Any]]:
+    from tojs_reborn.engine.state import create_game_state
+
+    state = create_game_state(catalog, seed=16)
+    state.turn_player_id = "P1"
+    source = _create_initial_deck_card(state, "P1", "1-0-016")
+    first_material = _create_initial_deck_card(state, "P1", "1-0-016")
+    second_material = _create_initial_deck_card(state, "P1", "1-0-016")
+    _exhausted_card, exhausted = _add_battlefield_unit(state, "P2", "1-0-004")
+    _ready_card, ready = _add_battlefield_unit(state, "P2", "1-0-001")
+    exhausted.exhausted = True
+    state.players["P1"].hand.add(source.instance_id)
+    state.players["P1"].hand.add(first_material.instance_id)
+    state.players["P1"].hand.add(second_material.instance_id)
+    state.players["P1"].current_cp = 10
+    initial_state = snapshot_initial_state(state)
+
+    override_card(state, "P1", source.instance_id, first_material.instance_id)
+    override_card(state, "P1", source.instance_id, second_material.instance_id)
+    drive_unit(state, "P1", source.instance_id)
+    if not ready.exhausted:
+        raise AssertionError("OC consume scenario expected ready rival unit to be exhausted")
     return state, initial_state
 
 

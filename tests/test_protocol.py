@@ -351,6 +351,31 @@ class ProtocolTest(unittest.TestCase):
         self.assertEqual(state.players["P2"].life, 6)
         self.assertNotIn("battle_started", [event.type for event in state.event_store.events])
 
+    def test_match_runner_skips_block_choice_for_valkyrie_clara_attack(self) -> None:
+        class BlockingPlayer:
+            def choose_action(self, player_id: str, legal_actions: list[dict]) -> dict:
+                block = next((action for action in legal_actions if action["type"] == "block"), None)
+                if block is not None:
+                    return block
+                return next(action for action in legal_actions if action["type"] == "attack")
+
+        state = create_game_state(self.catalog)
+        state.turn_no = 3
+        attacker_card = state.create_card_instance("1-0-008", "P1")
+        blocker_card = state.create_card_instance("1-0-045", "P2")
+        attacker = state.create_unit(attacker_card.instance_id)
+        blocker = state.create_unit(blocker_card.instance_id)
+        state.players["P1"].battlefield.add(attacker.unit_id)
+        state.players["P2"].battlefield.add(blocker.unit_id)
+        runner = MatchRunner(state, players={"P1": BlockingPlayer(), "P2": BlockingPlayer()})
+
+        selected = runner.run_turn_action("P1")
+
+        self.assertEqual(selected["type"], "attack")
+        self.assertEqual(state.players["P2"].life, 6)
+        self.assertFalse(blocker.exhausted)
+        self.assertNotIn("block_declared", [event.type for event in state.event_store.events])
+
     def test_match_runner_processes_trigger_window_after_drive(self) -> None:
         catalog = dict(self.catalog)
         catalog["T-TRG-001"] = draw_window_card("T-TRG-001", "trigger", "TRIGGER_UNIT_ENTERED")
@@ -1749,7 +1774,10 @@ class ProtocolTest(unittest.TestCase):
         self.assertEqual(
             scenario_names,
             {
+                "attack_bp_modifier",
+                "attack_consume_action",
                 "bishamon_evolve_destroy_all",
+                "block_bypass_player_attack",
                 "bloodhound_level3_damage",
                 "dartagnan_cip_attack_draw",
                 "display_stand_trigger_draw",
@@ -1762,6 +1790,7 @@ class ProtocolTest(unittest.TestCase):
                 "leafia_block_bp_modifier",
                 "lina_discard_choice",
                 "new_armor_trigger",
+                "oc_consume_action",
                 "raguel_exhausted_damage",
                 "rairyu_evolve_damage",
                 "tailwind_intercept_cp",
@@ -1780,6 +1809,17 @@ class ProtocolTest(unittest.TestCase):
                     self.assertLessEqual(max(initial_deck_counts.values()), 3)
                     self.assertEqual(initial_card_counts_by_owner.get(player_id, Counter()), initial_deck_counts)
         bishamon = json.loads((output_dir / "bishamon_evolve_destroy_all.json").read_text(encoding="utf-8"))
+        attack_bp = json.loads((output_dir / "attack_bp_modifier.json").read_text(encoding="utf-8"))
+        self.assertIn("bp_modified", [event["type"] for event in attack_bp["events"]])
+        self.assertIn("modifier_expired", [event["type"] for event in attack_bp["events"]])
+        attack_consume = json.loads((output_dir / "attack_consume_action.json").read_text(encoding="utf-8"))
+        self.assertIn("unit_action_consumed", [event["type"] for event in attack_consume["events"]])
+        attack_consume_choices = [event for event in attack_consume["events"] if event["type"] == "choice_requested"]
+        self.assertEqual(len(attack_consume_choices[-1]["payload"].get("candidate_unit_ids")), 1)
+        block_bypass = json.loads((output_dir / "block_bypass_player_attack.json").read_text(encoding="utf-8"))
+        self.assertIn("life_changed", [event["type"] for event in block_bypass["events"]])
+        self.assertNotIn("block_declared", [event["type"] for event in block_bypass["events"]])
+        self.assertEqual(block_bypass["final_state"]["players"]["P2"]["life"], 6)
         self.assertEqual([event["type"] for event in bishamon["events"]].count("unit_destroyed"), 3)
         initial_bishamon_units = bishamon["initial_state"]["players"]["P1"]["battlefield"]
         self.assertEqual(
@@ -1900,6 +1940,11 @@ class ProtocolTest(unittest.TestCase):
         self.assertEqual(leafia["final_state"]["units"][final_leafia_unit_id]["current_damage"], 0)
         new_armor = json.loads((output_dir / "new_armor_trigger.json").read_text(encoding="utf-8"))
         self.assertIn("trigger_activated", [event["type"] for event in new_armor["events"]])
+        oc_consume = json.loads((output_dir / "oc_consume_action.json").read_text(encoding="utf-8"))
+        self.assertIn("unit_overclocked", [event["type"] for event in oc_consume["events"]])
+        self.assertIn("unit_action_consumed", [event["type"] for event in oc_consume["events"]])
+        oc_consume_choices = [event for event in oc_consume["events"] if event["type"] == "choice_requested"]
+        self.assertEqual(len(oc_consume_choices[-1]["payload"].get("candidate_unit_ids")), 1)
         raguel = json.loads((output_dir / "raguel_exhausted_damage.json").read_text(encoding="utf-8"))
         raguel_damage_events = [event for event in raguel["events"] if event["type"] == "damage_dealt"]
         self.assertEqual(len(raguel_damage_events), 2)

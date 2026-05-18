@@ -32,6 +32,11 @@ def declare_attack(
     return action_event
 
 
+def attack_bypasses_block(state: GameState, attacker_unit_id: str) -> bool:
+    attacker = state.units[attacker_unit_id]
+    return attacker.card_no == "1-0-008"
+
+
 def resolve_unblocked_attack(state: GameState, attack_event_no: int) -> None:
     attack_event = state.event_store.events[attack_event_no - 1]
     if attack_event.type != "action_declared" or attack_event.payload.get("action") != "attack":
