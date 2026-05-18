@@ -302,8 +302,10 @@ def _reward_battle_winner(
     if winner.unit_id not in state.units:
         return
     before_level = winner.level
+    leveled_up = False
     if winner.level < 3:
         winner.level += 1
+        leveled_up = True
         state.card_instances[winner.card_instance_id].level = winner.level
         level_event = state.event_store.append(
             "unit_level_changed",
@@ -320,6 +322,7 @@ def _reward_battle_winner(
                 "after_bp": get_unit_bp(state, winner),
             },
         )
+        _clear_battle_winner_damage(state, winner, cause_event_no)
         if winner.level >= 3:
             overclock_event = state.event_store.append(
                 "unit_overclocked",
@@ -338,23 +341,29 @@ def _reward_battle_winner(
                 optional_ability_choice,
                 ability_cost_choice,
             )
-    if winner.current_damage > 0:
-        before_damage = winner.current_damage
-        winner.current_damage = 0
-        state.event_store.append(
-            "unit_damage_cleared",
-            round_no=state.round_no,
-            turn_no=state.turn_no,
-            actor_player_id=winner.owner_player_id,
-            cause_event_no=cause_event_no,
-            source=_unit_source(winner),
-            payload={
-                "unit_id": winner.unit_id,
-                "before_damage": before_damage,
-                "after_damage": 0,
-                "reason": "battle_win",
-            },
-        )
+    if not leveled_up:
+        return
+
+
+def _clear_battle_winner_damage(state: GameState, winner: UnitState, cause_event_no: int) -> None:
+    if winner.current_damage == 0:
+        return
+    before_damage = winner.current_damage
+    winner.current_damage = 0
+    state.event_store.append(
+        "unit_damage_cleared",
+        round_no=state.round_no,
+        turn_no=state.turn_no,
+        actor_player_id=winner.owner_player_id,
+        cause_event_no=cause_event_no,
+        source=_unit_source(winner),
+        payload={
+            "unit_id": winner.unit_id,
+            "before_damage": before_damage,
+            "after_damage": 0,
+            "reason": "battle_win",
+        },
+    )
 
 
 def _battlefield_order(state: GameState) -> dict[str, int]:

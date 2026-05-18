@@ -1863,25 +1863,38 @@ class ProtocolTest(unittest.TestCase):
         self.assertFalse(jumpoo_return_moves[0]["payload"].get("hand_limit_exceeded"))
         self.assertTrue(jumpoo_return_moves[1]["payload"].get("hand_limit_exceeded"))
         leafia = json.loads((output_dir / "leafia_block_bp_modifier.json").read_text(encoding="utf-8"))
-        self.assertIn("block_declared", [event["type"] for event in leafia["events"]])
-        self.assertIn("bp_modified", [event["type"] for event in leafia["events"]])
+        leafia_event_types = [event["type"] for event in leafia["events"]]
+        self.assertEqual(leafia_event_types.count("block_declared"), 4)
+        self.assertEqual(leafia_event_types.count("bp_modified"), 4)
         leafia_level_events = [event for event in leafia["events"] if event["type"] == "unit_level_changed"]
-        self.assertEqual(leafia_level_events[-1]["payload"].get("after_level"), 2)
-        self.assertEqual(leafia_level_events[-1]["payload"].get("after_bp"), 9000)
-        self.assertIn("unit_damage_cleared", [event["type"] for event in leafia["events"]])
-        self.assertIn("modifier_expired", [event["type"] for event in leafia["events"]])
+        self.assertEqual([event["payload"].get("after_level") for event in leafia_level_events], [2, 3])
+        self.assertEqual([event["payload"].get("after_bp") for event in leafia_level_events], [9000, 12000])
+        leafia_damage_clear_events = [event for event in leafia["events"] if event["type"] == "unit_damage_cleared"]
+        self.assertEqual([event["payload"].get("reason") for event in leafia_damage_clear_events], ["battle_win", "battle_win", "turn_end"])
+        self.assertEqual(leafia_damage_clear_events[-1]["payload"].get("before_damage"), 10000)
+        self.assertIn("modifier_expired", leafia_event_types)
         leafia_model = build_replay_gui_model(leafia, card_catalog=self.catalog)
-        leafia_level_frame = leafia_model["frames"][leafia["events"].index(leafia_level_events[-1]) + 1]
-        self.assertEqual(leafia_level_frame["players"][1]["battlefield"][0]["level"], 2)
-        self.assertEqual(leafia_level_frame["players"][1]["battlefield"][0]["damage"], 3000)
-        self.assertEqual(leafia_level_frame["players"][1]["battlefield"][0]["current_bp"], 9000)
-        leafia_clear_event_index = next(
-            index for index, event in enumerate(leafia["events"]) if event["type"] == "unit_damage_cleared"
+        leafia_first_level_frame = leafia_model["frames"][leafia["events"].index(leafia_level_events[0]) + 1]
+        self.assertEqual(leafia_first_level_frame["players"][1]["battlefield"][0]["level"], 2)
+        self.assertEqual(leafia_first_level_frame["players"][1]["battlefield"][0]["damage"], 3000)
+        self.assertEqual(leafia_first_level_frame["players"][1]["battlefield"][0]["current_bp"], 9000)
+        third_battle_start = next(
+            index
+            for index, event in enumerate(leafia["events"])
+            if event["type"] == "damage_dealt" and event["payload"].get("after_damage") == 5000
         )
-        leafia_clear_frame = leafia_model["frames"][leafia_clear_event_index + 1]
-        self.assertEqual(leafia_clear_frame["players"][1]["battlefield"][0]["damage"], 0)
+        self.assertEqual(leafia_model["frames"][third_battle_start + 1]["players"][1]["battlefield"][0]["damage"], 5000)
+        fourth_battle_end = next(
+            index
+            for index, event in enumerate(leafia["events"])
+            if event["type"] == "damage_dealt" and event["payload"].get("after_damage") == 10000
+        )
+        self.assertEqual(leafia_model["frames"][fourth_battle_end + 1]["players"][1]["battlefield"][0]["damage"], 10000)
+        leafia_turn_end_clear_frame = leafia_model["frames"][leafia["events"].index(leafia_damage_clear_events[-1]) + 1]
+        self.assertEqual(leafia_turn_end_clear_frame["players"][1]["battlefield"][0]["damage"], 0)
+        self.assertEqual(leafia_turn_end_clear_frame["players"][1]["battlefield"][0]["current_bp"], 8000)
         final_leafia_unit_id = leafia["final_state"]["players"]["P2"]["battlefield"][0]
-        self.assertEqual(leafia["final_state"]["units"][final_leafia_unit_id]["level"], 2)
+        self.assertEqual(leafia["final_state"]["units"][final_leafia_unit_id]["level"], 3)
         self.assertEqual(leafia["final_state"]["units"][final_leafia_unit_id]["current_damage"], 0)
         new_armor = json.loads((output_dir / "new_armor_trigger.json").read_text(encoding="utf-8"))
         self.assertIn("trigger_activated", [event["type"] for event in new_armor["events"]])

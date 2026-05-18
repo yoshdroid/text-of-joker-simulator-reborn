@@ -316,11 +316,17 @@ def _scenario_leafia_block_bp_modifier(catalog: dict[str, Any]) -> tuple[GameSta
     state = create_game_state(catalog, seed=45)
     state.turn_no = 3
     state.turn_player_id = "P1"
-    _attacker_card, attacker = _add_battlefield_unit(state, "P1", "1-0-001")
+    attackers = [
+        _add_battlefield_unit(state, "P1", "1-0-001", level=1)[1],
+        _add_battlefield_unit(state, "P1", "1-0-001", level=2)[1],
+        _add_battlefield_unit(state, "P1", "1-0-001", level=3)[1],
+        _add_battlefield_unit(state, "P1", "1-0-008", level=3)[1],
+    ]
     _blocker_card, blocker = _add_battlefield_unit(state, "P2", "1-0-045")
     initial_state = snapshot_initial_state(state)
 
-    attack_unit(state, "P1", attacker.unit_id, blocker.unit_id)
+    for attacker in attackers:
+        attack_unit(state, "P1", attacker.unit_id, blocker.unit_id)
     end_turn(state, "P1")
     return state, initial_state
 

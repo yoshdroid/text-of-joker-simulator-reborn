@@ -65,6 +65,7 @@ def end_turn(
     )
     resolve_turn_ended(state, player_id, turn_event, get_effect_handlers(), optional_ability_choice, ability_cost_choice)
     _expire_turn_modifiers(state, turn_event.event_no)
+    _clear_turn_damage(state, turn_event.event_no)
     if player_id == "P2":
         state.round_no += 1
     state.turn_no += 1
@@ -95,5 +96,27 @@ def _expire_turn_modifiers(state: GameState, cause_event_no: int) -> None:
                 "expired_count": expired_count,
                 "duration": "turn",
                 "after_bp": get_unit_bp(state, unit),
+            },
+        )
+
+
+def _clear_turn_damage(state: GameState, cause_event_no: int) -> None:
+    for unit in list(state.units.values()):
+        if unit.current_damage == 0:
+            continue
+        before_damage = unit.current_damage
+        unit.current_damage = 0
+        state.event_store.append(
+            "unit_damage_cleared",
+            round_no=state.round_no,
+            turn_no=state.turn_no,
+            actor_player_id=unit.owner_player_id,
+            cause_event_no=cause_event_no,
+            source=EventSource(card_no=unit.card_no, card_instance_id=unit.card_instance_id, unit_id=unit.unit_id),
+            payload={
+                "unit_id": unit.unit_id,
+                "before_damage": before_damage,
+                "after_damage": 0,
+                "reason": "turn_end",
             },
         )
