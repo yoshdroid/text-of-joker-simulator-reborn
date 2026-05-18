@@ -26,9 +26,9 @@ python -m tojs_reborn.io.scenario_cli --cards carddata/generated/cards.normalize
 | `kaim_cip_trigger_search` | カイム | `1-0-020` カイムをドライブし、デッキ内の trigger だけを探して手札に加え、unit / intercept がデッキに残る。 | ✓ |
 | `leafia_block_bp_modifier` | リーフィア | P1 の `1-0-001` ブラッドハウンド LV1/LV2/LV3 と `1-0-032` 中忍月影 LV3 が4回アタックし、`1-0-045` リーフィアがすべてブロックする。1/2回目は戦闘勝利で LV2/LV3 へ上がりダメージ回復、3/4回目は LV3 から上がらずダメージが蓄積し、ターン終了でブロックBP修正と累積ダメージが解消され LV3 基礎BPになる。 | ✓ |
 | `new_armor_trigger` | 新品の鎧 | `1-0-061` 新品の鎧が unit enter 後に強制発動し、deck から intercept を探して手札に加える。 | ✓ |
-| `raguel_exhausted_damage` | ラグエル | `1-0-023` ラグエルをドライブし、相手の疲弊ユニット2体だけにダメージが入り、待機ユニットにはダメージが入らない。 |  |
+| `raguel_exhausted_damage` | ラグエル | `1-0-023` ラグエルをドライブし、相手の疲弊ユニット2体だけにダメージが入り、待機ユニットにはダメージが入らない。 | ✓ |
 | `rairyu_evolve_damage` | 雷龍 | `1-0-024` 雷龍を黄ユニットに進化ドライブし、進化元が捨札へ移動し、疲弊した相手ユニットへ7000ダメージを与えて破壊する。 | ✓ |
-| `tailwind_intercept_cp` | 追い風 | `1-0-097` 追い風を intercept window で任意発動し、CPが4増えて捨札へ移動する。 |  |
+| `tailwind_intercept_cp` | 追い風 | `1-0-097` 追い風を intercept window で任意発動し、CPが4増えて捨札へ移動する。 | ✓ |
 | `lina_discard_choice` | 見習い魔導士リーナ | デッキ5枚の先頭を `1-0-033` ヴァイパーにして開始し、CP7で1枚ドローする。`1-0-031` 見習い魔導士リーナを手札オーバーライドで LV3 にした後、ヴァイパーで捨札のリーナを回収し、LV3リーナのOCでもリーナを回収する。最後に手札のリーナ2枚をオーバーライドしてLV2にする。 | ✓ |
 | `viper_discard_unit_recover` | バイパー | `1-0-033` バイパーをドライブし、捨札の unit だけが候補になって同じカードインスタンスが手札へ戻る。 | ✓ |
 
