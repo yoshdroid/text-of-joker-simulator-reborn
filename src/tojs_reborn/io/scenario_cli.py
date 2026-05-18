@@ -296,12 +296,19 @@ def _scenario_oc_consume_action(catalog: dict[str, Any]) -> tuple[GameState, dic
     source = _create_initial_deck_card(state, "P1", "1-0-016")
     first_material = _create_initial_deck_card(state, "P1", "1-0-016")
     second_material = _create_initial_deck_card(state, "P1", "1-0-016")
+    initial_discard_cards = [
+        _create_initial_deck_card(state, "P1", "1-0-038"),
+        _create_initial_deck_card(state, "P1", "1-0-046"),
+        _create_initial_deck_card(state, "P1", "1-0-009"),
+    ]
     _exhausted_card, exhausted = _add_battlefield_unit(state, "P2", "1-0-004")
     _ready_card, ready = _add_battlefield_unit(state, "P2", "1-0-001")
     exhausted.exhausted = True
     state.players["P1"].hand.add(source.instance_id)
     state.players["P1"].hand.add(first_material.instance_id)
     state.players["P1"].hand.add(second_material.instance_id)
+    for card in reversed(initial_discard_cards):
+        state.players["P1"].discard_pile.add(card.instance_id)
     state.players["P1"].current_cp = 10
     initial_state = snapshot_initial_state(state)
 

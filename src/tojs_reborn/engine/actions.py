@@ -133,6 +133,7 @@ def _refresh_deck(
         state.rng.shuffle(card_nos)
         for card_no in card_nos:
             refreshed_cards.append(state.create_card_instance(card_no, player_id).instance_id)
+        player.discard_pile.cards = []
     elif player.discard_pile.cards:
         refreshed_cards = list(player.discard_pile.cards)
         state.rng.shuffle(refreshed_cards)

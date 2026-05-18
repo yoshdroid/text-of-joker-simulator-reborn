@@ -210,6 +210,10 @@ class ReplayViewerState:
                 self._player(player_id).life = int(payload.get("after_life", self._player(player_id).life))
         elif event_type == "card_moved":
             self._apply_card_moved(event)
+        elif event_type == "deck_refreshed" and isinstance(actor, str):
+            player = self._player(actor)
+            player.discard_pile = []
+            player.deck = list(payload.get("deck_card_instance_ids") or [])
         elif event_type == "card_level_changed":
             card_instance_id = (event.get("source") or {}).get("card_instance_id")
             if isinstance(card_instance_id, str):

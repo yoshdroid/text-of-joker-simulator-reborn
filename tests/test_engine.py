@@ -150,11 +150,12 @@ class EngineTest(unittest.TestCase):
         drawn = draw_cards(state, "P1", 1)
 
         self.assertEqual(len(drawn), 1)
-        self.assertEqual(state.players["P1"].discard_pile.cards, [old_discard.instance_id])
+        self.assertEqual(state.players["P1"].discard_pile.cards, [])
         self.assertEqual(len(state.players["P1"].deck.cards), 1)
         event_types = [event.type for event in state.event_store.events]
         self.assertEqual(event_types[0], "deck_refreshed")
         self.assertEqual(event_types[-1], "cards_drawn")
+        self.assertEqual(state.event_store.events[0].payload["from_discard_card_instance_ids"], [old_discard.instance_id])
 
     def test_draw_card_by_category_does_not_refresh_empty_deck(self) -> None:
         state = create_game_state(self.catalog, seed=1)
@@ -1878,7 +1879,7 @@ class EngineTest(unittest.TestCase):
         override_card(state, "P1", target.instance_id, material.instance_id)
 
         self.assertEqual(state.card_instances[target.instance_id].level, 2)
-        self.assertEqual(state.players["P1"].discard_pile.cards, [material.instance_id])
+        self.assertEqual(state.players["P1"].discard_pile.cards, [])
         self.assertEqual(len(state.players["P1"].hand.cards), 2)
         drawn_card_instance_id = state.players["P1"].hand.cards[-1]
         self.assertNotEqual(drawn_card_instance_id, material.instance_id)
@@ -1886,6 +1887,8 @@ class EngineTest(unittest.TestCase):
         event_types = [event.type for event in state.event_store.events]
         self.assertIn("deck_refreshed", event_types)
         self.assertLess(event_types.index("deck_refreshed"), event_types.index("cards_drawn"))
+        refresh_event = next(event for event in state.event_store.events if event.type == "deck_refreshed")
+        self.assertEqual(refresh_event.payload["from_discard_card_instance_ids"], [material.instance_id])
 
     def test_bloodhound_level3_drive_resolves_self_oc_damage_to_rival_unit(self) -> None:
         state = create_game_state(self.catalog)

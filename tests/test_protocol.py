@@ -2032,6 +2032,24 @@ class ProtocolTest(unittest.TestCase):
         oc_consume = json.loads((output_dir / "oc_consume_action.json").read_text(encoding="utf-8"))
         self.assertIn("unit_overclocked", [event["type"] for event in oc_consume["events"]])
         self.assertIn("unit_action_consumed", [event["type"] for event in oc_consume["events"]])
+        initial_oc_discard_card_nos = [
+            oc_consume["initial_state"]["card_instances"][card_instance_id]["card_no"]
+            for card_instance_id in oc_consume["initial_state"]["players"]["P1"]["discard_pile"]
+        ]
+        self.assertEqual(initial_oc_discard_card_nos, ["1-0-038", "1-0-046", "1-0-009"])
+        oc_refresh = next(event for event in oc_consume["events"] if event["type"] == "deck_refreshed")
+        self.assertEqual(len(oc_refresh["payload"].get("from_discard_card_instance_ids")), 4)
+        self.assertEqual(Counter(oc_refresh["payload"].get("initial_deck_card_nos")), Counter({
+            "1-0-016": 3,
+            "1-0-038": 1,
+            "1-0-046": 1,
+            "1-0-009": 1,
+        }))
+        self.assertEqual(len(oc_refresh["payload"].get("deck_card_instance_ids")), 6)
+        oc_model = build_replay_gui_model(oc_consume, card_catalog=self.catalog)
+        oc_refresh_frame = oc_model["frames"][oc_consume["events"].index(oc_refresh) + 1]
+        self.assertEqual(oc_refresh_frame["players"][0]["status"]["discard_count"], 0)
+        self.assertEqual(oc_refresh_frame["players"][0]["status"]["deck_count"], 6)
         oc_consume_choices = [event for event in oc_consume["events"] if event["type"] == "choice_requested"]
         self.assertEqual(len(oc_consume_choices[-1]["payload"].get("candidate_unit_ids")), 1)
         raguel = json.loads((output_dir / "raguel_exhausted_damage.json").read_text(encoding="utf-8"))
