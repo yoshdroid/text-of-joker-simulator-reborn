@@ -19,6 +19,7 @@ python -m tojs_reborn.io.scenario_cli --cards carddata/generated/cards.normalize
 | `display_stand_trigger_draw` | ディスプレイスタンド | `1-0-062` ディスプレイスタンドが owner unit enter 後に強制発動し、デッキトップを1枚引く。 | ✓ |
 | `happaloid_cip_draw` | ハッパロイド | `1-0-040` ハッパロイドをドライブし、CIP でデッキトップのカードが手札に移る。 | ✓ |
 | `hand_limit_draw` | 手札上限 | 自分の手札3枚、相手の手札2枚から開始し、ターン冒頭ドローで 6->7 は増え、7->7 は `draw_skipped` になって手札上限7を超えない。 | ✓ |
+| `jumpoo_bounce_hand_limit` | ジャンプー | `1-0-019` ジャンプーを2回ドライブし、1体目の相手ユニットはLV1に戻って手札へ、2体目は相手手札上限によりLV1に戻って捨札へ移動する。 |  |
 | `kaim_cip_trigger_search` | カイム | `1-0-020` カイムをドライブし、デッキ内の trigger だけを探して手札に加え、unit / intercept がデッキに残る。 | ✓ |
 | `new_armor_trigger` | 新品の鎧 | `1-0-061` 新品の鎧が unit enter 後に強制発動し、deck から intercept を探して手札に加える。 | ✓ |
 | `rairyu_evolve_damage` | 雷龍 | `1-0-024` 雷龍を黄ユニットに進化ドライブし、進化元が捨札へ移動し、疲弊した相手ユニットへ7000ダメージを与えて破壊する。 | ✓ |

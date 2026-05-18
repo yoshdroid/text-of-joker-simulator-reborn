@@ -59,6 +59,7 @@ SCENARIOS: dict[str, ScenarioBuilder] = {
     "display_stand_trigger_draw": lambda catalog: _scenario_display_stand_trigger_draw(catalog),
     "happaloid_cip_draw": lambda catalog: _scenario_happaloid_cip_draw(catalog),
     "hand_limit_draw": lambda catalog: _scenario_hand_limit_draw(catalog),
+    "jumpoo_bounce_hand_limit": lambda catalog: _scenario_jumpoo_bounce_hand_limit(catalog),
     "kaim_cip_trigger_search": lambda catalog: _scenario_kaim_cip_trigger_search(catalog),
     "new_armor_trigger": lambda catalog: _scenario_new_armor_trigger(catalog),
     "lina_discard_choice": lambda catalog: _scenario_lina_discard_choice(catalog),
@@ -256,6 +257,31 @@ def _scenario_kaim_cip_trigger_search(catalog: dict[str, Any]) -> tuple[GameStat
     initial_state = snapshot_initial_state(state)
 
     drive_unit(state, "P1", kaim.instance_id)
+    return state, initial_state
+
+
+def _scenario_jumpoo_bounce_hand_limit(catalog: dict[str, Any]) -> tuple[GameState, dict[str, Any]]:
+    from tojs_reborn.engine.state import create_game_state
+
+    state = create_game_state(catalog, seed=19)
+    state.turn_player_id = "P1"
+    first_jumpoo = _create_initial_deck_card(state, "P1", "1-0-019")
+    second_jumpoo = _create_initial_deck_card(state, "P1", "1-0-019")
+    first_target_card = _create_initial_deck_card(state, "P2", "1-0-001", level=2)
+    second_target_card = _create_initial_deck_card(state, "P2", "1-0-004", level=3)
+    first_target = state.create_unit(first_target_card.instance_id)
+    second_target = state.create_unit(second_target_card.instance_id)
+    state.players["P1"].hand.add(first_jumpoo.instance_id)
+    state.players["P1"].hand.add(second_jumpoo.instance_id)
+    state.players["P2"].battlefield.add(first_target.unit_id)
+    state.players["P2"].battlefield.add(second_target.unit_id)
+    for card_no in FILLER_CARD_NOS[4:10]:
+        _add_hand_card(state, "P2", card_no)
+    state.players["P1"].current_cp = 10
+    initial_state = snapshot_initial_state(state)
+
+    drive_unit(state, "P1", first_jumpoo.instance_id)
+    drive_unit(state, "P1", second_jumpoo.instance_id)
     return state, initial_state
 
 

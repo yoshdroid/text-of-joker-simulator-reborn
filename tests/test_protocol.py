@@ -1685,6 +1685,7 @@ class ProtocolTest(unittest.TestCase):
                 "display_stand_trigger_draw",
                 "hand_limit_draw",
                 "happaloid_cip_draw",
+                "jumpoo_bounce_hand_limit",
                 "kaim_cip_trigger_search",
                 "lina_discard_choice",
                 "new_armor_trigger",
@@ -1761,6 +1762,15 @@ class ProtocolTest(unittest.TestCase):
             if event["type"] == "card_moved" and event["payload"].get("from_zone") == "deck"
         ]
         self.assertEqual(kaim_deck_moves[-1]["payload"].get("category"), "trigger")
+        jumpoo = json.loads((output_dir / "jumpoo_bounce_hand_limit.json").read_text(encoding="utf-8"))
+        jumpoo_return_moves = [
+            event for event in jumpoo["events"]
+            if event["type"] == "card_moved" and event["payload"].get("reason") == "return_unit"
+        ]
+        self.assertEqual([event["payload"].get("to_zone") for event in jumpoo_return_moves], ["hand", "discard_pile"])
+        self.assertEqual([event["payload"].get("after_level") for event in jumpoo_return_moves], [1, 1])
+        self.assertFalse(jumpoo_return_moves[0]["payload"].get("hand_limit_exceeded"))
+        self.assertTrue(jumpoo_return_moves[1]["payload"].get("hand_limit_exceeded"))
         new_armor = json.loads((output_dir / "new_armor_trigger.json").read_text(encoding="utf-8"))
         self.assertIn("trigger_activated", [event["type"] for event in new_armor["events"]])
         rairyu = json.loads((output_dir / "rairyu_evolve_damage.json").read_text(encoding="utf-8"))
