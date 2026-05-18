@@ -59,7 +59,9 @@ SCENARIOS: dict[str, ScenarioBuilder] = {
     "block_bypass_player_attack": lambda catalog: _scenario_block_bypass_player_attack(catalog),
     "bishamon_evolve_destroy_all": lambda catalog: _scenario_bishamon_evolve_destroy_all(catalog),
     "bloodhound_level3_damage": lambda catalog: _scenario_bloodhound_level3_damage(catalog),
+    "category_search_no_refresh": lambda catalog: _scenario_category_search_no_refresh(catalog),
     "dartagnan_cip_attack_draw": lambda catalog: _scenario_dartagnan_cip_attack_draw(catalog),
+    "deck_refresh_draw": lambda catalog: _scenario_deck_refresh_draw(catalog),
     "display_stand_trigger_draw": lambda catalog: _scenario_display_stand_trigger_draw(catalog),
     "goliath_level3_life_damage": lambda catalog: _scenario_goliath_level3_life_damage(catalog),
     "happaloid_cip_draw": lambda catalog: _scenario_happaloid_cip_draw(catalog),
@@ -74,6 +76,7 @@ SCENARIOS: dict[str, ScenarioBuilder] = {
     "raguel_exhausted_damage": lambda catalog: _scenario_raguel_exhausted_damage(catalog),
     "rairyu_evolve_damage": lambda catalog: _scenario_rairyu_evolve_damage(catalog),
     "tailwind_intercept_cp": lambda catalog: _scenario_tailwind_intercept_cp(catalog),
+    "trigger_lost_random": lambda catalog: _scenario_trigger_lost_random(catalog),
     "viper_discard_unit_recover": lambda catalog: _scenario_viper_discard_unit_recover(catalog),
 }
 
@@ -238,6 +241,37 @@ def _scenario_happaloid_cip_draw(catalog: dict[str, Any]) -> tuple[GameState, di
     initial_state = snapshot_initial_state(state)
 
     drive_unit(state, "P1", happaloid.instance_id)
+    return state, initial_state
+
+
+def _scenario_deck_refresh_draw(catalog: dict[str, Any]) -> tuple[GameState, dict[str, Any]]:
+    from tojs_reborn.engine.state import create_game_state
+
+    state = create_game_state(catalog, seed=68)
+    state.turn_player_id = "P1"
+    for card_no in ("1-0-001", "1-0-004", "1-0-040", "1-0-061"):
+        card = _create_initial_deck_card(state, "P1", card_no)
+        state.players["P1"].discard_pile.add(card.instance_id)
+    initial_state = snapshot_initial_state(state)
+
+    start_turn(state, "P1", draw_count=1, cp=2)
+    return state, initial_state
+
+
+def _scenario_category_search_no_refresh(catalog: dict[str, Any]) -> tuple[GameState, dict[str, Any]]:
+    from tojs_reborn.engine.state import create_game_state
+
+    state = create_game_state(catalog, seed=69)
+    state.turn_player_id = "P1"
+    kaim = _create_initial_deck_card(state, "P1", "1-0-020")
+    for card_no in ("1-0-061", "1-0-062", "1-0-097"):
+        card = _create_initial_deck_card(state, "P1", card_no)
+        state.players["P1"].discard_pile.add(card.instance_id)
+    state.players["P1"].hand.add(kaim.instance_id)
+    state.players["P1"].current_cp = 10
+    initial_state = snapshot_initial_state(state)
+
+    drive_unit(state, "P1", kaim.instance_id)
     return state, initial_state
 
 
@@ -582,6 +616,26 @@ def _scenario_viper_discard_unit_recover(catalog: dict[str, Any]) -> tuple[GameS
     initial_state = snapshot_initial_state(state)
 
     drive_unit(state, "P1", viper.instance_id)
+    return state, initial_state
+
+
+def _scenario_trigger_lost_random(catalog: dict[str, Any]) -> tuple[GameState, dict[str, Any]]:
+    from tojs_reborn.engine.state import create_game_state
+
+    state = create_game_state(catalog, seed=5)
+    state.turn_player_id = "P1"
+    breaker = _create_initial_deck_card(state, "P1", "1-0-005")
+    rival_trigger = _create_initial_deck_card(state, "P2", "1-0-061")
+    rival_display = _create_initial_deck_card(state, "P2", "1-0-062")
+    rival_tailwind = _create_initial_deck_card(state, "P2", "1-0-097")
+    state.players["P1"].hand.add(breaker.instance_id)
+    state.players["P2"].trigger_zone.add(rival_trigger.instance_id)
+    state.players["P2"].trigger_zone.add(rival_display.instance_id)
+    state.players["P2"].trigger_zone.add(rival_tailwind.instance_id)
+    state.players["P1"].current_cp = 10
+    initial_state = snapshot_initial_state(state)
+
+    drive_unit(state, "P1", breaker.instance_id)
     return state, initial_state
 
 

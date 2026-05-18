@@ -1868,7 +1868,9 @@ class ProtocolTest(unittest.TestCase):
                 "bishamon_evolve_destroy_all",
                 "block_bypass_player_attack",
                 "bloodhound_level3_damage",
+                "category_search_no_refresh",
                 "dartagnan_cip_attack_draw",
+                "deck_refresh_draw",
                 "display_stand_trigger_draw",
                 "goliath_level3_life_damage",
                 "hand_limit_draw",
@@ -1883,6 +1885,7 @@ class ProtocolTest(unittest.TestCase):
                 "raguel_exhausted_damage",
                 "rairyu_evolve_damage",
                 "tailwind_intercept_cp",
+                "trigger_lost_random",
                 "viper_discard_unit_recover",
             },
         )
@@ -1952,6 +1955,11 @@ class ProtocolTest(unittest.TestCase):
         damage_events = [event for event in bloodhound["events"] if event["type"] == "damage_dealt"]
         self.assertEqual(damage_events[-1]["payload"].get("amount"), 4000)
         self.assertIn("unit_destroyed", [event["type"] for event in bloodhound["events"]])
+        category_search = json.loads((output_dir / "category_search_no_refresh.json").read_text(encoding="utf-8"))
+        self.assertNotIn("deck_refreshed", [event["type"] for event in category_search["events"]])
+        category_search_draw = [event for event in category_search["events"] if event["type"] == "cards_drawn"][-1]
+        self.assertEqual(category_search_draw["payload"].get("category"), "trigger")
+        self.assertEqual(category_search_draw["payload"].get("count"), 0)
         dartagnan = json.loads((output_dir / "dartagnan_cip_attack_draw.json").read_text(encoding="utf-8"))
         dartagnan_ability_ids = [
             event["source"].get("ability_id") for event in dartagnan["events"] if event["type"] == "ability_resolved"
@@ -1959,6 +1967,16 @@ class ProtocolTest(unittest.TestCase):
         self.assertEqual(dartagnan_ability_ids, ["1-0-047:a1", "1-0-047:a2"])
         self.assertEqual([event for event in dartagnan["events"] if event["type"] == "cards_drawn"][-1]["payload"].get("count"), 1)
         self.assertEqual(dartagnan["final_state"]["players"]["P2"]["life"], 6)
+        deck_refresh = json.loads((output_dir / "deck_refresh_draw.json").read_text(encoding="utf-8"))
+        self.assertIn("deck_refreshed", [event["type"] for event in deck_refresh["events"]])
+        deck_refresh_event = next(event for event in deck_refresh["events"] if event["type"] == "deck_refreshed")
+        self.assertEqual(len(deck_refresh_event["payload"].get("from_discard_card_instance_ids")), 4)
+        self.assertEqual(len(deck_refresh_event["payload"].get("deck_card_instance_ids")), 4)
+        self.assertEqual([event for event in deck_refresh["events"] if event["type"] == "cards_drawn"][-1]["payload"].get("count"), 1)
+        deck_refresh_model = build_replay_gui_model(deck_refresh, card_catalog=self.catalog)
+        deck_refresh_frame = deck_refresh_model["frames"][deck_refresh["events"].index(deck_refresh_event) + 1]
+        self.assertEqual(deck_refresh_frame["players"][0]["status"]["discard_count"], 0)
+        self.assertEqual(deck_refresh_frame["players"][0]["status"]["deck_count"], 4)
         display_stand = json.loads((output_dir / "display_stand_trigger_draw.json").read_text(encoding="utf-8"))
         self.assertIn("trigger_activated", [event["type"] for event in display_stand["events"]])
         self.assertIn("cards_drawn", [event["type"] for event in display_stand["events"]])
@@ -2078,6 +2096,12 @@ class ProtocolTest(unittest.TestCase):
         tailwind_cp_events = [event for event in tailwind["events"] if event["type"] == "cp_changed"]
         self.assertEqual(tailwind_cp_events[-1]["payload"].get("amount"), 4)
         self.assertEqual(tailwind["final_state"]["players"]["P1"]["current_cp"], 4)
+        trigger_lost = json.loads((output_dir / "trigger_lost_random.json").read_text(encoding="utf-8"))
+        trigger_random = [event for event in trigger_lost["events"] if event["type"] == "random_resolved"][-1]
+        self.assertEqual(trigger_random["payload"].get("kind"), "trigger_zone_card")
+        self.assertEqual(len(trigger_random["payload"].get("candidate_card_instance_ids")), 3)
+        self.assertEqual(len(trigger_lost["final_state"]["players"]["P2"]["trigger_zone"]), 2)
+        self.assertEqual(len(trigger_lost["final_state"]["players"]["P2"]["discard_pile"]), 1)
         lina = json.loads((output_dir / "lina_discard_choice.json").read_text(encoding="utf-8"))
         self.assertIn("choice_selected", [event["type"] for event in lina["events"]])
         initial_lina_deck = lina["initial_state"]["players"]["P1"]["deck"]
