@@ -3,7 +3,7 @@ from __future__ import annotations
 from .actions import draw_cards, get_effect_handlers
 from .events import EventSource
 from .resolver import AbilityCostChoice, OptionalAbilityChoice, resolve_turn_ended
-from .rules import opponent_id
+from .rules import get_unit_bp, opponent_id
 from .state import GameState
 
 
@@ -89,5 +89,11 @@ def _expire_turn_modifiers(state: GameState, cause_event_no: int) -> None:
             turn_no=state.turn_no,
             actor_player_id=unit.owner_player_id,
             cause_event_no=cause_event_no,
-            payload={"unit_id": unit.unit_id, "expired_count": expired_count, "duration": "turn"},
+            source=EventSource(card_no=unit.card_no, card_instance_id=unit.card_instance_id, unit_id=unit.unit_id),
+            payload={
+                "unit_id": unit.unit_id,
+                "expired_count": expired_count,
+                "duration": "turn",
+                "after_bp": get_unit_bp(state, unit),
+            },
         )

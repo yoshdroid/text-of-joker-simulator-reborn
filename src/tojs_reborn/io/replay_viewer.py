@@ -220,6 +220,12 @@ class ReplayViewerState:
             unit_id = (event.get("source") or {}).get("unit_id")
             if isinstance(unit_id, str):
                 self.unit_levels[unit_id] = int(payload.get("after_level", self.unit_levels.get(unit_id, 1)))
+                card_instance_id = self.unit_card_instance_ids.get(unit_id)
+                if card_instance_id is not None:
+                    self.card_instance_levels[card_instance_id] = self.unit_levels[unit_id]
+                after_bp = payload.get("after_bp")
+                if after_bp is not None:
+                    self.unit_bp[unit_id] = int(after_bp)
         elif event_type == "unit_attacked":
             unit_id = payload.get("attacker_unit_id")
             if isinstance(unit_id, str):
@@ -240,8 +246,8 @@ class ReplayViewerState:
             unit_id = payload.get("unit_id")
             if isinstance(unit_id, str):
                 self.unit_damage[unit_id] = int(payload.get("after_damage", 0))
-        elif event_type in {"bp_modified", "base_bp_modified"}:
-            unit_id = payload.get("target_unit_id")
+        elif event_type in {"bp_modified", "base_bp_modified", "modifier_expired"}:
+            unit_id = payload.get("target_unit_id", payload.get("unit_id"))
             if isinstance(unit_id, str):
                 after_bp = payload.get("after_bp", payload.get("after_base_bp"))
                 if after_bp is not None:

@@ -3,7 +3,14 @@ from __future__ import annotations
 from .actions import get_effect_handlers
 from .events import EventSource
 from .rules import get_unit_bp, opponent_id
-from .resolver import AbilityCostChoice, OptionalAbilityChoice, resolve_unit_attacked, resolve_unit_blocked, resolve_unit_destroyed
+from .resolver import (
+    AbilityCostChoice,
+    OptionalAbilityChoice,
+    resolve_unit_attacked,
+    resolve_unit_blocked,
+    resolve_unit_destroyed,
+    resolve_unit_overclocked,
+)
 from .state import GameState, UnitState
 
 
@@ -80,7 +87,12 @@ def attack_unit(state: GameState, player_id: str, attacker_unit_id: str, blocker
     declare_block(state, opponent_id(player_id), blocker_unit_id, attacker_unit_id, action_event.event_no)
 
 
-def resolve_blocked_battle(state: GameState, block_event_no: int) -> None:
+def resolve_blocked_battle(
+    state: GameState,
+    block_event_no: int,
+    optional_ability_choice: OptionalAbilityChoice | None = None,
+    ability_cost_choice: AbilityCostChoice | None = None,
+) -> None:
     block_event = state.event_store.events[block_event_no - 1]
     if block_event.type != "block_declared":
         raise ValueError(f"event is not a block declaration: {block_event_no}")
@@ -97,7 +109,9 @@ def resolve_blocked_battle(state: GameState, block_event_no: int) -> None:
     )
     _deal_battle_damage(state, attacker, blocker, battle_event.event_no)
     _deal_battle_damage(state, blocker, attacker, battle_event.event_no)
-    _emit_battle_result(state, attacker, blocker, battle_event.event_no)
+    winner = _emit_battle_result(state, attacker, blocker, battle_event.event_no)
+    if winner is not None:
+        _reward_battle_winner(state, winner, battle_event.event_no, optional_ability_choice, ability_cost_choice)
     destroy_lethal_units(state, [attacker, blocker], battle_event.event_no)
 
 
@@ -121,7 +135,7 @@ def declare_block(
         payload={"blocker_unit_id": blocker_unit_id, "attacker_unit_id": attacker_unit_id},
     )
     resolve_unit_blocked(state, blocker, block_event, get_effect_handlers(), optional_ability_choice, ability_cost_choice)
-    resolve_blocked_battle(state, block_event.event_no)
+    resolve_blocked_battle(state, block_event.event_no, optional_ability_choice, ability_cost_choice)
     return block_event
 
 
@@ -242,15 +256,23 @@ def _destroy_unit(state: GameState, unit: UnitState, cause_event_no: int, *, rea
     del state.units[unit.unit_id]
 
 
-def _emit_battle_result(state: GameState, attacker: UnitState, blocker: UnitState, cause_event_no: int) -> None:
+def _emit_battle_result(
+    state: GameState,
+    attacker: UnitState,
+    blocker: UnitState,
+    cause_event_no: int,
+) -> UnitState | None:
     attacker_lethal = attacker.current_damage >= get_unit_bp(state, attacker)
     blocker_lethal = blocker.current_damage >= get_unit_bp(state, blocker)
+    winner: UnitState | None = None
     if attacker_lethal and blocker_lethal:
         result_type = "battle_draw"
     elif blocker_lethal:
         result_type = "battle_won"
+        winner = attacker
     elif attacker_lethal:
         result_type = "battle_lost"
+        winner = blocker
     else:
         result_type = "battle_unresolved"
     state.event_store.append(
@@ -267,6 +289,72 @@ def _emit_battle_result(state: GameState, attacker: UnitState, blocker: UnitStat
             "blocker_lethal": blocker_lethal,
         },
     )
+    return winner
+
+
+def _reward_battle_winner(
+    state: GameState,
+    winner: UnitState,
+    cause_event_no: int,
+    optional_ability_choice: OptionalAbilityChoice | None,
+    ability_cost_choice: AbilityCostChoice | None,
+) -> None:
+    if winner.unit_id not in state.units:
+        return
+    before_level = winner.level
+    if winner.level < 3:
+        winner.level += 1
+        state.card_instances[winner.card_instance_id].level = winner.level
+        level_event = state.event_store.append(
+            "unit_level_changed",
+            round_no=state.round_no,
+            turn_no=state.turn_no,
+            actor_player_id=winner.owner_player_id,
+            cause_event_no=cause_event_no,
+            source=_unit_source(winner),
+            payload={
+                "unit_id": winner.unit_id,
+                "before_level": before_level,
+                "after_level": winner.level,
+                "reason": "battle_win",
+                "after_bp": get_unit_bp(state, winner),
+            },
+        )
+        if winner.level >= 3:
+            overclock_event = state.event_store.append(
+                "unit_overclocked",
+                round_no=state.round_no,
+                turn_no=state.turn_no,
+                actor_player_id=winner.owner_player_id,
+                cause_event_no=level_event.event_no,
+                source=_unit_source(winner),
+                payload={"level": winner.level, "reason": "battle_win"},
+            )
+            resolve_unit_overclocked(
+                state,
+                winner,
+                overclock_event,
+                get_effect_handlers(),
+                optional_ability_choice,
+                ability_cost_choice,
+            )
+    if winner.current_damage > 0:
+        before_damage = winner.current_damage
+        winner.current_damage = 0
+        state.event_store.append(
+            "unit_damage_cleared",
+            round_no=state.round_no,
+            turn_no=state.turn_no,
+            actor_player_id=winner.owner_player_id,
+            cause_event_no=cause_event_no,
+            source=_unit_source(winner),
+            payload={
+                "unit_id": winner.unit_id,
+                "before_damage": before_damage,
+                "after_damage": 0,
+                "reason": "battle_win",
+            },
+        )
 
 
 def _battlefield_order(state: GameState) -> dict[str, int]:

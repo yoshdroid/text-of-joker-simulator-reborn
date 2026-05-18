@@ -1754,9 +1754,14 @@ class EngineTest(unittest.TestCase):
         self.assertIn("block_declared", event_types)
         self.assertIn("bp_modified", event_types)
         if blocker.unit_id in state.units:
-            self.assertEqual(get_unit_bp(state, blocker), before_bp + 2000)
+            self.assertEqual(blocker.level, 2)
+            self.assertEqual(state.card_instances[blocker.card_instance_id].level, 2)
+            self.assertEqual(blocker.current_damage, 0)
+            self.assertEqual(get_unit_bp(state, blocker), 9000)
+            self.assertIn("unit_level_changed", event_types)
+            self.assertIn("unit_damage_cleared", event_types)
             end_turn(state, "P1")
-            self.assertEqual(get_unit_bp(state, blocker), before_bp)
+            self.assertEqual(get_unit_bp(state, blocker), before_bp + 1000)
             self.assertIn("modifier_expired", [event.type for event in state.event_store.events])
 
     def test_indomitable_keyword_recovers_exhausted_cat_at_turn_end(self) -> None:

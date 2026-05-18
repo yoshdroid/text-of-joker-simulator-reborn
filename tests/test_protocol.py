@@ -1865,7 +1865,24 @@ class ProtocolTest(unittest.TestCase):
         leafia = json.loads((output_dir / "leafia_block_bp_modifier.json").read_text(encoding="utf-8"))
         self.assertIn("block_declared", [event["type"] for event in leafia["events"]])
         self.assertIn("bp_modified", [event["type"] for event in leafia["events"]])
+        leafia_level_events = [event for event in leafia["events"] if event["type"] == "unit_level_changed"]
+        self.assertEqual(leafia_level_events[-1]["payload"].get("after_level"), 2)
+        self.assertEqual(leafia_level_events[-1]["payload"].get("after_bp"), 9000)
+        self.assertIn("unit_damage_cleared", [event["type"] for event in leafia["events"]])
         self.assertIn("modifier_expired", [event["type"] for event in leafia["events"]])
+        leafia_model = build_replay_gui_model(leafia, card_catalog=self.catalog)
+        leafia_level_frame = leafia_model["frames"][leafia["events"].index(leafia_level_events[-1]) + 1]
+        self.assertEqual(leafia_level_frame["players"][1]["battlefield"][0]["level"], 2)
+        self.assertEqual(leafia_level_frame["players"][1]["battlefield"][0]["damage"], 3000)
+        self.assertEqual(leafia_level_frame["players"][1]["battlefield"][0]["current_bp"], 9000)
+        leafia_clear_event_index = next(
+            index for index, event in enumerate(leafia["events"]) if event["type"] == "unit_damage_cleared"
+        )
+        leafia_clear_frame = leafia_model["frames"][leafia_clear_event_index + 1]
+        self.assertEqual(leafia_clear_frame["players"][1]["battlefield"][0]["damage"], 0)
+        final_leafia_unit_id = leafia["final_state"]["players"]["P2"]["battlefield"][0]
+        self.assertEqual(leafia["final_state"]["units"][final_leafia_unit_id]["level"], 2)
+        self.assertEqual(leafia["final_state"]["units"][final_leafia_unit_id]["current_damage"], 0)
         new_armor = json.loads((output_dir / "new_armor_trigger.json").read_text(encoding="utf-8"))
         self.assertIn("trigger_activated", [event["type"] for event in new_armor["events"]])
         raguel = json.loads((output_dir / "raguel_exhausted_damage.json").read_text(encoding="utf-8"))
