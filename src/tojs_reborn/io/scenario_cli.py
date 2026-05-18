@@ -57,6 +57,7 @@ SCENARIOS: dict[str, ScenarioBuilder] = {
     "bishamon_evolve_destroy_all": lambda catalog: _scenario_bishamon_evolve_destroy_all(catalog),
     "bloodhound_level3_damage": lambda catalog: _scenario_bloodhound_level3_damage(catalog),
     "display_stand_trigger_draw": lambda catalog: _scenario_display_stand_trigger_draw(catalog),
+    "goliath_level3_life_damage": lambda catalog: _scenario_goliath_level3_life_damage(catalog),
     "happaloid_cip_draw": lambda catalog: _scenario_happaloid_cip_draw(catalog),
     "hand_limit_draw": lambda catalog: _scenario_hand_limit_draw(catalog),
     "jumpoo_bounce_hand_limit": lambda catalog: _scenario_jumpoo_bounce_hand_limit(catalog),
@@ -240,6 +241,28 @@ def _scenario_hand_limit_draw(catalog: dict[str, Any]) -> tuple[GameState, dict[
     start_turn(state, "P2", draw_count=2, cp=4)
     end_turn(state, "P2")
     start_turn(state, "P1", draw_count=2, cp=5)
+    return state, initial_state
+
+
+def _scenario_goliath_level3_life_damage(catalog: dict[str, Any]) -> tuple[GameState, dict[str, Any]]:
+    from tojs_reborn.engine.state import create_game_state
+
+    state = create_game_state(catalog, seed=7)
+    state.turn_player_id = "P1"
+    target = _create_initial_deck_card(state, "P1", "1-0-007")
+    first_material = _create_initial_deck_card(state, "P1", "1-0-007")
+    second_material = _create_initial_deck_card(state, "P1", "1-0-007")
+    _add_deck_card(state, "P1", "1-0-004")
+    _add_deck_card(state, "P1", "1-0-005")
+    state.players["P1"].hand.add(target.instance_id)
+    state.players["P1"].hand.add(first_material.instance_id)
+    state.players["P1"].hand.add(second_material.instance_id)
+    state.players["P1"].current_cp = 10
+    initial_state = snapshot_initial_state(state)
+
+    override_card(state, "P1", target.instance_id, first_material.instance_id)
+    override_card(state, "P1", target.instance_id, second_material.instance_id)
+    drive_unit(state, "P1", target.instance_id)
     return state, initial_state
 
 

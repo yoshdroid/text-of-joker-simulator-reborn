@@ -1683,6 +1683,7 @@ class ProtocolTest(unittest.TestCase):
                 "bishamon_evolve_destroy_all",
                 "bloodhound_level3_damage",
                 "display_stand_trigger_draw",
+                "goliath_level3_life_damage",
                 "hand_limit_draw",
                 "happaloid_cip_draw",
                 "jumpoo_bounce_hand_limit",
@@ -1752,6 +1753,11 @@ class ProtocolTest(unittest.TestCase):
         display_stand = json.loads((output_dir / "display_stand_trigger_draw.json").read_text(encoding="utf-8"))
         self.assertIn("trigger_activated", [event["type"] for event in display_stand["events"]])
         self.assertIn("cards_drawn", [event["type"] for event in display_stand["events"]])
+        goliath = json.loads((output_dir / "goliath_level3_life_damage.json").read_text(encoding="utf-8"))
+        goliath_life_events = [event for event in goliath["events"] if event["type"] == "life_changed"]
+        self.assertEqual(goliath_life_events[-1]["payload"].get("amount"), -1)
+        self.assertEqual(goliath["final_state"]["players"]["P2"]["life"], 6)
+        self.assertIn("unit_overclocked", [event["type"] for event in goliath["events"]])
         happaloid = json.loads((output_dir / "happaloid_cip_draw.json").read_text(encoding="utf-8"))
         self.assertIn("cards_drawn", [event["type"] for event in happaloid["events"]])
         hand_limit = json.loads((output_dir / "hand_limit_draw.json").read_text(encoding="utf-8"))
