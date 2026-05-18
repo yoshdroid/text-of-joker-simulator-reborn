@@ -355,14 +355,14 @@ def _scenario_howling_intercept_draw_two(catalog: dict[str, Any]) -> tuple[GameS
 
     state = create_game_state(catalog, seed=99)
     state.turn_player_id = "P1"
-    entering = _create_initial_deck_card(state, "P1", "1-0-001")
+    entering = _create_initial_deck_card(state, "P1", "1-0-041")
     howling = _create_initial_deck_card(state, "P1", "1-0-099")
     first_draw = _create_initial_deck_card(state, "P1", "1-0-004")
     second_draw = _create_initial_deck_card(state, "P1", "1-0-005")
     state.players["P1"].hand.add(entering.instance_id)
     state.players["P1"].trigger_zone.add(howling.instance_id)
     state.players["P1"].deck.cards.extend([first_draw.instance_id, second_draw.instance_id])
-    state.players["P1"].current_cp = 1
+    state.players["P1"].current_cp = 3
     initial_state = snapshot_initial_state(state)
 
     drive_unit(state, "P1", entering.instance_id)
@@ -394,11 +394,11 @@ def _scenario_tailwind_intercept_cp(catalog: dict[str, Any]) -> tuple[GameState,
 
     state = create_game_state(catalog, seed=97)
     state.turn_player_id = "P1"
-    entering = _create_initial_deck_card(state, "P1", "1-0-001")
+    entering = _create_initial_deck_card(state, "P1", "1-0-041")
     tailwind = _create_initial_deck_card(state, "P1", "1-0-097")
     state.players["P1"].hand.add(entering.instance_id)
     state.players["P1"].trigger_zone.add(tailwind.instance_id)
-    state.players["P1"].current_cp = 1
+    state.players["P1"].current_cp = 3
     initial_state = snapshot_initial_state(state)
 
     drive_unit(state, "P1", entering.instance_id)

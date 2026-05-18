@@ -37,7 +37,7 @@ def list_trigger_intercept_window(
     for card_instance_id in state.players[player_id].trigger_zone.cards:
         card_no = state.card_instances[card_instance_id].card_no
         card = state.card_catalog[card_no]
-        if card.category in {"trigger", "intercept"}:
+        if card.category in {"trigger", "intercept"} and _card_can_activate(state, player_id, card_instance_id):
             candidates.append(
                 {
                     "card_instance_id": card_instance_id,
@@ -211,6 +211,8 @@ def _activate_first_matching_card(
         card = state.card_catalog[card_no]
         if card.category != card_category:
             continue
+        if not _card_can_activate(state, player_id, card_instance_id):
+            continue
         if not any(_ability_matches_window(ability, window_prefix, window_name, cause_event, player_id) for ability in card.abilities):
             continue
         return _activate_card(
@@ -239,6 +241,8 @@ def _activate_card(
         return False
     instance = state.card_instances[card_instance_id]
     card = state.card_catalog[instance.card_no]
+    if not _card_can_activate(state, player_id, card_instance_id):
+        return False
     prefix = "TRIGGER" if card.category == "trigger" else "INTERCEPT"
     window_name = window_name or cause_event.type
     matching_abilities = [
@@ -260,6 +264,23 @@ def _activate_card(
             "card": card_instance_public_view(state, card_instance_id),
         },
     )
+    if card.category == "intercept":
+        before_cp = state.players[player_id].current_cp
+        state.players[player_id].current_cp -= card.cp or 0
+        state.event_store.append(
+            "cp_changed",
+            round_no=state.round_no,
+            turn_no=state.turn_no,
+            actor_player_id=player_id,
+            cause_event_no=activation_event.event_no,
+            source=EventSource(card_no=instance.card_no, card_instance_id=card_instance_id),
+            payload={
+                "before_cp": before_cp,
+                "after_cp": state.players[player_id].current_cp,
+                "amount": -(card.cp or 0),
+                "reason": "intercept_activation",
+            },
+        )
     source = UnitState(
         unit_id="",
         card_instance_id=card_instance_id,
@@ -322,6 +343,8 @@ def _list_intercept_actions(state: GameState, player_id: str, window: str, cause
         card = state.card_catalog[card_no]
         if card.category != "intercept":
             continue
+        if not _card_can_activate(state, player_id, card_instance_id):
+            continue
         if not any(_ability_matches_window(ability, "INTERCEPT", window, cause_event, player_id) for ability in card.abilities):
             continue
         actions.append(
@@ -359,9 +382,27 @@ def _has_matching_card(
             card = state.card_catalog[card_no]
             if card.category != card_category:
                 continue
+            if not _card_can_activate(state, player.player_id, card_instance_id):
+                continue
             if any(_ability_matches_window(ability, window_prefix, window_name, cause_event, player.player_id) for ability in card.abilities):
                 return True
     return False
+
+
+def _card_can_activate(state: GameState, player_id: str, card_instance_id: str) -> bool:
+    instance = state.card_instances[card_instance_id]
+    card = state.card_catalog[instance.card_no]
+    if card.category != "intercept":
+        return True
+    if state.players[player_id].current_cp < (card.cp or 0):
+        return False
+    if card.color not in {"赤", "黄", "青", "緑"}:
+        return True
+    return any(
+        state.card_catalog[state.units[unit_id].card_no].color == card.color
+        for unit_id in state.players[player_id].battlefield.units
+        if unit_id in state.units
+    )
 
 
 def _ability_matches_window(

@@ -409,8 +409,8 @@ class ProtocolTest(unittest.TestCase):
     def test_match_runner_processes_tailwind_intercept_after_owner_unit_enters(self) -> None:
         state = create_game_state(self.catalog)
         state.turn_player_id = "P1"
-        state.players["P1"].current_cp = 1
-        unit_card = state.create_card_instance("1-0-001", "P1")
+        state.players["P1"].current_cp = 3
+        unit_card = state.create_card_instance("1-0-041", "P1")
         intercept_card = state.create_card_instance("1-0-097", "P1")
         state.players["P1"].hand.add(unit_card.instance_id)
         state.players["P1"].trigger_zone.add(intercept_card.instance_id)
@@ -441,8 +441,8 @@ class ProtocolTest(unittest.TestCase):
     def test_match_runner_replay_record_replays_window_choices(self) -> None:
         state = create_game_state(self.catalog, seed=7)
         state.turn_player_id = "P1"
-        state.players["P1"].current_cp = 1
-        unit_card = state.create_card_instance("1-0-001", "P1")
+        state.players["P1"].current_cp = 3
+        unit_card = state.create_card_instance("1-0-041", "P1")
         intercept_card = state.create_card_instance("1-0-097", "P1")
         state.players["P1"].hand.add(unit_card.instance_id)
         state.players["P1"].trigger_zone.add(intercept_card.instance_id)

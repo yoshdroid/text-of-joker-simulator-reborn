@@ -16,9 +16,9 @@ python -m tojs_reborn.io.scenario_cli --cards carddata/generated/cards.normalize
 | --- | --- | --- | --- |
 | `bishamon_evolve_destroy_all` | 毘沙門 | 左からスカルウォーカー、ライマル、ミイラくんで開始し、真ん中の `1-0-021` ライマルを元に `1-0-026` 毘沙門を進化ドライブする。ミイラくんで P2 手札1枚をランダム破壊し、スカルウォーカーで進化元ライマルを手札へ戻し、カラスマドウで P2 が intercept をサーチドローする。最後に毘沙門でアタックし、P2 LIFE が減る。 | ✓ |
 | `bloodhound_level3_damage` | ブラッドハウンド | `1-0-001` ブラッドハウンドを手札オーバーライドで LV3 にしてドライブし、OC の対象選択、4000ダメージ、相手ユニット破壊を確認する。 | ✓ |
-| `dartagnan_cip_attack_draw` | ダルタニャン | `1-0-047` ダルタニャンをドライブしてCIPでCPが増え、P1/P2が一度ターンエンドした後のP1ターンにアタック時効果でデッキトップを1枚引き、P2 LIFEが減る。 |  |
+| `dartagnan_cip_attack_draw` | ダルタニャン | `1-0-047` ダルタニャンをドライブしてCIPでCPが増え、P1/P2が一度ターンエンドした後のP1ターンにアタック時効果でデッキトップを1枚引き、P2 LIFEが減る。 | ✓ |
 | `display_stand_trigger_draw` | ディスプレイスタンド | `1-0-062` ディスプレイスタンドが owner unit enter 後に強制発動し、デッキトップを1枚引く。 | ✓ |
-| `goliath_level3_life_damage` | ゴライアス | `1-0-007` ゴライアスを手札オーバーライドでLV3にしてドライブし、OCで相手LIFEが1減る。 |  |
+| `goliath_level3_life_damage` | ゴライアス | `1-0-007` ゴライアスを手札オーバーライドでLV3にしてドライブし、OCで相手LIFEが1減る。 | ✓ |
 | `happaloid_cip_draw` | ハッパロイド | `1-0-040` ハッパロイドをドライブし、CIP でデッキトップのカードが手札に移る。 | ✓ |
 | `hand_limit_draw` | 手札上限 | 自分の手札3枚、相手の手札2枚から開始し、ターン冒頭ドローで 6->7 は増え、7->7 は `draw_skipped` になって手札上限7を超えない。 | ✓ |
 | `howling_intercept_draw_two` | ハウリング | `1-0-099` ハウリングを intercept window で任意発動し、デッキトップから2枚ドローして捨札へ移動する。 |  |

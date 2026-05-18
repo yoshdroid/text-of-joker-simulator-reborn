@@ -1546,6 +1546,7 @@ class EngineTest(unittest.TestCase):
         state = create_game_state(self.catalog)
         trigger_card = state.create_card_instance("1-0-065", "P1")
         state.players["P1"].trigger_zone.add(trigger_card.instance_id)
+        state.players["P1"].current_cp = 1
 
         window = list_trigger_intercept_window(state, "P1", window="attack", cause_event_no=1)
 
@@ -1553,6 +1554,19 @@ class EngineTest(unittest.TestCase):
         self.assertEqual(window["pass_action"]["window"], "attack")
         self.assertIn("display", window["pass_action"])
         self.assertEqual(window["candidates"][0]["card_instance_id"], trigger_card.instance_id)
+
+    def test_colorless_intercept_requires_only_cp_to_be_listed(self) -> None:
+        state = create_game_state(self.catalog)
+        colorless_intercept = state.create_card_instance("1-0-065", "P1")
+        state.players["P1"].trigger_zone.add(colorless_intercept.instance_id)
+
+        state.players["P1"].current_cp = 0
+        window = list_trigger_intercept_window(state, "P1", window="attack", cause_event_no=1)
+        self.assertEqual(window["candidates"], [])
+
+        state.players["P1"].current_cp = 1
+        window = list_trigger_intercept_window(state, "P1", window="attack", cause_event_no=1)
+        self.assertEqual(window["candidates"][0]["card_instance_id"], colorless_intercept.instance_id)
 
     def test_trigger_window_forces_activation_turn_player_then_opponent(self) -> None:
         catalog = dict(self.catalog)
@@ -1658,6 +1672,40 @@ class EngineTest(unittest.TestCase):
         cards_drawn = [event for event in state.event_store.events if event.type == "cards_drawn"][-1]
         self.assertEqual(cards_drawn.payload["count"], 0)
         self.assertEqual(state.players["P1"].deck.cards, [non_intercept.instance_id])
+
+    def test_intercept_requires_cp_and_same_color_unit_to_activate(self) -> None:
+        state = create_game_state(self.catalog)
+        state.turn_player_id = "P1"
+        entering = state.create_card_instance("1-0-041", "P1")
+        howling = state.create_card_instance("1-0-099", "P1")
+        state.players["P1"].hand.add(entering.instance_id)
+        state.players["P1"].trigger_zone.add(howling.instance_id)
+        state.players["P1"].current_cp = 1
+
+        drive_unit(state, "P1", entering.instance_id)
+        from tojs_reborn.engine.windows import process_windows_for_events
+
+        process_windows_for_events(state, 1)
+
+        self.assertEqual(state.players["P1"].trigger_zone.cards, [howling.instance_id])
+        self.assertNotIn("intercept_activated", [event.type for event in state.event_store.events])
+
+    def test_intercept_requires_own_same_color_unit_to_activate(self) -> None:
+        state = create_game_state(self.catalog)
+        state.turn_player_id = "P1"
+        entering = state.create_card_instance("1-0-001", "P1")
+        howling = state.create_card_instance("1-0-099", "P1")
+        state.players["P1"].hand.add(entering.instance_id)
+        state.players["P1"].trigger_zone.add(howling.instance_id)
+        state.players["P1"].current_cp = 3
+
+        drive_unit(state, "P1", entering.instance_id)
+        from tojs_reborn.engine.windows import process_windows_for_events
+
+        process_windows_for_events(state, 1)
+
+        self.assertEqual(state.players["P1"].trigger_zone.cards, [howling.instance_id])
+        self.assertNotIn("intercept_activated", [event.type for event in state.event_store.events])
 
     def test_intercept_window_activates_selected_card_then_closes_after_two_passes(self) -> None:
         catalog = dict(self.catalog)
