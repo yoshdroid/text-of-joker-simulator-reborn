@@ -1877,19 +1877,21 @@ class ProtocolTest(unittest.TestCase):
         leafia_first_level_frame = leafia_model["frames"][leafia["events"].index(leafia_level_events[0]) + 1]
         self.assertEqual(leafia_first_level_frame["players"][1]["battlefield"][0]["level"], 2)
         self.assertEqual(leafia_first_level_frame["players"][1]["battlefield"][0]["damage"], 3000)
-        self.assertEqual(leafia_first_level_frame["players"][1]["battlefield"][0]["current_bp"], 9000)
+        self.assertEqual(leafia_first_level_frame["players"][1]["battlefield"][0]["current_bp"], 6000)
         third_battle_start = next(
             index
             for index, event in enumerate(leafia["events"])
             if event["type"] == "damage_dealt" and event["payload"].get("after_damage") == 5000
         )
         self.assertEqual(leafia_model["frames"][third_battle_start + 1]["players"][1]["battlefield"][0]["damage"], 5000)
+        self.assertEqual(leafia_model["frames"][third_battle_start + 1]["players"][1]["battlefield"][0]["current_bp"], 9000)
         fourth_battle_end = next(
             index
             for index, event in enumerate(leafia["events"])
             if event["type"] == "damage_dealt" and event["payload"].get("after_damage") == 10000
         )
         self.assertEqual(leafia_model["frames"][fourth_battle_end + 1]["players"][1]["battlefield"][0]["damage"], 10000)
+        self.assertEqual(leafia_model["frames"][fourth_battle_end + 1]["players"][1]["battlefield"][0]["current_bp"], 6000)
         leafia_turn_end_clear_frame = leafia_model["frames"][leafia["events"].index(leafia_damage_clear_events[-1]) + 1]
         self.assertEqual(leafia_turn_end_clear_frame["players"][1]["battlefield"][0]["damage"], 0)
         self.assertEqual(leafia_turn_end_clear_frame["players"][1]["battlefield"][0]["current_bp"], 8000)

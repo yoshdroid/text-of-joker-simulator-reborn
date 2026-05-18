@@ -320,7 +320,7 @@ def _scenario_leafia_block_bp_modifier(catalog: dict[str, Any]) -> tuple[GameSta
         _add_battlefield_unit(state, "P1", "1-0-001", level=1)[1],
         _add_battlefield_unit(state, "P1", "1-0-001", level=2)[1],
         _add_battlefield_unit(state, "P1", "1-0-001", level=3)[1],
-        _add_battlefield_unit(state, "P1", "1-0-008", level=3)[1],
+        _add_battlefield_unit(state, "P1", "1-0-032", level=3)[1],
     ]
     _blocker_card, blocker = _add_battlefield_unit(state, "P2", "1-0-045")
     initial_state = snapshot_initial_state(state)

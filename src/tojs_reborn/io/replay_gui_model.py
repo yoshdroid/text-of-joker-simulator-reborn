@@ -211,17 +211,20 @@ def _unit_tile(
         image_root=image_root,
     )
     card_no = tile.get("card_no")
+    level = viewer_state.unit_levels.get(unit_id, tile.get("level", 1))
+    damage = viewer_state.unit_damage.get(unit_id, 0)
+    full_bp = viewer_state.unit_bp.get(
+        unit_id,
+        _printed_bp(card_catalog.get(str(card_no)), level),
+    )
     tile.update(
         {
             "kind": "unit",
             "unit_id": unit_id,
-            "level": viewer_state.unit_levels.get(unit_id, tile.get("level", 1)),
+            "level": level,
             "exhausted": viewer_state.unit_exhausted.get(unit_id, False),
-            "damage": viewer_state.unit_damage.get(unit_id, 0),
-            "current_bp": viewer_state.unit_bp.get(
-                unit_id,
-                _printed_bp(card_catalog.get(str(card_no)), viewer_state.unit_levels.get(unit_id, 1)),
-            ),
+            "damage": damage,
+            "current_bp": max(0, full_bp - damage) if full_bp is not None else None,
         }
     )
     return tile
