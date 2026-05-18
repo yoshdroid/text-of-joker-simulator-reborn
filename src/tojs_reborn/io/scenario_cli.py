@@ -18,6 +18,7 @@ from .replay_gui import run_replay_gui_cli
 
 
 ScenarioBuilder = Callable[[dict[str, Any]], tuple[GameState, dict[str, Any]]]
+_SEED_OVERRIDE: int | None = None
 
 
 FILLER_CARD_NOS = (
@@ -86,6 +87,7 @@ def run_scenario_cli(argv: Sequence[str] | None = None) -> int:
     parser.add_argument("--cards", default="carddata/generated/cards.normalized.json")
     parser.add_argument("--images", default="carddata/images")
     parser.add_argument("--scenario", required=True, choices=sorted(SCENARIOS) + ["all"])
+    parser.add_argument("--seed", type=int, help="Override the fixed seed used by scenario builders.")
     parser.add_argument("--output-dir", default="test_output/scenarios")
     parser.add_argument("--replay", help="Output replay path for a single scenario.")
     parser.add_argument("--verify", action="store_true")
@@ -102,16 +104,22 @@ def run_scenario_cli(argv: Sequence[str] | None = None) -> int:
         catalog = load_card_catalog(args.cards)
         scenario_names = sorted(SCENARIOS) if args.scenario == "all" else [args.scenario]
         outputs = []
-        for scenario_name in scenario_names:
-            state, initial_state = SCENARIOS[scenario_name](catalog)
-            replay_record = build_replay_record(state, initial_state=initial_state)
-            replay_record["scenario"] = {"name": scenario_name}
-            if args.verify and not verify_replay_record(state, replay_record):
-                raise AssertionError(f"scenario replay mismatch: {scenario_name}")
-            replay_path = _scenario_replay_path(args, scenario_name)
-            replay_path.parent.mkdir(parents=True, exist_ok=True)
-            replay_path.write_text(json.dumps(replay_record, ensure_ascii=False, indent=2), encoding="utf-8")
-            outputs.append({"scenario": scenario_name, "replay": str(replay_path), "event_count": len(state.event_store.events)})
+        global _SEED_OVERRIDE
+        previous_seed_override = _SEED_OVERRIDE
+        _SEED_OVERRIDE = args.seed
+        try:
+            for scenario_name in scenario_names:
+                state, initial_state = SCENARIOS[scenario_name](catalog)
+                replay_record = build_replay_record(state, initial_state=initial_state)
+                replay_record["scenario"] = {"name": scenario_name}
+                if args.verify and not verify_replay_record(state, replay_record):
+                    raise AssertionError(f"scenario replay mismatch: {scenario_name}")
+                replay_path = _scenario_replay_path(args, scenario_name)
+                replay_path.parent.mkdir(parents=True, exist_ok=True)
+                replay_path.write_text(json.dumps(replay_record, ensure_ascii=False, indent=2), encoding="utf-8")
+                outputs.append({"scenario": scenario_name, "replay": str(replay_path), "event_count": len(state.event_store.events)})
+        finally:
+            _SEED_OVERRIDE = previous_seed_override
         print(json.dumps({"outputs": outputs}, ensure_ascii=False, separators=(",", ":")))
         if args.open_gui:
             gui_args = [
@@ -141,10 +149,14 @@ def _scenario_replay_path(args: argparse.Namespace, scenario_name: str) -> Path:
     return Path(args.output_dir) / f"{scenario_name}.json"
 
 
+def _scenario_seed(default_seed: int) -> int:
+    return default_seed if _SEED_OVERRIDE is None else _SEED_OVERRIDE
+
+
 def _scenario_bloodhound_level3_damage(catalog: dict[str, Any]) -> tuple[GameState, dict[str, Any]]:
     from tojs_reborn.engine.state import create_game_state
 
-    state = create_game_state(catalog, seed=1)
+    state = create_game_state(catalog, seed=_scenario_seed(1))
     state.turn_player_id = "P1"
     target = _create_initial_deck_card(state, "P1", "1-0-001")
     first_material = _create_initial_deck_card(state, "P1", "1-0-001")
@@ -167,7 +179,7 @@ def _scenario_bloodhound_level3_damage(catalog: dict[str, Any]) -> tuple[GameSta
 def _scenario_bishamon_evolve_destroy_all(catalog: dict[str, Any]) -> tuple[GameState, dict[str, Any]]:
     from tojs_reborn.engine.state import create_game_state
 
-    state = create_game_state(catalog, seed=26)
+    state = create_game_state(catalog, seed=_scenario_seed(26))
     state.turn_player_id = "P1"
     _skull_card, _skull = _add_battlefield_unit(state, "P1", "1-0-028")
     _raimal_card, raimal = _add_battlefield_unit(state, "P1", "1-0-021")
@@ -190,7 +202,7 @@ def _scenario_bishamon_evolve_destroy_all(catalog: dict[str, Any]) -> tuple[Game
 def _scenario_display_stand_trigger_draw(catalog: dict[str, Any]) -> tuple[GameState, dict[str, Any]]:
     from tojs_reborn.engine.state import create_game_state
 
-    state = create_game_state(catalog, seed=62)
+    state = create_game_state(catalog, seed=_scenario_seed(62))
     state.turn_player_id = "P1"
     trigger_card = _create_initial_deck_card(state, "P1", "1-0-062")
     entering = _create_initial_deck_card(state, "P1", "1-0-001")
@@ -209,7 +221,7 @@ def _scenario_display_stand_trigger_draw(catalog: dict[str, Any]) -> tuple[GameS
 def _scenario_dartagnan_cip_attack_draw(catalog: dict[str, Any]) -> tuple[GameState, dict[str, Any]]:
     from tojs_reborn.engine.state import create_game_state
 
-    state = create_game_state(catalog, seed=47)
+    state = create_game_state(catalog, seed=_scenario_seed(47))
     state.turn_no = 3
     state.turn_player_id = "P1"
     dartagnan = _create_initial_deck_card(state, "P1", "1-0-047")
@@ -231,7 +243,7 @@ def _scenario_dartagnan_cip_attack_draw(catalog: dict[str, Any]) -> tuple[GameSt
 def _scenario_happaloid_cip_draw(catalog: dict[str, Any]) -> tuple[GameState, dict[str, Any]]:
     from tojs_reborn.engine.state import create_game_state
 
-    state = create_game_state(catalog, seed=40)
+    state = create_game_state(catalog, seed=_scenario_seed(40))
     state.turn_player_id = "P1"
     happaloid = _create_initial_deck_card(state, "P1", "1-0-040")
     draw_target = _create_initial_deck_card(state, "P1", "1-0-001")
@@ -247,7 +259,7 @@ def _scenario_happaloid_cip_draw(catalog: dict[str, Any]) -> tuple[GameState, di
 def _scenario_deck_refresh_draw(catalog: dict[str, Any]) -> tuple[GameState, dict[str, Any]]:
     from tojs_reborn.engine.state import create_game_state
 
-    state = create_game_state(catalog, seed=68)
+    state = create_game_state(catalog, seed=_scenario_seed(68))
     state.turn_player_id = "P1"
     for card_no in ("1-0-001", "1-0-004", "1-0-040", "1-0-061"):
         card = _create_initial_deck_card(state, "P1", card_no)
@@ -261,7 +273,7 @@ def _scenario_deck_refresh_draw(catalog: dict[str, Any]) -> tuple[GameState, dic
 def _scenario_category_search_no_refresh(catalog: dict[str, Any]) -> tuple[GameState, dict[str, Any]]:
     from tojs_reborn.engine.state import create_game_state
 
-    state = create_game_state(catalog, seed=69)
+    state = create_game_state(catalog, seed=_scenario_seed(69))
     state.turn_player_id = "P1"
     kaim = _create_initial_deck_card(state, "P1", "1-0-020")
     for card_no in ("1-0-061", "1-0-062", "1-0-097"):
@@ -278,7 +290,7 @@ def _scenario_category_search_no_refresh(catalog: dict[str, Any]) -> tuple[GameS
 def _scenario_attack_bp_modifier(catalog: dict[str, Any]) -> tuple[GameState, dict[str, Any]]:
     from tojs_reborn.engine.state import create_game_state
 
-    state = create_game_state(catalog, seed=2)
+    state = create_game_state(catalog, seed=_scenario_seed(2))
     state.turn_no = 3
     state.turn_player_id = "P1"
     _attacker_card, attacker = _add_battlefield_unit(state, "P1", "1-0-002")
@@ -292,7 +304,7 @@ def _scenario_attack_bp_modifier(catalog: dict[str, Any]) -> tuple[GameState, di
 def _scenario_block_bypass_player_attack(catalog: dict[str, Any]) -> tuple[GameState, dict[str, Any]]:
     from tojs_reborn.engine.state import create_game_state
 
-    state = create_game_state(catalog, seed=8)
+    state = create_game_state(catalog, seed=_scenario_seed(8))
     state.turn_no = 3
     state.turn_player_id = "P1"
     _attacker_card, attacker = _add_battlefield_unit(state, "P1", "1-0-008")
@@ -307,7 +319,7 @@ def _scenario_block_bypass_player_attack(catalog: dict[str, Any]) -> tuple[GameS
 def _scenario_attack_consume_action(catalog: dict[str, Any]) -> tuple[GameState, dict[str, Any]]:
     from tojs_reborn.engine.state import create_game_state
 
-    state = create_game_state(catalog, seed=25)
+    state = create_game_state(catalog, seed=_scenario_seed(25))
     state.turn_no = 3
     state.turn_player_id = "P1"
     _attacker_card, attacker = _add_battlefield_unit(state, "P1", "1-0-025")
@@ -325,7 +337,7 @@ def _scenario_attack_consume_action(catalog: dict[str, Any]) -> tuple[GameState,
 def _scenario_oc_consume_action(catalog: dict[str, Any]) -> tuple[GameState, dict[str, Any]]:
     from tojs_reborn.engine.state import create_game_state
 
-    state = create_game_state(catalog, seed=16)
+    state = create_game_state(catalog, seed=_scenario_seed(16))
     state.turn_player_id = "P1"
     source = _create_initial_deck_card(state, "P1", "1-0-016")
     first_material = _create_initial_deck_card(state, "P1", "1-0-016")
@@ -357,7 +369,7 @@ def _scenario_oc_consume_action(catalog: dict[str, Any]) -> tuple[GameState, dic
 def _scenario_hand_limit_draw(catalog: dict[str, Any]) -> tuple[GameState, dict[str, Any]]:
     from tojs_reborn.engine.state import create_game_state
 
-    state = create_game_state(catalog, seed=71)
+    state = create_game_state(catalog, seed=_scenario_seed(71))
     state.turn_player_id = "P1"
     p1_cards = list(FILLER_CARD_NOS[:15])
     p2_cards = list(FILLER_CARD_NOS[5:19])
@@ -390,7 +402,7 @@ def _scenario_hand_limit_draw(catalog: dict[str, Any]) -> tuple[GameState, dict[
 def _scenario_goliath_level3_life_damage(catalog: dict[str, Any]) -> tuple[GameState, dict[str, Any]]:
     from tojs_reborn.engine.state import create_game_state
 
-    state = create_game_state(catalog, seed=7)
+    state = create_game_state(catalog, seed=_scenario_seed(7))
     state.turn_player_id = "P1"
     target = _create_initial_deck_card(state, "P1", "1-0-007")
     first_material = _create_initial_deck_card(state, "P1", "1-0-007")
@@ -412,7 +424,7 @@ def _scenario_goliath_level3_life_damage(catalog: dict[str, Any]) -> tuple[GameS
 def _scenario_kaim_cip_trigger_search(catalog: dict[str, Any]) -> tuple[GameState, dict[str, Any]]:
     from tojs_reborn.engine.state import create_game_state
 
-    state = create_game_state(catalog, seed=20)
+    state = create_game_state(catalog, seed=_scenario_seed(20))
     state.turn_player_id = "P1"
     kaim = _create_initial_deck_card(state, "P1", "1-0-020")
     unit_card = _create_initial_deck_card(state, "P1", "1-0-001")
@@ -430,7 +442,7 @@ def _scenario_kaim_cip_trigger_search(catalog: dict[str, Any]) -> tuple[GameStat
 def _scenario_leafia_block_bp_modifier(catalog: dict[str, Any]) -> tuple[GameState, dict[str, Any]]:
     from tojs_reborn.engine.state import create_game_state
 
-    state = create_game_state(catalog, seed=45)
+    state = create_game_state(catalog, seed=_scenario_seed(45))
     state.turn_no = 3
     state.turn_player_id = "P1"
     attackers = [
@@ -451,7 +463,7 @@ def _scenario_leafia_block_bp_modifier(catalog: dict[str, Any]) -> tuple[GameSta
 def _scenario_jumpoo_bounce_hand_limit(catalog: dict[str, Any]) -> tuple[GameState, dict[str, Any]]:
     from tojs_reborn.engine.state import create_game_state
 
-    state = create_game_state(catalog, seed=19)
+    state = create_game_state(catalog, seed=_scenario_seed(19))
     state.turn_player_id = "P1"
     first_jumpoo = _create_initial_deck_card(state, "P1", "1-0-019")
     second_jumpoo = _create_initial_deck_card(state, "P1", "1-0-019")
@@ -476,7 +488,7 @@ def _scenario_jumpoo_bounce_hand_limit(catalog: dict[str, Any]) -> tuple[GameSta
 def _scenario_howling_intercept_draw_two(catalog: dict[str, Any]) -> tuple[GameState, dict[str, Any]]:
     from tojs_reborn.engine.state import create_game_state
 
-    state = create_game_state(catalog, seed=99)
+    state = create_game_state(catalog, seed=_scenario_seed(99))
     state.turn_player_id = "P1"
     entering = _create_initial_deck_card(state, "P1", "1-0-041")
     howling = _create_initial_deck_card(state, "P1", "1-0-099")
@@ -496,7 +508,7 @@ def _scenario_howling_intercept_draw_two(catalog: dict[str, Any]) -> tuple[GameS
 def _scenario_raguel_exhausted_damage(catalog: dict[str, Any]) -> tuple[GameState, dict[str, Any]]:
     from tojs_reborn.engine.state import create_game_state
 
-    state = create_game_state(catalog, seed=23)
+    state = create_game_state(catalog, seed=_scenario_seed(23))
     state.turn_player_id = "P1"
     _ready_card, ready_unit = _add_battlefield_unit(state, "P2", "1-0-048")
     _first_exhausted_card, first_exhausted = _add_battlefield_unit(state, "P2", "1-0-048")
@@ -515,7 +527,7 @@ def _scenario_raguel_exhausted_damage(catalog: dict[str, Any]) -> tuple[GameStat
 def _scenario_tailwind_intercept_cp(catalog: dict[str, Any]) -> tuple[GameState, dict[str, Any]]:
     from tojs_reborn.engine.state import create_game_state
 
-    state = create_game_state(catalog, seed=97)
+    state = create_game_state(catalog, seed=_scenario_seed(97))
     state.turn_player_id = "P1"
     entering = _create_initial_deck_card(state, "P1", "1-0-041")
     tailwind = _create_initial_deck_card(state, "P1", "1-0-097")
@@ -532,7 +544,7 @@ def _scenario_tailwind_intercept_cp(catalog: dict[str, Any]) -> tuple[GameState,
 def _scenario_rairyu_evolve_damage(catalog: dict[str, Any]) -> tuple[GameState, dict[str, Any]]:
     from tojs_reborn.engine.state import create_game_state
 
-    state = create_game_state(catalog, seed=24)
+    state = create_game_state(catalog, seed=_scenario_seed(24))
     state.turn_player_id = "P1"
     _base_card, base_unit = _add_battlefield_unit(state, "P1", "1-0-021")
     ready_card, ready_unit = _add_battlefield_unit(state, "P2", "1-0-040")
@@ -550,7 +562,7 @@ def _scenario_rairyu_evolve_damage(catalog: dict[str, Any]) -> tuple[GameState, 
 def _scenario_new_armor_trigger(catalog: dict[str, Any]) -> tuple[GameState, dict[str, Any]]:
     from tojs_reborn.engine.state import create_game_state
 
-    state = create_game_state(catalog, seed=61)
+    state = create_game_state(catalog, seed=_scenario_seed(61))
     state.turn_player_id = "P1"
     trigger_card = _create_initial_deck_card(state, "P1", "1-0-061")
     entering = _create_initial_deck_card(state, "P1", "1-0-001")
@@ -571,7 +583,7 @@ def _scenario_new_armor_trigger(catalog: dict[str, Any]) -> tuple[GameState, dic
 def _scenario_lina_discard_choice(catalog: dict[str, Any]) -> tuple[GameState, dict[str, Any]]:
     from tojs_reborn.engine.state import create_game_state
 
-    state = create_game_state(catalog, seed=31)
+    state = create_game_state(catalog, seed=_scenario_seed(31))
     state.turn_player_id = "P1"
     lina = _create_initial_deck_card(state, "P1", "1-0-031")
     first_material = _create_initial_deck_card(state, "P1", "1-0-031")
@@ -604,7 +616,7 @@ def _scenario_lina_discard_choice(catalog: dict[str, Any]) -> tuple[GameState, d
 def _scenario_viper_discard_unit_recover(catalog: dict[str, Any]) -> tuple[GameState, dict[str, Any]]:
     from tojs_reborn.engine.state import create_game_state
 
-    state = create_game_state(catalog, seed=33)
+    state = create_game_state(catalog, seed=_scenario_seed(33))
     state.turn_player_id = "P1"
     viper = _create_initial_deck_card(state, "P1", "1-0-033")
     discarded_unit = _create_initial_deck_card(state, "P1", "1-0-001")
@@ -622,7 +634,7 @@ def _scenario_viper_discard_unit_recover(catalog: dict[str, Any]) -> tuple[GameS
 def _scenario_trigger_lost_random(catalog: dict[str, Any]) -> tuple[GameState, dict[str, Any]]:
     from tojs_reborn.engine.state import create_game_state
 
-    state = create_game_state(catalog, seed=5)
+    state = create_game_state(catalog, seed=_scenario_seed(5))
     state.turn_player_id = "P1"
     breaker = _create_initial_deck_card(state, "P1", "1-0-005")
     rival_trigger = _create_initial_deck_card(state, "P2", "1-0-061")

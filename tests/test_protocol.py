@@ -2144,6 +2144,33 @@ class ProtocolTest(unittest.TestCase):
         self.assertEqual(random_events[-1]["payload"].get("kind"), "discard_pile_card")
         self.assertEqual(random_events[-1]["payload"].get("category"), "unit")
 
+    def test_scenario_cli_seed_overrides_fixed_scenario_seed(self) -> None:
+        output_dir = ROOT / "test_output" / "scenario_cli_seed"
+        output_dir.mkdir(parents=True, exist_ok=True)
+
+        output = StringIO()
+        with redirect_stdout(output):
+            exit_code = run_scenario_cli(
+                [
+                    "--cards",
+                    "carddata/generated/cards.normalized.json",
+                    "--scenario",
+                    "trigger_lost_random",
+                    "--output-dir",
+                    str(output_dir),
+                    "--seed",
+                    "17",
+                    "--verify",
+                ]
+            )
+
+        self.assertEqual(exit_code, 0)
+        result = json.loads(output.getvalue())
+        replay = json.loads(Path(result["outputs"][0]["replay"]).read_text(encoding="utf-8"))
+        self.assertEqual(replay["seed"], 17)
+        random_event = next(event for event in replay["events"] if event["type"] == "random_resolved")
+        self.assertEqual(random_event["payload"].get("seed"), 17)
+
     def test_replay_gui_render_ignores_scale_set_callback_reentry(self) -> None:
         class FakeCanvas:
             def delete(self, _tag: str) -> None:

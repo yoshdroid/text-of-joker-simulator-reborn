@@ -10,6 +10,12 @@ python -m tojs_reborn.io.scenario_cli --cards carddata/generated/cards.normalize
 
 既定では `test_output/scenarios/` に replay を出力する。
 
+ランダム処理やデッキリフレッシュのシャッフル結果を変えて確認したい場合は `--seed` で各シナリオの固定 seed を上書きする。
+
+```powershell
+python -m tojs_reborn.io.scenario_cli --cards carddata/generated/cards.normalized.json --scenario trigger_lost_random --seed 17 --verify --open-gui
+```
+
 ## テストシナリオ一覧
 
 `engine` は自動テストまたは `--verify` で replay と最終状態の整合を確認済み、`GUI` は目視確認済みを表す。
@@ -21,9 +27,9 @@ python -m tojs_reborn.io.scenario_cli --cards carddata/generated/cards.normalize
 | `bishamon_evolve_destroy_all` | 毘沙門 | 左からスカルウォーカー、ライマル、ミイラくんで開始し、真ん中の `1-0-021` ライマルを元に `1-0-026` 毘沙門を進化ドライブする。ミイラくんで P2 手札1枚をランダム破壊し、スカルウォーカーで進化元ライマルを手札へ戻し、カラスマドウで P2 が intercept をサーチドローする。最後に毘沙門でアタックし、P2 LIFE が減る。 | ✓ | ✓ |  |
 | `block_bypass_player_attack` | バルキリークララ | `1-0-008` バルキリークララがアタックし、相手に待機ユニットがいてもブロック選択なしでプレイヤーアタックになる。 | ✓ | ✓ |  |
 | `bloodhound_level3_damage` | ブラッドハウンド | `1-0-001` ブラッドハウンドを手札オーバーライドで LV3 にしてドライブし、OC の対象選択、4000ダメージ、相手ユニット破壊を確認する。 | ✓ | ✓ |  |
-| `category_search_no_refresh` | カイム / カテゴリサーチ | デッキ0枚、初期捨札に trigger / intercept がある状態で `1-0-020` カイムをドライブし、カテゴリサーチがデッキリフレッシュせず `cards_drawn.count=0` で不発になる。 | ✓ |  | 追加後にGUI目視予定 |
+| `category_search_no_refresh` | カイム / カテゴリサーチ | デッキ0枚、初期捨札に trigger / intercept がある状態で `1-0-020` カイムをドライブし、カテゴリサーチがデッキリフレッシュせず `cards_drawn.count=0` で不発になる。 | ✓ | ✓ |  |
 | `dartagnan_cip_attack_draw` | ダルタニャン | `1-0-047` ダルタニャンをドライブしてCIPでCPが増え、P1/P2が一度ターンエンドした後のP1ターンにアタック時効果でデッキトップを1枚引き、P2 LIFEが減る。 | ✓ | ✓ |  |
-| `deck_refresh_draw` | デッキリフレッシュ | デッキ0枚、初期捨札ありの状態でターン冒頭の純粋ドローを行い、`deck_refreshed` 後に新インスタンスがデッキへ補充され、捨札が初期化されて1枚ドローされる。 | ✓ |  | 追加後にGUI目視予定 |
+| `deck_refresh_draw` | デッキリフレッシュ | デッキ0枚、初期捨札ありの状態でターン冒頭の純粋ドローを行い、`deck_refreshed` 後に新インスタンスがデッキへ補充され、捨札が初期化されて1枚ドローされる。 | ✓ | ✓ |  |
 | `display_stand_trigger_draw` | ディスプレイスタンド | `1-0-062` ディスプレイスタンドが owner unit enter 後に強制発動し、デッキトップを1枚引く。 | ✓ | ✓ |  |
 | `goliath_level3_life_damage` | ゴライアス | `1-0-007` ゴライアスを手札オーバーライドでLV3にしてドライブし、OCで相手LIFEが1減る。 | ✓ | ✓ |  |
 | `happaloid_cip_draw` | ハッパロイド | `1-0-040` ハッパロイドをドライブし、CIP でデッキトップのカードが手札に移る。 | ✓ | ✓ |  |
@@ -37,7 +43,7 @@ python -m tojs_reborn.io.scenario_cli --cards carddata/generated/cards.normalize
 | `raguel_exhausted_damage` | ラグエル | `1-0-023` ラグエルをドライブし、相手の疲弊ユニット2体だけにダメージが入り、待機ユニットにはダメージが入らない。 | ✓ | ✓ |  |
 | `rairyu_evolve_damage` | 雷龍 | `1-0-024` 雷龍を黄ユニットに進化ドライブし、進化元が捨札へ移動し、疲弊した相手ユニットへ7000ダメージを与えて破壊する。 | ✓ | ✓ |  |
 | `tailwind_intercept_cp` | 追い風 | `1-0-097` 追い風を intercept window で任意発動し、CPが4増えて捨札へ移動する。 | ✓ | ✓ |  |
-| `trigger_lost_random` | チアデビル | `1-0-005` チアデビルをドライブし、P2 トリガーゾーンのカードからランダムに1枚を選んで捨札へ移動する。 | ✓ |  | 追加後にGUI目視予定 |
+| `trigger_lost_random` | チアデビル | `1-0-005` チアデビルをドライブし、P2 トリガーゾーンのカードからランダムに1枚を選んで捨札へ移動する。 | ✓ | ✓ |  |
 | `lina_discard_choice` | 見習い魔導士リーナ | デッキ5枚の先頭を `1-0-033` ヴァイパーにして開始し、CP7で1枚ドローする。`1-0-031` 見習い魔導士リーナを手札オーバーライドで LV3 にした後、ヴァイパーで捨札のリーナを回収し、LV3リーナのOCでもリーナを回収する。最後に手札のリーナ2枚をオーバーライドしてLV2にする。 | ✓ | ✓ |  |
 | `viper_discard_unit_recover` | バイパー | `1-0-033` バイパーをドライブし、捨札の unit だけが候補になって同じカードインスタンスが手札へ戻る。 | ✓ | ✓ |  |
 
