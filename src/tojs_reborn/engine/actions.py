@@ -269,6 +269,7 @@ def drive_unit(
             "from_zone": "hand",
             "to_zone": "battlefield",
             "owner_player_id": player_id,
+            "battlefield_index": evolve_target_index,
         },
     )
     enter_event = state.event_store.append(

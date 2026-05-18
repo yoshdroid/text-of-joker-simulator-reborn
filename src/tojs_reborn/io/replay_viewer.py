@@ -294,7 +294,7 @@ class ReplayViewerState:
             self.unit_exhausted.setdefault(unit_id, False)
             self.unit_damage.setdefault(unit_id, 0)
         self._remove_from_zone(player, from_zone, card_instance_id, unit_id)
-        self._add_to_zone(player, to_zone, card_instance_id, unit_id)
+        self._add_to_zone(player, to_zone, card_instance_id, unit_id, payload)
 
     def _remove_from_zone(
         self,
@@ -320,13 +320,18 @@ class ReplayViewerState:
         zone: Any,
         card_instance_id: str,
         unit_id: Any,
+        payload: dict[str, Any],
     ) -> None:
         if zone == "deck":
             player.deck.append(card_instance_id)
         elif zone == "hand":
             player.hand.append(card_instance_id)
         elif zone == "battlefield" and isinstance(unit_id, str):
-            player.battlefield.append(unit_id)
+            battlefield_index = payload.get("battlefield_index")
+            if isinstance(battlefield_index, int):
+                player.battlefield.insert(max(0, min(battlefield_index, len(player.battlefield))), unit_id)
+            else:
+                player.battlefield.append(unit_id)
         elif zone == "trigger_zone":
             player.trigger_zone.append(card_instance_id)
         elif zone == "discard_pile":

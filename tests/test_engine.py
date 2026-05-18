@@ -364,6 +364,12 @@ class EngineTest(unittest.TestCase):
         evolved = drive_unit(state, "P1", entering_card.instance_id, evolve_target_unit_id=base_unit.unit_id)
 
         self.assertEqual(state.players["P1"].battlefield.units, [evolved.unit_id, second_unit.unit_id])
+        move_events = [
+            event
+            for event in state.event_store.events
+            if event.type == "card_moved" and event.payload.get("to_zone") == "battlefield"
+        ]
+        self.assertEqual(move_events[-1].payload.get("battlefield_index"), 0)
 
     def test_level3_evolve_drive_recovers_inherited_exhausted_action_by_overclock(self) -> None:
         state = create_game_state(self.catalog)

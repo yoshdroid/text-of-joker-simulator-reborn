@@ -7,6 +7,7 @@ from collections.abc import Callable
 from pathlib import Path
 from typing import Any, Sequence
 
+from tojs_reborn.engine.combat import attack_player
 from tojs_reborn.engine.actions import drive_unit, override_card
 from tojs_reborn.engine.replay import build_replay_record, snapshot_initial_state, verify_replay_record
 from tojs_reborn.engine.state import GameState, load_card_catalog
@@ -121,8 +122,8 @@ def _scenario_bishamon_evolve_destroy_all(catalog: dict[str, Any]) -> tuple[Game
 
     state = create_game_state(catalog, seed=26)
     state.turn_player_id = "P1"
-    _raimal_card, raimal = _add_battlefield_unit(state, "P1", "1-0-021")
     _skull_card, _skull = _add_battlefield_unit(state, "P1", "1-0-028")
+    _raimal_card, raimal = _add_battlefield_unit(state, "P1", "1-0-021")
     _mummy_card, _mummy = _add_battlefield_unit(state, "P1", "1-0-027")
     _crow_card, _crow = _add_battlefield_unit(state, "P2", "1-0-029")
     state.players["P2"].hand.add(state.create_card_instance("1-0-001", "P2").instance_id)
@@ -131,10 +132,11 @@ def _scenario_bishamon_evolve_destroy_all(catalog: dict[str, Any]) -> tuple[Game
     state.players["P2"].deck.cards.append(state.create_card_instance("1-0-097", "P2").instance_id)
     entering_card = state.create_card_instance("1-0-026", "P1")
     state.players["P1"].hand.add(entering_card.instance_id)
-    state.players["P1"].current_cp = 10
+    state.players["P1"].current_cp = 7
     initial_state = snapshot_initial_state(state)
 
-    drive_unit(state, "P1", entering_card.instance_id, evolve_target_unit_id=raimal.unit_id)
+    bishamon = drive_unit(state, "P1", entering_card.instance_id, evolve_target_unit_id=raimal.unit_id)
+    attack_player(state, "P1", bishamon.unit_id)
     return state, initial_state
 
 

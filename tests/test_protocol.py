@@ -1425,6 +1425,64 @@ class ProtocolTest(unittest.TestCase):
         self.assertTrue(after_attack_p1["battlefield"][0]["exhausted"])
         self.assertEqual(model["frames"][1]["current_event"]["description"], "#1 card_moved actor=P1")
 
+    def test_replay_gui_model_inserts_evolve_unit_at_recorded_battlefield_index(self) -> None:
+        replay_record = {
+            "initial_state": {
+                "round_no": 1,
+                "turn_no": 1,
+                "turn_player_id": "P1",
+                "card_instances": {
+                    "c0001": {"card_no": "1-0-028", "owner_player_id": "P1", "level": 1},
+                    "c0002": {"card_no": "1-0-021", "owner_player_id": "P1", "level": 1},
+                    "c0003": {"card_no": "1-0-027", "owner_player_id": "P1", "level": 1},
+                    "c0004": {"card_no": "1-0-026", "owner_player_id": "P1", "level": 1},
+                },
+                "players": {
+                    "P1": {
+                        "life": 7,
+                        "current_cp": 7,
+                        "deck": [],
+                        "hand": ["c0004"],
+                        "battlefield": ["u0001", "u0002", "u0003"],
+                        "trigger_zone": [],
+                        "discard_pile": [],
+                    }
+                },
+                "units": {
+                    "u0001": {"card_instance_id": "c0001", "card_no": "1-0-028", "owner_player_id": "P1", "level": 1, "exhausted": False, "attack_restricted_turn_no": None, "current_damage": 0},
+                    "u0002": {"card_instance_id": "c0002", "card_no": "1-0-021", "owner_player_id": "P1", "level": 1, "exhausted": False, "attack_restricted_turn_no": None, "current_damage": 0},
+                    "u0003": {"card_instance_id": "c0003", "card_no": "1-0-027", "owner_player_id": "P1", "level": 1, "exhausted": False, "attack_restricted_turn_no": None, "current_damage": 0},
+                },
+            },
+            "events": [
+                {
+                    "event_no": 1,
+                    "type": "card_moved",
+                    "round_no": 1,
+                    "turn_no": 1,
+                    "actor_player_id": "P1",
+                    "cause_event_no": None,
+                    "source": {"card_no": "1-0-021", "card_instance_id": "c0002", "unit_id": "u0002", "ability_id": None},
+                    "payload": {"from_zone": "battlefield", "to_zone": "discard_pile", "owner_player_id": "P1", "reason": "evolve_source"},
+                },
+                {
+                    "event_no": 2,
+                    "type": "card_moved",
+                    "round_no": 1,
+                    "turn_no": 1,
+                    "actor_player_id": "P1",
+                    "cause_event_no": None,
+                    "source": {"card_no": "1-0-026", "card_instance_id": "c0004", "unit_id": "u0004", "ability_id": None},
+                    "payload": {"from_zone": "hand", "to_zone": "battlefield", "owner_player_id": "P1", "battlefield_index": 1},
+                },
+            ],
+        }
+
+        model = build_replay_gui_model(replay_record, card_catalog=self.catalog)
+
+        battlefield = model["frames"][2]["players"][0]["battlefield"]
+        self.assertEqual([unit["unit_id"] for unit in battlefield], ["u0001", "u0004", "u0003"])
+
     def test_replay_viewer_cli_prints_match_cli_replay(self) -> None:
         output_dir = ROOT / "test_output" / "replay_viewer"
         output_dir.mkdir(parents=True, exist_ok=True)
@@ -1626,10 +1684,32 @@ class ProtocolTest(unittest.TestCase):
         )
         bishamon = json.loads((output_dir / "bishamon_evolve_destroy_all.json").read_text(encoding="utf-8"))
         self.assertEqual([event["type"] for event in bishamon["events"]].count("unit_destroyed"), 3)
+        initial_bishamon_units = bishamon["initial_state"]["players"]["P1"]["battlefield"]
+        self.assertEqual(
+            [
+                bishamon["initial_state"]["units"][unit_id]["card_no"]
+                for unit_id in initial_bishamon_units
+            ],
+            ["1-0-028", "1-0-021", "1-0-027"],
+        )
+        bishamon_move = next(
+            event
+            for event in bishamon["events"]
+            if event["type"] == "card_moved" and event["source"].get("card_no") == "1-0-026"
+        )
+        self.assertEqual(bishamon_move["payload"].get("battlefield_index"), 1)
+        bishamon_model = build_replay_gui_model(bishamon, card_catalog=self.catalog)
+        bishamon_frame = bishamon_model["frames"][bishamon["events"].index(bishamon_move) + 1]
+        self.assertEqual(
+            [unit["card_no"] for unit in bishamon_frame["players"][0]["battlefield"]],
+            ["1-0-028", "1-0-026", "1-0-027"],
+        )
         final_bishamon = bishamon["final_state"]
         p1_battlefield = final_bishamon["players"]["P1"]["battlefield"]
         self.assertEqual(len(p1_battlefield), 1)
         self.assertEqual(final_bishamon["units"][p1_battlefield[0]]["card_no"], "1-0-026")
+        self.assertTrue(final_bishamon["units"][p1_battlefield[0]]["exhausted"])
+        self.assertEqual(final_bishamon["players"]["P2"]["life"], 6)
         p1_hand_card_nos = [
             final_bishamon["card_instances"][card_instance_id]["card_no"]
             for card_instance_id in final_bishamon["players"]["P1"]["hand"]
