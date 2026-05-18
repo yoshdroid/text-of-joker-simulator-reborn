@@ -3,6 +3,7 @@ import os
 import json
 import subprocess
 import unittest
+from collections import Counter
 from contextlib import redirect_stdout
 from io import StringIO
 from pathlib import Path
@@ -477,6 +478,13 @@ class ProtocolTest(unittest.TestCase):
         self.assertIn("invalid_response", [event.type for event in state.event_store.events])
 
     def test_match_runner_runs_full_match_to_max_turns(self) -> None:
+        class PassOnlyPlayer:
+            def choose_action(self, _player_id: str, legal_actions: list[dict]) -> dict:
+                for action in legal_actions:
+                    if action.get("type") == "pass":
+                        return action
+                return legal_actions[-1]
+
         deck1 = parse_decklist({"cards": [{"card_no": "1-0-040", "count": 4}]}, self.catalog)
         deck2 = parse_decklist({"cards": [{"card_no": "1-0-001", "count": 4}]}, self.catalog)
         state = setup_match_state(
@@ -484,9 +492,9 @@ class ProtocolTest(unittest.TestCase):
             {"P1": deck1, "P2": deck2},
             config=MatchSetupConfig(seed=3),
         )
-        runner = MatchRunner(state, players={"P1": FirstLegalPlayer(), "P2": FirstLegalPlayer()})
+        runner = MatchRunner(state, players={"P1": PassOnlyPlayer(), "P2": PassOnlyPlayer()})
 
-        result = runner.run_match(max_turns=2, max_actions_per_turn=10)
+        result = runner.run_match(max_turns=2, max_actions_per_turn=100)
 
         self.assertEqual(result.reason, "max_turns")
         self.assertEqual(result.turn_count, 2)
@@ -693,13 +701,15 @@ class ProtocolTest(unittest.TestCase):
                     "--deck2",
                     str(deck2_path),
                     "--p1",
-                    "sample:first",
+                    "sample:pass",
                     "--p2",
                     "sample:pass",
                     "--seed",
                     "5",
                     "--max-turns",
                     "2",
+                    "--max-actions-per-turn",
+                    "100",
                     "--replay",
                     str(replay_path),
                     "--verify-replay",
@@ -1682,6 +1692,17 @@ class ProtocolTest(unittest.TestCase):
                 "viper_discard_unit_recover",
             },
         )
+        for item in result["outputs"]:
+            replay = json.loads((output_dir / f"{item['scenario']}.json").read_text(encoding="utf-8"))
+            initial_card_counts_by_owner: dict[str, Counter[str]] = {}
+            for card in replay["initial_state"]["card_instances"].values():
+                initial_card_counts_by_owner.setdefault(card["owner_player_id"], Counter())[card["card_no"]] += 1
+            for player_id, player in replay["initial_state"]["players"].items():
+                initial_deck_card_nos = player["initial_deck_card_nos"]
+                if initial_deck_card_nos:
+                    initial_deck_counts = Counter(initial_deck_card_nos)
+                    self.assertLessEqual(max(initial_deck_counts.values()), 3)
+                    self.assertEqual(initial_card_counts_by_owner.get(player_id, Counter()), initial_deck_counts)
         bishamon = json.loads((output_dir / "bishamon_evolve_destroy_all.json").read_text(encoding="utf-8"))
         self.assertEqual([event["type"] for event in bishamon["events"]].count("unit_destroyed"), 3)
         initial_bishamon_units = bishamon["initial_state"]["players"]["P1"]["battlefield"]

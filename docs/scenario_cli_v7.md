@@ -44,3 +44,10 @@ python -m tojs_reborn.io.scenario_cli --cards carddata/generated/cards.normalize
 ```powershell
 python -m tojs_reborn.io.replay_gui --cards carddata/generated/cards.normalized.json --images carddata/images --replay test_output/scenarios/hand_limit_draw.json
 ```
+
+## シナリオの初期デッキ規約
+
+- テストシナリオでも、初期配置される手札・場・捨札・トリガーゾーン・デッキ上のカードは、すべて `initial_deck_card_nos` に含まれていたカードとして扱う。
+- `initial_deck_card_nos` 上の同名カードは3枚までとする。
+- 純粋なドローでデッキが空の場合は、`initial_deck_card_nos` をシャッフルし、新しいカードインスタンスとしてデッキを再生成してからドローする。このとき既存の手札・場・捨札は戻さない。
+- カテゴリサーチはデッキリフレッシュのきっかけにならない。デッキが空ならサーチは不発になり、`cards_drawn.count` は0になる。

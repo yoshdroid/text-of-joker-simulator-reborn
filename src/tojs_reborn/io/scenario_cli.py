@@ -20,6 +20,39 @@ from .replay_gui import run_replay_gui_cli
 ScenarioBuilder = Callable[[dict[str, Any]], tuple[GameState, dict[str, Any]]]
 
 
+FILLER_CARD_NOS = (
+    "1-0-001",
+    "1-0-004",
+    "1-0-005",
+    "1-0-006",
+    "1-0-007",
+    "1-0-010",
+    "1-0-016",
+    "1-0-017",
+    "1-0-018",
+    "1-0-019",
+    "1-0-020",
+    "1-0-021",
+    "1-0-023",
+    "1-0-024",
+    "1-0-025",
+    "1-0-027",
+    "1-0-028",
+    "1-0-029",
+    "1-0-030",
+    "1-0-031",
+    "1-0-033",
+    "1-0-040",
+    "1-0-041",
+    "1-0-042",
+    "1-0-043",
+    "1-0-044",
+    "1-0-045",
+    "1-0-047",
+    "1-0-048",
+)
+
+
 SCENARIOS: dict[str, ScenarioBuilder] = {
     "bishamon_evolve_destroy_all": lambda catalog: _scenario_bishamon_evolve_destroy_all(catalog),
     "bloodhound_level3_damage": lambda catalog: _scenario_bloodhound_level3_damage(catalog),
@@ -99,10 +132,10 @@ def _scenario_bloodhound_level3_damage(catalog: dict[str, Any]) -> tuple[GameSta
 
     state = create_game_state(catalog, seed=1)
     state.turn_player_id = "P1"
-    target = state.create_card_instance("1-0-001", "P1")
-    first_material = state.create_card_instance("1-0-001", "P1")
-    second_material = state.create_card_instance("1-0-001", "P1")
-    rival_card = state.create_card_instance("1-0-004", "P2")
+    target = _create_initial_deck_card(state, "P1", "1-0-001")
+    first_material = _create_initial_deck_card(state, "P1", "1-0-001")
+    second_material = _create_initial_deck_card(state, "P1", "1-0-001")
+    rival_card = _create_initial_deck_card(state, "P2", "1-0-004")
     rival = state.create_unit(rival_card.instance_id)
     state.players["P1"].hand.add(target.instance_id)
     state.players["P1"].hand.add(first_material.instance_id)
@@ -126,11 +159,11 @@ def _scenario_bishamon_evolve_destroy_all(catalog: dict[str, Any]) -> tuple[Game
     _raimal_card, raimal = _add_battlefield_unit(state, "P1", "1-0-021")
     _mummy_card, _mummy = _add_battlefield_unit(state, "P1", "1-0-027")
     _crow_card, _crow = _add_battlefield_unit(state, "P2", "1-0-029")
-    state.players["P2"].hand.add(state.create_card_instance("1-0-001", "P2").instance_id)
-    state.players["P2"].hand.add(state.create_card_instance("1-0-004", "P2").instance_id)
-    state.players["P2"].deck.cards.append(state.create_card_instance("1-0-040", "P2").instance_id)
-    state.players["P2"].deck.cards.append(state.create_card_instance("1-0-097", "P2").instance_id)
-    entering_card = state.create_card_instance("1-0-026", "P1")
+    _add_hand_card(state, "P2", "1-0-001")
+    _add_hand_card(state, "P2", "1-0-004")
+    _add_deck_card(state, "P2", "1-0-040")
+    _add_deck_card(state, "P2", "1-0-097")
+    entering_card = _create_initial_deck_card(state, "P1", "1-0-026")
     state.players["P1"].hand.add(entering_card.instance_id)
     state.players["P1"].current_cp = 7
     initial_state = snapshot_initial_state(state)
@@ -145,9 +178,9 @@ def _scenario_display_stand_trigger_draw(catalog: dict[str, Any]) -> tuple[GameS
 
     state = create_game_state(catalog, seed=62)
     state.turn_player_id = "P1"
-    trigger_card = state.create_card_instance("1-0-062", "P1")
-    entering = state.create_card_instance("1-0-001", "P1")
-    draw_target = state.create_card_instance("1-0-004", "P1")
+    trigger_card = _create_initial_deck_card(state, "P1", "1-0-062")
+    entering = _create_initial_deck_card(state, "P1", "1-0-001")
+    draw_target = _create_initial_deck_card(state, "P1", "1-0-004")
     state.players["P1"].trigger_zone.add(trigger_card.instance_id)
     state.players["P1"].hand.add(entering.instance_id)
     state.players["P1"].deck.cards.append(draw_target.instance_id)
@@ -164,8 +197,8 @@ def _scenario_happaloid_cip_draw(catalog: dict[str, Any]) -> tuple[GameState, di
 
     state = create_game_state(catalog, seed=40)
     state.turn_player_id = "P1"
-    happaloid = state.create_card_instance("1-0-040", "P1")
-    draw_target = state.create_card_instance("1-0-001", "P1")
+    happaloid = _create_initial_deck_card(state, "P1", "1-0-040")
+    draw_target = _create_initial_deck_card(state, "P1", "1-0-001")
     state.players["P1"].hand.add(happaloid.instance_id)
     state.players["P1"].deck.cards.append(draw_target.instance_id)
     state.players["P1"].current_cp = 1
@@ -180,13 +213,16 @@ def _scenario_hand_limit_draw(catalog: dict[str, Any]) -> tuple[GameState, dict[
 
     state = create_game_state(catalog, seed=71)
     state.turn_player_id = "P1"
-    for _ in range(3):
-        state.players["P1"].hand.add(state.create_card_instance("1-0-001", "P1").instance_id)
-    for _ in range(2):
-        state.players["P2"].hand.add(state.create_card_instance("1-0-001", "P2").instance_id)
-    for _ in range(12):
-        state.players["P1"].deck.cards.append(state.create_card_instance("1-0-040", "P1").instance_id)
-        state.players["P2"].deck.cards.append(state.create_card_instance("1-0-040", "P2").instance_id)
+    p1_cards = list(FILLER_CARD_NOS[:15])
+    p2_cards = list(FILLER_CARD_NOS[5:19])
+    for card_no in p1_cards[:3]:
+        _add_hand_card(state, "P1", card_no)
+    for card_no in p2_cards[:2]:
+        _add_hand_card(state, "P2", card_no)
+    for card_no in p1_cards[3:]:
+        _add_deck_card(state, "P1", card_no)
+    for card_no in p2_cards[2:]:
+        _add_deck_card(state, "P2", card_no)
     initial_state = snapshot_initial_state(state)
 
     start_turn(state, "P1", draw_count=0, cp=2)
@@ -210,10 +246,10 @@ def _scenario_kaim_cip_trigger_search(catalog: dict[str, Any]) -> tuple[GameStat
 
     state = create_game_state(catalog, seed=20)
     state.turn_player_id = "P1"
-    kaim = state.create_card_instance("1-0-020", "P1")
-    unit_card = state.create_card_instance("1-0-001", "P1")
-    trigger_card = state.create_card_instance("1-0-061", "P1")
-    intercept_card = state.create_card_instance("1-0-097", "P1")
+    kaim = _create_initial_deck_card(state, "P1", "1-0-020")
+    unit_card = _create_initial_deck_card(state, "P1", "1-0-001")
+    trigger_card = _create_initial_deck_card(state, "P1", "1-0-061")
+    intercept_card = _create_initial_deck_card(state, "P1", "1-0-097")
     state.players["P1"].hand.add(kaim.instance_id)
     state.players["P1"].deck.cards.extend([unit_card.instance_id, trigger_card.instance_id, intercept_card.instance_id])
     state.players["P1"].current_cp = 10
@@ -232,7 +268,7 @@ def _scenario_rairyu_evolve_damage(catalog: dict[str, Any]) -> tuple[GameState, 
     ready_card, ready_unit = _add_battlefield_unit(state, "P2", "1-0-040")
     exhausted_card, exhausted_unit = _add_battlefield_unit(state, "P2", "1-0-048")
     exhausted_unit.exhausted = True
-    entering_card = state.create_card_instance("1-0-024", "P1")
+    entering_card = _create_initial_deck_card(state, "P1", "1-0-024")
     state.players["P1"].hand.add(entering_card.instance_id)
     state.players["P1"].current_cp = 10
     initial_state = snapshot_initial_state(state)
@@ -246,11 +282,11 @@ def _scenario_new_armor_trigger(catalog: dict[str, Any]) -> tuple[GameState, dic
 
     state = create_game_state(catalog, seed=61)
     state.turn_player_id = "P1"
-    trigger_card = state.create_card_instance("1-0-061", "P1")
-    entering = state.create_card_instance("1-0-001", "P1")
-    unit_card = state.create_card_instance("1-0-004", "P1")
-    intercept_card = state.create_card_instance("1-0-097", "P1")
-    second_intercept = state.create_card_instance("1-0-099", "P1")
+    trigger_card = _create_initial_deck_card(state, "P1", "1-0-061")
+    entering = _create_initial_deck_card(state, "P1", "1-0-001")
+    unit_card = _create_initial_deck_card(state, "P1", "1-0-004")
+    intercept_card = _create_initial_deck_card(state, "P1", "1-0-097")
+    second_intercept = _create_initial_deck_card(state, "P1", "1-0-099")
     state.players["P1"].trigger_zone.add(trigger_card.instance_id)
     state.players["P1"].hand.add(entering.instance_id)
     state.players["P1"].deck.cards.extend([unit_card.instance_id, intercept_card.instance_id, second_intercept.instance_id])
@@ -267,12 +303,12 @@ def _scenario_lina_discard_choice(catalog: dict[str, Any]) -> tuple[GameState, d
 
     state = create_game_state(catalog, seed=31)
     state.turn_player_id = "P1"
-    lina = state.create_card_instance("1-0-031", "P1")
-    first_material = state.create_card_instance("1-0-031", "P1")
-    second_material = state.create_card_instance("1-0-031", "P1")
-    viper = state.create_card_instance("1-0-033", "P1")
+    lina = _create_initial_deck_card(state, "P1", "1-0-031")
+    first_material = _create_initial_deck_card(state, "P1", "1-0-031")
+    second_material = _create_initial_deck_card(state, "P1", "1-0-031")
+    viper = _create_initial_deck_card(state, "P1", "1-0-033")
     for card_no in ("1-0-001", "1-0-004", "1-0-040", "1-0-061"):
-        state.players["P1"].deck.cards.append(state.create_card_instance(card_no, "P1").instance_id)
+        _add_deck_card(state, "P1", card_no)
     state.players["P1"].hand.add(lina.instance_id)
     state.players["P1"].hand.add(first_material.instance_id)
     state.players["P1"].hand.add(second_material.instance_id)
@@ -300,9 +336,9 @@ def _scenario_viper_discard_unit_recover(catalog: dict[str, Any]) -> tuple[GameS
 
     state = create_game_state(catalog, seed=33)
     state.turn_player_id = "P1"
-    viper = state.create_card_instance("1-0-033", "P1")
-    discarded_unit = state.create_card_instance("1-0-001", "P1")
-    discarded_trigger = state.create_card_instance("1-0-061", "P1")
+    viper = _create_initial_deck_card(state, "P1", "1-0-033")
+    discarded_unit = _create_initial_deck_card(state, "P1", "1-0-001")
+    discarded_trigger = _create_initial_deck_card(state, "P1", "1-0-061")
     state.players["P1"].hand.add(viper.instance_id)
     state.players["P1"].discard_pile.add(discarded_trigger.instance_id)
     state.players["P1"].discard_pile.add(discarded_unit.instance_id)
@@ -314,10 +350,29 @@ def _scenario_viper_discard_unit_recover(catalog: dict[str, Any]) -> tuple[GameS
 
 
 def _add_battlefield_unit(state: GameState, player_id: str, card_no: str, *, level: int = 1):
-    card = state.create_card_instance(card_no, player_id, level=level)
+    card = _create_initial_deck_card(state, player_id, card_no, level=level)
     unit = state.create_unit(card.instance_id)
     state.players[player_id].battlefield.add(unit.unit_id)
     return card, unit
+
+
+def _create_initial_deck_card(state: GameState, player_id: str, card_no: str, *, level: int = 1):
+    if state.players[player_id].initial_deck_card_nos.count(card_no) >= 3:
+        raise ValueError(f"scenario initial deck copy limit exceeded: player={player_id} card_no={card_no}")
+    state.players[player_id].initial_deck_card_nos.append(card_no)
+    return state.create_card_instance(card_no, player_id, level=level)
+
+
+def _add_hand_card(state: GameState, player_id: str, card_no: str, *, level: int = 1):
+    card = _create_initial_deck_card(state, player_id, card_no, level=level)
+    state.players[player_id].hand.add(card.instance_id)
+    return card
+
+
+def _add_deck_card(state: GameState, player_id: str, card_no: str, *, level: int = 1):
+    card = _create_initial_deck_card(state, player_id, card_no, level=level)
+    state.players[player_id].deck.cards.append(card.instance_id)
+    return card
 
 
 def main() -> None:

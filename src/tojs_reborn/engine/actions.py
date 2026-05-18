@@ -53,7 +53,6 @@ def draw_cards(
     *,
     cause_event_no: int | None = None,
     source: EventSource | None = None,
-    refresh_if_empty: bool = True,
 ) -> list[str]:
     player = state.players[player_id]
     drawn: list[str] = []
@@ -62,7 +61,7 @@ def draw_cards(
         if len(player.hand.cards) >= MAX_HAND_SIZE:
             skipped_count = count - draw_index
             break
-        if not player.deck.cards and refresh_if_empty:
+        if not player.deck.cards:
             _refresh_deck(state, player_id, cause_event_no=cause_event_no, source=source)
         card_instance_id = player.deck.draw_top()
         if card_instance_id is None:
@@ -137,9 +136,9 @@ def _refresh_deck(
     elif player.discard_pile.cards:
         refreshed_cards = list(player.discard_pile.cards)
         state.rng.shuffle(refreshed_cards)
+        player.discard_pile.cards = []
     else:
         return
-    player.discard_pile.cards = []
     player.deck.cards = refreshed_cards
     state.event_store.append(
         "deck_refreshed",
@@ -365,7 +364,6 @@ def override_card(
         1,
         cause_event_no=action_event.event_no,
         source=EventSource(card_no=target.card_no, card_instance_id=target_card_instance_id),
-        refresh_if_empty=False,
     )
 
 
@@ -1235,8 +1233,6 @@ def _handle_draw_card_by_category(
         if len(player.hand.cards) >= MAX_HAND_SIZE:
             skipped_count = count - draw_index
             break
-        if not player.deck.cards:
-            _refresh_deck(state, unit.owner_player_id, cause_event_no=ability_event.event_no, source=ability_event.source)
         matched_index = None
         for index, card_instance_id in enumerate(player.deck.cards):
             card_no = state.card_instances[card_instance_id].card_no

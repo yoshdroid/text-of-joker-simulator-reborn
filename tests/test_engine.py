@@ -150,15 +150,15 @@ class EngineTest(unittest.TestCase):
         drawn = draw_cards(state, "P1", 1)
 
         self.assertEqual(len(drawn), 1)
-        self.assertEqual(state.players["P1"].discard_pile.cards, [])
+        self.assertEqual(state.players["P1"].discard_pile.cards, [old_discard.instance_id])
         self.assertEqual(len(state.players["P1"].deck.cards), 1)
         event_types = [event.type for event in state.event_store.events]
         self.assertEqual(event_types[0], "deck_refreshed")
         self.assertEqual(event_types[-1], "cards_drawn")
 
-    def test_draw_card_by_category_after_refresh_can_draw_zero_cards(self) -> None:
+    def test_draw_card_by_category_does_not_refresh_empty_deck(self) -> None:
         state = create_game_state(self.catalog, seed=1)
-        state.players["P1"].initial_deck_card_nos = ["1-0-001"]
+        state.players["P1"].initial_deck_card_nos = ["1-0-065"]
         crow_card = state.create_card_instance("1-0-029", "P1")
         crow = state.create_unit(crow_card.instance_id)
         state.players["P1"].battlefield.add(crow.unit_id)
@@ -169,7 +169,8 @@ class EngineTest(unittest.TestCase):
 
         cards_drawn = [event for event in state.event_store.events if event.type == "cards_drawn"][-1]
         self.assertEqual(cards_drawn.payload["count"], 0)
-        self.assertIn("deck_refreshed", [event.type for event in state.event_store.events])
+        self.assertNotIn("deck_refreshed", [event.type for event in state.event_store.events])
+        self.assertEqual(state.players["P1"].deck.cards, [])
 
     def test_drive_happaloid_resolves_self_cip_draw(self) -> None:
         state = create_game_state(self.catalog)
@@ -1253,10 +1254,13 @@ class EngineTest(unittest.TestCase):
         second_material = state.create_card_instance("1-0-031", "P1")
         first_discard = state.create_card_instance("1-0-061", "P1")
         second_discard = state.create_card_instance("1-0-001", "P1")
+        first_override_draw = state.create_card_instance("1-0-004", "P1")
+        second_override_draw = state.create_card_instance("1-0-005", "P1")
         state.players["P1"].current_cp = 10
         state.players["P1"].hand.add(lina.instance_id)
         state.players["P1"].hand.add(first_material.instance_id)
         state.players["P1"].hand.add(second_material.instance_id)
+        state.players["P1"].deck.cards.extend([first_override_draw.instance_id, second_override_draw.instance_id])
 
         override_card(state, "P1", lina.instance_id, first_material.instance_id)
         override_card(state, "P1", lina.instance_id, second_material.instance_id)
@@ -1759,9 +1763,12 @@ class EngineTest(unittest.TestCase):
         target = state.create_card_instance("1-0-007", "P1")
         first_material = state.create_card_instance("1-0-007", "P1")
         second_material = state.create_card_instance("1-0-007", "P1")
+        first_override_draw = state.create_card_instance("1-0-004", "P1")
+        second_override_draw = state.create_card_instance("1-0-005", "P1")
         state.players["P1"].hand.add(target.instance_id)
         state.players["P1"].hand.add(first_material.instance_id)
         state.players["P1"].hand.add(second_material.instance_id)
+        state.players["P1"].deck.cards.extend([first_override_draw.instance_id, second_override_draw.instance_id])
         state.players["P1"].current_cp = 10
 
         override_card(state, "P1", target.instance_id, first_material.instance_id)
@@ -1806,6 +1813,26 @@ class EngineTest(unittest.TestCase):
         event_types = [event.type for event in state.event_store.events]
         self.assertEqual(event_types[-2:], ["card_moved", "cards_drawn"])
         self.assertLess(event_types.index("card_level_changed"), event_types.index("cards_drawn"))
+
+    def test_hand_override_refreshes_empty_deck_for_reward_draw(self) -> None:
+        state = create_game_state(self.catalog, seed=31)
+        target = state.create_card_instance("1-0-031", "P1")
+        material = state.create_card_instance("1-0-031", "P1")
+        state.players["P1"].hand.add(target.instance_id)
+        state.players["P1"].hand.add(material.instance_id)
+        state.players["P1"].initial_deck_card_nos = ["1-0-033"]
+
+        override_card(state, "P1", target.instance_id, material.instance_id)
+
+        self.assertEqual(state.card_instances[target.instance_id].level, 2)
+        self.assertEqual(state.players["P1"].discard_pile.cards, [material.instance_id])
+        self.assertEqual(len(state.players["P1"].hand.cards), 2)
+        drawn_card_instance_id = state.players["P1"].hand.cards[-1]
+        self.assertNotEqual(drawn_card_instance_id, material.instance_id)
+        self.assertEqual(state.card_instances[drawn_card_instance_id].card_no, "1-0-033")
+        event_types = [event.type for event in state.event_store.events]
+        self.assertIn("deck_refreshed", event_types)
+        self.assertLess(event_types.index("deck_refreshed"), event_types.index("cards_drawn"))
 
     def test_bloodhound_level3_drive_resolves_self_oc_damage_to_rival_unit(self) -> None:
         state = create_game_state(self.catalog)
