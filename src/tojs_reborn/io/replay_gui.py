@@ -234,6 +234,7 @@ class ReplayTkGui:
 
     def _render_tile(self, x: int, y: int, tile: dict[str, Any], zone: str) -> None:
         tile_width, tile_height = self._tile_dimensions(zone, tile)
+        is_highlighted = bool(tile.get("highlight"))
         self.board_canvas.create_rectangle(
             x,
             y,
@@ -246,6 +247,8 @@ class ReplayTkGui:
         if image is not None:
             self.board_canvas.create_image(x, y, anchor="nw", image=image)
             self._render_tile_overlay(x, y, tile_width, tile_height, tile, zone)
+            if is_highlighted:
+                self._render_tile_highlight(x, y, tile_width, tile_height)
             return
         text = f"{tile.get('card_no')}\n{tile.get('name') or ''}"
         if tile.get("kind") == "unit":
@@ -264,6 +267,8 @@ class ReplayTkGui:
             text=text,
         )
         self._render_tile_overlay(x, y, tile_width, tile_height, tile, zone)
+        if is_highlighted:
+            self._render_tile_highlight(x, y, tile_width, tile_height)
 
     def _render_tile_overlay(self, x: int, y: int, width: int, height: int, tile: dict[str, Any], zone: str) -> None:
         if tile.get("kind") == "unit":
@@ -276,6 +281,24 @@ class ReplayTkGui:
             return
         self.board_canvas.create_rectangle(x + 1, y + height - 15, x + width - 1, y + height - 1, fill="#101419", outline="")
         self.board_canvas.create_text(x + 3, y + height - 13, anchor="nw", fill="#f2f5f8", font=("TkDefaultFont", 7), text=text)
+
+    def _render_tile_highlight(self, x: int, y: int, width: int, height: int) -> None:
+        self.board_canvas.create_rectangle(
+            x - 2,
+            y - 2,
+            x + width + 2,
+            y + height + 2,
+            outline="#ffd166",
+            width=4,
+        )
+        self.board_canvas.create_rectangle(
+            x + 1,
+            y + 1,
+            x + width - 1,
+            y + height - 1,
+            outline="#fff3bf",
+            width=1,
+        )
 
     def _tile_dimensions(self, zone: str, tile: dict[str, Any]) -> tuple[int, int]:
         scale = 2.0 if zone == "battlefield" else 0.5 if zone in {"deck", "discard_pile"} else 1.0

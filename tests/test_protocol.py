@@ -1293,6 +1293,95 @@ class ProtocolTest(unittest.TestCase):
         self.assertEqual(model["event_line_tags"], [None, "action"])
         self.assertIn("ability_resolved", model["event_lines"][1])
 
+    def test_replay_gui_model_highlights_current_event_source_and_targets(self) -> None:
+        replay_record = {
+            "initial_state": {
+                "round_no": 1,
+                "turn_no": 1,
+                "turn_player_id": "P1",
+                "card_instances": {
+                    "c0001": {"card_no": "1-0-040", "owner_player_id": "P1", "level": 1},
+                    "c0002": {"card_no": "1-0-041", "owner_player_id": "P2", "level": 1},
+                    "c0003": {"card_no": "1-0-001", "owner_player_id": "P1", "level": 1},
+                },
+                "players": {
+                    "P1": {
+                        "life": 7,
+                        "current_cp": 7,
+                        "deck": [],
+                        "hand": ["c0003"],
+                        "battlefield": ["u0001"],
+                        "trigger_zone": [],
+                        "discard_pile": [],
+                    },
+                    "P2": {
+                        "life": 7,
+                        "current_cp": 7,
+                        "deck": [],
+                        "hand": [],
+                        "battlefield": ["u0002"],
+                        "trigger_zone": [],
+                        "discard_pile": [],
+                    },
+                },
+                "units": {
+                    "u0001": {
+                        "card_no": "1-0-040",
+                        "card_instance_id": "c0001",
+                        "owner_player_id": "P1",
+                        "level": 1,
+                        "exhausted": False,
+                        "current_damage": 0,
+                    },
+                    "u0002": {
+                        "card_no": "1-0-041",
+                        "card_instance_id": "c0002",
+                        "owner_player_id": "P2",
+                        "level": 1,
+                        "exhausted": False,
+                        "current_damage": 0,
+                    },
+                },
+            },
+            "events": [
+                {
+                    "event_no": 1,
+                    "type": "damage_dealt",
+                    "round_no": 1,
+                    "turn_no": 1,
+                    "actor_player_id": "P1",
+                    "cause_event_no": None,
+                    "source": {"card_no": "1-0-040", "card_instance_id": "c0001", "unit_id": "u0001", "ability_id": None},
+                    "payload": {
+                        "target_unit_id": "u0002",
+                        "amount": 1000,
+                        "before_damage": 0,
+                        "after_damage": 1000,
+                    },
+                },
+                {
+                    "event_no": 2,
+                    "type": "choice_selected",
+                    "round_no": 1,
+                    "turn_no": 1,
+                    "actor_player_id": "P1",
+                    "cause_event_no": None,
+                    "source": {"card_no": None, "card_instance_id": None, "unit_id": None, "ability_id": None},
+                    "payload": {"type": "cost_payment", "choice": {"card_instance_ids": ["c0003"]}},
+                },
+            ],
+        }
+
+        model = build_replay_gui_model(replay_record, card_catalog=self.catalog)
+
+        damage_frame = model["frames"][1]
+        self.assertEqual(set(damage_frame["highlights"]["unit_ids"]), {"u0001", "u0002"})
+        self.assertTrue(damage_frame["players"][0]["battlefield"][0]["highlight"])
+        self.assertTrue(damage_frame["players"][1]["battlefield"][0]["highlight"])
+        choice_frame = model["frames"][2]
+        self.assertEqual(choice_frame["highlights"]["card_instance_ids"], ["c0003"])
+        self.assertTrue(choice_frame["players"][0]["hand"][0]["highlight"])
+
     def test_replay_gui_model_updates_hand_card_level_by_event_timing(self) -> None:
         replay_record = {
             "initial_state": {

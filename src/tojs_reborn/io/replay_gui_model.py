@@ -99,11 +99,16 @@ def _frame(
     instance_card_nos: dict[str, str],
     image_root: Path | None,
 ) -> dict[str, Any]:
+    highlights = _event_highlights(current_event, viewer_state)
     return {
         "event_index": event_index,
         "event_count": len(event_lines),
         "action_count": len(action_lines),
         "current_event": _event_summary(current_event),
+        "highlights": {
+            "card_instance_ids": sorted(highlights["card_instance_ids"]),
+            "unit_ids": sorted(highlights["unit_ids"]),
+        },
         "round_no": _current_number(replay_record, current_event, "round_no"),
         "turn_no": _current_number(replay_record, current_event, "turn_no"),
         "turn_player_id": _current_value(replay_record, current_event, "turn_player_id"),
@@ -114,6 +119,7 @@ def _frame(
                 card_catalog=card_catalog,
                 instance_card_nos=instance_card_nos,
                 image_root=image_root,
+                highlights=highlights,
             )
             for player_id in sorted(viewer_state.players)
         ],
@@ -127,6 +133,7 @@ def _player_model(
     card_catalog: dict[str, CardDefinition],
     instance_card_nos: dict[str, str],
     image_root: Path | None,
+    highlights: dict[str, set[str]],
 ) -> dict[str, Any]:
     player = viewer_state.players[player_id]
     instance_levels = viewer_state.card_instance_levels
@@ -148,6 +155,7 @@ def _player_model(
                 card_catalog=card_catalog,
                 instance_card_nos=instance_card_nos,
                 image_root=image_root,
+                highlights=highlights,
             )
             for unit_id in player.battlefield
         ],
@@ -158,6 +166,7 @@ def _player_model(
                 instance_card_nos=instance_card_nos,
                 instance_levels=instance_levels,
                 image_root=image_root,
+                highlights=highlights,
             )
             for card_instance_id in player.hand
         ],
@@ -168,6 +177,7 @@ def _player_model(
                 instance_card_nos=instance_card_nos,
                 instance_levels=instance_levels,
                 image_root=image_root,
+                highlights=highlights,
             )
             for card_instance_id in player.trigger_zone
         ],
@@ -178,6 +188,7 @@ def _player_model(
                 instance_card_nos=instance_card_nos,
                 instance_levels=instance_levels,
                 image_root=image_root,
+                highlights=highlights,
             )
             for card_instance_id in player.discard_pile
         ],
@@ -188,6 +199,7 @@ def _player_model(
                 instance_card_nos=instance_card_nos,
                 instance_levels=instance_levels,
                 image_root=image_root,
+                highlights=highlights,
             )
             for card_instance_id in player.deck
         ],
@@ -201,6 +213,7 @@ def _unit_tile(
     card_catalog: dict[str, CardDefinition],
     instance_card_nos: dict[str, str],
     image_root: Path | None,
+    highlights: dict[str, set[str]],
 ) -> dict[str, Any]:
     card_instance_id = viewer_state.unit_card_instance_ids.get(unit_id, "")
     tile = _card_tile(
@@ -209,6 +222,7 @@ def _unit_tile(
         instance_card_nos=instance_card_nos,
         instance_levels=viewer_state.card_instance_levels,
         image_root=image_root,
+        highlights=highlights,
     )
     card_no = tile.get("card_no")
     level = viewer_state.unit_levels.get(unit_id, tile.get("level", 1))
@@ -221,6 +235,7 @@ def _unit_tile(
         {
             "kind": "unit",
             "unit_id": unit_id,
+            "highlight": unit_id in highlights["unit_ids"] or card_instance_id in highlights["card_instance_ids"],
             "level": level,
             "exhausted": viewer_state.unit_exhausted.get(unit_id, False),
             "damage": damage,
@@ -237,6 +252,7 @@ def _card_tile(
     instance_card_nos: dict[str, str],
     instance_levels: dict[str, int],
     image_root: Path | None,
+    highlights: dict[str, set[str]],
 ) -> dict[str, Any]:
     card_no = instance_card_nos.get(card_instance_id, "")
     card = card_catalog.get(card_no)
@@ -249,8 +265,68 @@ def _card_tile(
         "color": card.color if card is not None else None,
         "cp": card.cp if card is not None else None,
         "level": instance_levels.get(card_instance_id, 1),
+        "highlight": card_instance_id in highlights["card_instance_ids"],
         "image_path": find_card_image(image_root, card_no) if image_root is not None and card_no else None,
     }
+
+
+def _event_highlights(
+    event: dict[str, Any] | None,
+    viewer_state: ReplayViewerState,
+) -> dict[str, set[str]]:
+    unit_ids: set[str] = set()
+    card_instance_ids: set[str] = set()
+    if event is None:
+        return {"unit_ids": unit_ids, "card_instance_ids": card_instance_ids}
+    source = event.get("source")
+    if isinstance(source, dict):
+        _collect_highlight_ids(source, unit_ids=unit_ids, card_instance_ids=card_instance_ids)
+    payload = event.get("payload")
+    if isinstance(payload, dict):
+        _collect_highlight_ids(payload, unit_ids=unit_ids, card_instance_ids=card_instance_ids)
+        for key in ("choice", "selected", "target", "card", "attacker", "blocker", "unit"):
+            nested = payload.get(key)
+            if isinstance(nested, dict):
+                _collect_highlight_ids(nested, unit_ids=unit_ids, card_instance_ids=card_instance_ids)
+    for unit_id in list(unit_ids):
+        card_instance_id = viewer_state.unit_card_instance_ids.get(unit_id)
+        if card_instance_id:
+            card_instance_ids.add(card_instance_id)
+    return {"unit_ids": unit_ids, "card_instance_ids": card_instance_ids}
+
+
+def _collect_highlight_ids(
+    value: dict[str, Any],
+    *,
+    unit_ids: set[str],
+    card_instance_ids: set[str],
+) -> None:
+    for key in (
+        "unit_id",
+        "source_unit_id",
+        "target_unit_id",
+        "attacker_unit_id",
+        "blocker_unit_id",
+        "evolve_target_unit_id",
+        "chosen_unit_id",
+    ):
+        item = value.get(key)
+        if isinstance(item, str):
+            unit_ids.add(item)
+    for key in (
+        "card_instance_id",
+        "source_card_instance_id",
+        "target_card_instance_id",
+        "material_card_instance_id",
+        "chosen_card_instance_id",
+    ):
+        item = value.get(key)
+        if isinstance(item, str):
+            card_instance_ids.add(item)
+    for key in ("card_instance_ids", "drawn_card_instance_ids", "returned_card_instance_ids"):
+        items = value.get(key)
+        if isinstance(items, list):
+            card_instance_ids.update(item for item in items if isinstance(item, str))
 
 
 def _event_summary(event: dict[str, Any] | None) -> dict[str, Any] | None:
