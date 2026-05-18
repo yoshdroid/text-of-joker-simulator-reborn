@@ -63,6 +63,7 @@ SCENARIOS: dict[str, ScenarioBuilder] = {
     "kaim_cip_trigger_search": lambda catalog: _scenario_kaim_cip_trigger_search(catalog),
     "new_armor_trigger": lambda catalog: _scenario_new_armor_trigger(catalog),
     "lina_discard_choice": lambda catalog: _scenario_lina_discard_choice(catalog),
+    "raguel_exhausted_damage": lambda catalog: _scenario_raguel_exhausted_damage(catalog),
     "rairyu_evolve_damage": lambda catalog: _scenario_rairyu_evolve_damage(catalog),
     "viper_discard_unit_recover": lambda catalog: _scenario_viper_discard_unit_recover(catalog),
 }
@@ -282,6 +283,25 @@ def _scenario_jumpoo_bounce_hand_limit(catalog: dict[str, Any]) -> tuple[GameSta
 
     drive_unit(state, "P1", first_jumpoo.instance_id)
     drive_unit(state, "P1", second_jumpoo.instance_id)
+    return state, initial_state
+
+
+def _scenario_raguel_exhausted_damage(catalog: dict[str, Any]) -> tuple[GameState, dict[str, Any]]:
+    from tojs_reborn.engine.state import create_game_state
+
+    state = create_game_state(catalog, seed=23)
+    state.turn_player_id = "P1"
+    _ready_card, ready_unit = _add_battlefield_unit(state, "P2", "1-0-048")
+    _first_exhausted_card, first_exhausted = _add_battlefield_unit(state, "P2", "1-0-048")
+    _second_exhausted_card, second_exhausted = _add_battlefield_unit(state, "P2", "1-0-048")
+    first_exhausted.exhausted = True
+    second_exhausted.exhausted = True
+    entering_card = _create_initial_deck_card(state, "P1", "1-0-023")
+    state.players["P1"].hand.add(entering_card.instance_id)
+    state.players["P1"].current_cp = 10
+    initial_state = snapshot_initial_state(state)
+
+    drive_unit(state, "P1", entering_card.instance_id)
     return state, initial_state
 
 

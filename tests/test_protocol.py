@@ -1689,6 +1689,7 @@ class ProtocolTest(unittest.TestCase):
                 "kaim_cip_trigger_search",
                 "lina_discard_choice",
                 "new_armor_trigger",
+                "raguel_exhausted_damage",
                 "rairyu_evolve_damage",
                 "viper_discard_unit_recover",
             },
@@ -1773,6 +1774,12 @@ class ProtocolTest(unittest.TestCase):
         self.assertTrue(jumpoo_return_moves[1]["payload"].get("hand_limit_exceeded"))
         new_armor = json.loads((output_dir / "new_armor_trigger.json").read_text(encoding="utf-8"))
         self.assertIn("trigger_activated", [event["type"] for event in new_armor["events"]])
+        raguel = json.loads((output_dir / "raguel_exhausted_damage.json").read_text(encoding="utf-8"))
+        raguel_damage_events = [event for event in raguel["events"] if event["type"] == "damage_dealt"]
+        self.assertEqual(len(raguel_damage_events), 2)
+        damaged_unit_ids = {event["payload"]["target_unit_id"] for event in raguel_damage_events}
+        ready_unit_id = raguel["initial_state"]["players"]["P2"]["battlefield"][0]
+        self.assertNotIn(ready_unit_id, damaged_unit_ids)
         rairyu = json.loads((output_dir / "rairyu_evolve_damage.json").read_text(encoding="utf-8"))
         self.assertTrue(
             any(event["type"] == "card_moved" and event["payload"].get("reason") == "evolve_source" for event in rairyu["events"])
