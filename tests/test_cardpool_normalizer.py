@@ -37,8 +37,8 @@ class CardpoolNormalizerTest(unittest.TestCase):
         ability = happaloid["abilities"][0]
 
         self.assertEqual(report["errors"], [])
-        self.assertEqual(report["supported_ability_count"], 45)
-        self.assertEqual(report["status_counts"]["supported"], 45)
+        self.assertEqual(report["supported_ability_count"], 47)
+        self.assertEqual(report["status_counts"]["supported"], 47)
         self.assertGreater(report["timing_counts"]["SELF_CIP"], 0)
         self.assertGreater(report["effect_counts"]["draw_cards"], 0)
         self.assertGreater(report["effect_counts"]["discard_from_hand"], 0)
@@ -98,6 +98,16 @@ class CardpoolNormalizerTest(unittest.TestCase):
         self.assertEqual(dark_armor["effect_steps"][1], {"effect": "deal_life_damage", "player": "owner", "amount": 1})
         self.assertEqual(impervious_wall["timing"], "INTERCEPT_BATTLE")
         self.assertEqual(impervious_wall["effect_steps"][0]["target"], "owner_battle_unit")
+        barbatos = card_by_no["1-0-051"]["abilities"][0]
+        ectoplasm = card_by_no["1-0-092"]["abilities"][0]
+        self.assertEqual(barbatos["timing"], "SELF_CIP")
+        self.assertEqual(
+            barbatos["effect_steps"],
+            [{"effect": "modify_base_bp", "target": "target", "amount": -4000, "duration": "permanent", "destroy_if_lethal": True}],
+        )
+        self.assertEqual(ectoplasm["timing"], "INTERCEPT_UNIT_DESTROYED")
+        self.assertEqual(ectoplasm["condition"], {"type": "event_actor_is_owner"})
+        self.assertEqual(ectoplasm["effect_steps"], [{"effect": "destroy_unit", "target": "target"}])
 
     def test_normalize_cardpool_accepts_window_timing_prefixes(self) -> None:
         card = excel_card("1-0-040")

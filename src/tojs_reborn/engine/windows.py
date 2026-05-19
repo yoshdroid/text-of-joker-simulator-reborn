@@ -16,6 +16,7 @@ _AUTOMATIC_INTERCEPT_WINDOWS = {
     "unit_entered": "unit_entered",
     "unit_attacked": "attack",
     "battle_started": "battle",
+    "unit_destroyed": "unit_destroyed",
 }
 
 _WINDOW_EVENT_TYPES = {

@@ -1247,6 +1247,50 @@ class EngineTest(unittest.TestCase):
         self.assertEqual(rival_target.base_bp_modifiers[-1]["duration"], "permanent")
         self.assertIn("base_bp_modified", [event.type for event in state.event_store.events])
 
+    def test_barbatos_cip_reduces_rival_unit_base_bp_permanently(self) -> None:
+        state = create_game_state(self.catalog)
+        base_card = state.create_card_instance("1-0-040", "P1")
+        barbatos_card = state.create_card_instance("1-0-051", "P1")
+        target_card = state.create_card_instance("1-0-048", "P2")
+        base_unit = state.create_unit(base_card.instance_id)
+        rival_target = state.create_unit(target_card.instance_id)
+        state.players["P1"].current_cp = 10
+        state.players["P1"].battlefield.add(base_unit.unit_id)
+        state.players["P1"].hand.add(barbatos_card.instance_id)
+        state.players["P2"].battlefield.add(rival_target.unit_id)
+        before_level1_base_bp = get_unit_base_bp(state, rival_target)
+
+        drive_unit(state, "P1", barbatos_card.instance_id, evolve_target_unit_id=base_unit.unit_id)
+        after_level1_base_bp = get_unit_base_bp(state, rival_target)
+        end_turn(state, "P1")
+        rival_target.level = 2
+        state.card_instances[rival_target.card_instance_id].level = 2
+
+        self.assertIn(rival_target.unit_id, state.units)
+        self.assertEqual(rival_target.base_bp_modifiers[-1]["amount"], -4000)
+        self.assertEqual(rival_target.base_bp_modifiers[-1]["duration"], "permanent")
+        self.assertEqual(after_level1_base_bp, before_level1_base_bp - 4000)
+        self.assertEqual(get_unit_base_bp(state, rival_target), self.catalog["1-0-048"].bp_by_level[1] * 1000 - 4000)
+        self.assertIn("base_bp_modified", [event.type for event in state.event_store.events])
+
+    def test_barbatos_cip_destroys_rival_unit_when_base_bp_reaches_zero(self) -> None:
+        state = create_game_state(self.catalog)
+        base_card = state.create_card_instance("1-0-040", "P1")
+        barbatos_card = state.create_card_instance("1-0-051", "P1")
+        target_card = state.create_card_instance("1-0-040", "P2")
+        base_unit = state.create_unit(base_card.instance_id)
+        rival_target = state.create_unit(target_card.instance_id)
+        state.players["P1"].current_cp = 10
+        state.players["P1"].battlefield.add(base_unit.unit_id)
+        state.players["P1"].hand.add(barbatos_card.instance_id)
+        state.players["P2"].battlefield.add(rival_target.unit_id)
+
+        drive_unit(state, "P1", barbatos_card.instance_id, evolve_target_unit_id=base_unit.unit_id)
+
+        self.assertNotIn(rival_target.unit_id, state.units)
+        self.assertIn(target_card.instance_id, state.players["P2"].discard_pile.cards)
+        self.assertIn("unit_destroyed", [event.type for event in state.event_store.events])
+
     def test_battlefield_unit_override_is_rejected(self) -> None:
         state = create_game_state(self.catalog)
         base_card = state.create_card_instance("1-0-048", "P1")
@@ -1737,6 +1781,43 @@ class EngineTest(unittest.TestCase):
         self.assertIn(rival_card.instance_id, state.players["P2"].discard_pile.cards)
         self.assertEqual(state.players["P1"].trigger_zone.cards, [])
         self.assertEqual(state.players["P1"].current_cp, 0)
+
+    def test_ectoplasm_destroyed_unit_window_destroys_rival_unit(self) -> None:
+        state = create_game_state(self.catalog)
+        state.turn_player_id = "P1"
+        _support_card, support_unit = self._add_battlefield_unit(state, "P1", "1-0-027")
+        destroyed_card = state.create_card_instance("1-0-031", "P1")
+        destroyed_unit = state.create_unit(destroyed_card.instance_id)
+        rival_card, rival_unit = self._add_battlefield_unit(state, "P2", "1-0-040")
+        ectoplasm = state.create_card_instance("1-0-092", "P1")
+        state.players["P1"].trigger_zone.add(ectoplasm.instance_id)
+        state.players["P1"].current_cp = 3
+        cause_event = state.event_store.append(
+            "unit_destroyed",
+            round_no=1,
+            turn_no=1,
+            actor_player_id="P1",
+            source=EventSource(
+                card_no=destroyed_unit.card_no,
+                card_instance_id=destroyed_unit.card_instance_id,
+                unit_id=destroyed_unit.unit_id,
+            ),
+            payload={"reason": "battle"},
+        )
+
+        activated_count = process_intercept_window(
+            state,
+            "unit_destroyed",
+            cause_event.event_no,
+            choose_intercept=lambda _player_id, actions: actions[0],
+        )
+
+        self.assertEqual(activated_count, 1)
+        self.assertIn(support_unit.unit_id, state.units)
+        self.assertNotIn(rival_unit.unit_id, state.units)
+        self.assertIn(rival_card.instance_id, state.players["P2"].discard_pile.cards)
+        self.assertEqual(state.players["P1"].current_cp, 0)
+        self.assertEqual(state.players["P1"].trigger_zone.cards, [])
 
     def test_battle_intercept_window_opens_attacker_side_first(self) -> None:
         state = create_game_state(self.catalog)

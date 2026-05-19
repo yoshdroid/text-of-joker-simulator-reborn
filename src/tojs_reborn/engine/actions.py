@@ -735,6 +735,10 @@ def _handle_modify_base_bp(
             "duration": step.get("duration", "permanent"),
         },
     )
+    if step.get("destroy_if_lethal"):
+        from .combat import destroy_lethal_units
+
+        destroy_lethal_units(state, [target], ability_event.event_no)
 
 
 def _handle_recover_action(

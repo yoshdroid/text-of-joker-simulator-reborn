@@ -1192,6 +1192,41 @@
         }
       ]
     },
+    "1-0-051": {
+      "card_name": "バルバトス",
+      "abilities": [
+        {
+          "ability_key": "1-0-051:a1",
+          "ability_name": "バルバトスの強弓",
+          "source_text": "このユニットがフィールドに出た時、対戦相手のユニットを１体選ぶ。それの基本ＢＰを－４０００する。",
+          "status": "supported",
+          "timing": "SELF_CIP",
+          "optional": false,
+          "priority": {
+            "band": "unit",
+            "order": "source_only"
+          },
+          "condition": null,
+          "cost_steps": [],
+          "selector": {
+            "id": "target",
+            "type": "unit",
+            "controller": "rival",
+            "count": 1,
+            "required": true
+          },
+          "effect_steps": [
+            {
+              "effect": "modify_base_bp",
+              "target": "target",
+              "amount": -4000,
+              "duration": "permanent",
+              "destroy_if_lethal": true
+            }
+          ]
+        }
+      ]
+    },
     "1-0-081": {
       "card_name": "悪の覚醒",
       "abilities": [
@@ -1287,6 +1322,40 @@
               "effect": "deal_life_damage",
               "player": "owner",
               "amount": 1
+            }
+          ]
+        }
+      ]
+    },
+    "1-0-092": {
+      "card_name": "エクトプラズム",
+      "abilities": [
+        {
+          "ability_key": "1-0-092:a1",
+          "ability_name": "エクトプラズム",
+          "source_text": "あなたのユニットが破壊された時、対戦相手のユニットを１体選ぶ。それを破壊する。",
+          "status": "supported",
+          "timing": "INTERCEPT_UNIT_DESTROYED",
+          "optional": true,
+          "priority": {
+            "band": "intercept",
+            "order": "left_to_right"
+          },
+          "condition": {
+            "type": "event_actor_is_owner"
+          },
+          "cost_steps": [],
+          "selector": {
+            "id": "target",
+            "type": "unit",
+            "controller": "rival",
+            "count": 1,
+            "required": true
+          },
+          "effect_steps": [
+            {
+              "effect": "destroy_unit",
+              "target": "target"
             }
           ]
         }
