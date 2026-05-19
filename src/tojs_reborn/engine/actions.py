@@ -1108,6 +1108,9 @@ def _resolve_unit_target_for_effect(
     ability_event: FactEvent,
     target_ref,
 ) -> UnitState | None:
+    event_target = _resolve_event_unit_target(state, source_unit, ability_event, target_ref)
+    if event_target is not None:
+        return event_target
     selector = ability.raw.get("selector")
     if not isinstance(selector, dict):
         return _resolve_unit_target(state, source_unit, target_ref)
@@ -1152,6 +1155,48 @@ def _resolve_unit_target_for_effect(
         },
     )
     return state.units[chosen_unit_id]
+
+
+def _resolve_event_unit_target(
+    state: GameState,
+    source_unit: UnitState,
+    ability_event: FactEvent,
+    target_ref,
+) -> UnitState | None:
+    if target_ref not in {"event_attacker", "owner_battle_unit"}:
+        return None
+    cause_event = _window_cause_event_for_ability(state, ability_event)
+    if cause_event is None or cause_event.type != "battle_started":
+        return None
+    attacker_unit_id = cause_event.payload.get("attacker_unit_id") or cause_event.source.unit_id
+    blocker_unit_id = cause_event.payload.get("blocker_unit_id")
+    if target_ref == "event_attacker":
+        return state.units.get(attacker_unit_id) if isinstance(attacker_unit_id, str) else None
+    if isinstance(attacker_unit_id, str):
+        attacker = state.units.get(attacker_unit_id)
+        if attacker is not None and attacker.owner_player_id == source_unit.owner_player_id:
+            return attacker
+    if isinstance(blocker_unit_id, str):
+        blocker = state.units.get(blocker_unit_id)
+        if blocker is not None and blocker.owner_player_id == source_unit.owner_player_id:
+            return blocker
+    return None
+
+
+def _window_cause_event_for_ability(state: GameState, ability_event: FactEvent) -> FactEvent | None:
+    activation_event = _event_by_no_or_none(state, ability_event.cause_event_no)
+    if activation_event is None:
+        return None
+    return _event_by_no_or_none(state, activation_event.cause_event_no)
+
+
+def _event_by_no_or_none(state: GameState, event_no: int | None) -> FactEvent | None:
+    if event_no is None:
+        return None
+    for event in state.event_store.events:
+        if event.event_no == event_no:
+            return event
+    return None
 
 
 def _resolve_unit_targets_for_effect(

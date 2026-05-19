@@ -1707,6 +1707,129 @@ class EngineTest(unittest.TestCase):
         self.assertEqual(state.players["P1"].trigger_zone.cards, [])
         self.assertEqual(state.players["P1"].current_cp, 0)
 
+    def test_battle_intercept_window_opens_attacker_side_first(self) -> None:
+        state = create_game_state(self.catalog)
+        state.turn_player_id = "P1"
+        _attacker_card, attacker = self._add_battlefield_unit(state, "P1", "1-0-001")
+        _blocker_card, blocker = self._add_battlefield_unit(state, "P2", "1-0-045")
+        evil_awaken = state.create_card_instance("1-0-081", "P1")
+        impervious_wall = state.create_card_instance("1-0-096", "P2")
+        state.players["P1"].trigger_zone.add(evil_awaken.instance_id)
+        state.players["P2"].trigger_zone.add(impervious_wall.instance_id)
+        state.players["P1"].current_cp = 0
+        state.players["P2"].current_cp = 0
+        cause_event = state.event_store.append(
+            "battle_started",
+            round_no=1,
+            turn_no=1,
+            actor_player_id="P1",
+            source=EventSource(card_no=attacker.card_no, card_instance_id=attacker.card_instance_id, unit_id=attacker.unit_id),
+            payload={"attacker_unit_id": attacker.unit_id, "blocker_unit_id": blocker.unit_id},
+        )
+
+        activated_count = process_intercept_window(state, "battle", cause_event.event_no)
+
+        self.assertEqual(activated_count, 0)
+        opened = [event for event in state.event_store.events if event.type == "intercept_window_opened"][-1]
+        self.assertEqual(opened.payload["start_player_id"], "P1")
+        pass_events = [event for event in state.event_store.events if event.type == "intercept_passed"]
+        self.assertEqual([event.actor_player_id for event in pass_events], ["P1", "P2"])
+
+    def test_evil_awaken_battle_intercept_modifies_own_attacking_unit(self) -> None:
+        state = create_game_state(self.catalog)
+        state.turn_player_id = "P1"
+        _attacker_card, attacker = self._add_battlefield_unit(state, "P1", "1-0-001")
+        _blocker_card, blocker = self._add_battlefield_unit(state, "P2", "1-0-045")
+        evil_awaken = state.create_card_instance("1-0-081", "P1")
+        state.players["P1"].trigger_zone.add(evil_awaken.instance_id)
+        state.players["P1"].current_cp = 0
+        cause_event = state.event_store.append(
+            "battle_started",
+            round_no=1,
+            turn_no=1,
+            actor_player_id="P1",
+            source=EventSource(card_no=attacker.card_no, card_instance_id=attacker.card_instance_id, unit_id=attacker.unit_id),
+            payload={"attacker_unit_id": attacker.unit_id, "blocker_unit_id": blocker.unit_id},
+        )
+        before_bp = get_unit_bp(state, attacker)
+
+        activated_count = process_intercept_window(
+            state,
+            "battle",
+            cause_event.event_no,
+            choose_intercept=lambda _player_id, actions: actions[0],
+        )
+
+        self.assertEqual(activated_count, 1)
+        self.assertEqual(get_unit_bp(state, attacker), before_bp + 3000)
+        bp_event = [event for event in state.event_store.events if event.type == "bp_modified"][-1]
+        self.assertEqual(bp_event.payload["target_unit_id"], attacker.unit_id)
+        self.assertEqual(state.players["P1"].trigger_zone.cards, [])
+
+    def test_dark_armor_modifies_owner_battle_unit_and_deals_life_damage(self) -> None:
+        state = create_game_state(self.catalog)
+        state.turn_player_id = "P1"
+        _attacker_card, attacker = self._add_battlefield_unit(state, "P1", "1-0-027")
+        _blocker_card, blocker = self._add_battlefield_unit(state, "P2", "1-0-001")
+        dark_armor = state.create_card_instance("1-0-091", "P1")
+        state.players["P1"].trigger_zone.add(dark_armor.instance_id)
+        state.players["P1"].current_cp = 1
+        cause_event = state.event_store.append(
+            "battle_started",
+            round_no=1,
+            turn_no=1,
+            actor_player_id="P1",
+            source=EventSource(card_no=attacker.card_no, card_instance_id=attacker.card_instance_id, unit_id=attacker.unit_id),
+            payload={"attacker_unit_id": attacker.unit_id, "blocker_unit_id": blocker.unit_id},
+        )
+
+        activated_count = process_intercept_window(
+            state,
+            "battle",
+            cause_event.event_no,
+            choose_intercept=lambda _player_id, actions: actions[0],
+        )
+
+        self.assertEqual(activated_count, 1)
+        self.assertEqual(state.players["P1"].current_cp, 0)
+        self.assertEqual(state.players["P1"].life, 6)
+        bp_event = [event for event in state.event_store.events if event.type == "bp_modified"][-1]
+        life_event = [event for event in state.event_store.events if event.type == "life_changed"][-1]
+        self.assertEqual(bp_event.payload["target_unit_id"], attacker.unit_id)
+        self.assertEqual(bp_event.payload["amount"], 7000)
+        self.assertEqual(life_event.payload["player_id"], "P1")
+        self.assertEqual(life_event.payload["amount"], -1)
+
+    def test_impervious_wall_can_activate_for_own_blocking_unit(self) -> None:
+        state = create_game_state(self.catalog)
+        state.turn_player_id = "P1"
+        _attacker_card, attacker = self._add_battlefield_unit(state, "P1", "1-0-001")
+        _blocker_card, blocker = self._add_battlefield_unit(state, "P2", "1-0-045")
+        impervious_wall = state.create_card_instance("1-0-096", "P2")
+        state.players["P2"].trigger_zone.add(impervious_wall.instance_id)
+        state.players["P2"].current_cp = 0
+        cause_event = state.event_store.append(
+            "battle_started",
+            round_no=1,
+            turn_no=1,
+            actor_player_id="P1",
+            source=EventSource(card_no=attacker.card_no, card_instance_id=attacker.card_instance_id, unit_id=attacker.unit_id),
+            payload={"attacker_unit_id": attacker.unit_id, "blocker_unit_id": blocker.unit_id},
+        )
+        before_bp = get_unit_bp(state, blocker)
+
+        activated_count = process_intercept_window(
+            state,
+            "battle",
+            cause_event.event_no,
+            choose_intercept=lambda _player_id, actions: actions[0],
+        )
+
+        self.assertEqual(activated_count, 1)
+        self.assertEqual(get_unit_bp(state, blocker), before_bp + 3000)
+        bp_event = [event for event in state.event_store.events if event.type == "bp_modified"][-1]
+        self.assertEqual(bp_event.payload["target_unit_id"], blocker.unit_id)
+
     def test_trigger_window_forces_activation_turn_player_then_opponent(self) -> None:
         catalog = dict(self.catalog)
         catalog["T-TRG-001"] = draw_window_card("T-TRG-001", "trigger", "TRIGGER_ANY")

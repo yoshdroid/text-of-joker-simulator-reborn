@@ -37,8 +37,8 @@ class CardpoolNormalizerTest(unittest.TestCase):
         ability = happaloid["abilities"][0]
 
         self.assertEqual(report["errors"], [])
-        self.assertEqual(report["supported_ability_count"], 42)
-        self.assertEqual(report["status_counts"]["supported"], 42)
+        self.assertEqual(report["supported_ability_count"], 45)
+        self.assertEqual(report["status_counts"]["supported"], 45)
         self.assertGreater(report["timing_counts"]["SELF_CIP"], 0)
         self.assertGreater(report["effect_counts"]["draw_cards"], 0)
         self.assertGreater(report["effect_counts"]["discard_from_hand"], 0)
@@ -86,6 +86,18 @@ class CardpoolNormalizerTest(unittest.TestCase):
         self.assertEqual(moon_savior["timing"], "INTERCEPT_ATTACK")
         self.assertEqual(moon_savior["condition"], {"type": "event_actor_is_owner"})
         self.assertEqual(moon_savior["effect_steps"], [{"effect": "destroy_unit", "target": "target"}])
+        evil_awaken = card_by_no["1-0-081"]["abilities"][0]
+        dark_armor = card_by_no["1-0-091"]["abilities"][0]
+        impervious_wall = card_by_no["1-0-096"]["abilities"][0]
+        self.assertEqual(evil_awaken["timing"], "INTERCEPT_BATTLE")
+        self.assertEqual(evil_awaken["condition"], {"type": "battle_attacker_is_owner"})
+        self.assertEqual(evil_awaken["effect_steps"][0]["target"], "event_attacker")
+        self.assertEqual(dark_armor["timing"], "INTERCEPT_BATTLE")
+        self.assertEqual(dark_armor["condition"], {"type": "battle_unit_controller_is_owner"})
+        self.assertEqual(dark_armor["effect_steps"][0]["target"], "owner_battle_unit")
+        self.assertEqual(dark_armor["effect_steps"][1], {"effect": "deal_life_damage", "player": "owner", "amount": 1})
+        self.assertEqual(impervious_wall["timing"], "INTERCEPT_BATTLE")
+        self.assertEqual(impervious_wall["effect_steps"][0]["target"], "owner_battle_unit")
 
     def test_normalize_cardpool_accepts_window_timing_prefixes(self) -> None:
         card = excel_card("1-0-040")

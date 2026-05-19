@@ -1192,6 +1192,36 @@
         }
       ]
     },
+    "1-0-081": {
+      "card_name": "悪の覚醒",
+      "abilities": [
+        {
+          "ability_key": "1-0-081:a1",
+          "ability_name": "悪の覚醒",
+          "source_text": "あなたのユニットが戦闘した時、それがアタック中だった場合、ターン終了時までそれのＢＰを＋３０００する。",
+          "status": "supported",
+          "timing": "INTERCEPT_BATTLE",
+          "optional": true,
+          "priority": {
+            "band": "intercept",
+            "order": "left_to_right"
+          },
+          "condition": {
+            "type": "battle_attacker_is_owner"
+          },
+          "cost_steps": [],
+          "selector": null,
+          "effect_steps": [
+            {
+              "effect": "modify_bp",
+              "target": "event_attacker",
+              "amount": 3000,
+              "duration": "turn"
+            }
+          ]
+        }
+      ]
+    },
     "1-0-089": {
       "card_name": "ムーンセイヴァー",
       "abilities": [
@@ -1222,6 +1252,71 @@
             {
               "effect": "destroy_unit",
               "target": "target"
+            }
+          ]
+        }
+      ]
+    },
+    "1-0-091": {
+      "card_name": "ダーク・アーマー",
+      "abilities": [
+        {
+          "ability_key": "1-0-091:a1",
+          "ability_name": "ダーク・アーマー",
+          "source_text": "あなたのユニットが戦闘した時、ターン終了時までそれのＢＰを＋７０００する。あなたは１ライフダメージを受ける。",
+          "status": "supported",
+          "timing": "INTERCEPT_BATTLE",
+          "optional": true,
+          "priority": {
+            "band": "intercept",
+            "order": "left_to_right"
+          },
+          "condition": {
+            "type": "battle_unit_controller_is_owner"
+          },
+          "cost_steps": [],
+          "selector": null,
+          "effect_steps": [
+            {
+              "effect": "modify_bp",
+              "target": "owner_battle_unit",
+              "amount": 7000,
+              "duration": "turn"
+            },
+            {
+              "effect": "deal_life_damage",
+              "player": "owner",
+              "amount": 1
+            }
+          ]
+        }
+      ]
+    },
+    "1-0-096": {
+      "card_name": "不可侵防壁",
+      "abilities": [
+        {
+          "ability_key": "1-0-096:a1",
+          "ability_name": "不可侵防壁",
+          "source_text": "あなたのユニットが戦闘した時、ターン終了時までそれのＢＰを＋３０００する。",
+          "status": "supported",
+          "timing": "INTERCEPT_BATTLE",
+          "optional": true,
+          "priority": {
+            "band": "intercept",
+            "order": "left_to_right"
+          },
+          "condition": {
+            "type": "battle_unit_controller_is_owner"
+          },
+          "cost_steps": [],
+          "selector": null,
+          "effect_steps": [
+            {
+              "effect": "modify_bp",
+              "target": "owner_battle_unit",
+              "amount": 3000,
+              "duration": "turn"
             }
           ]
         }
