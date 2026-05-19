@@ -271,6 +271,8 @@ def drive_unit(
             "to_zone": "battlefield",
             "owner_player_id": player_id,
             "battlefield_index": evolve_target_index,
+            "exhausted": unit.exhausted,
+            "attack_restricted_turn_no": unit.attack_restricted_turn_no,
         },
     )
     enter_event = state.event_store.append(

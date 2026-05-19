@@ -354,6 +354,13 @@ class EngineTest(unittest.TestCase):
             if event.type == "card_moved" and event.payload.get("reason") == "evolve_source"
         ]
         self.assertEqual(source_moves[-1].source.card_instance_id, base_card.instance_id)
+        evolved_move = [
+            event
+            for event in state.event_store.events
+            if event.type == "card_moved" and event.payload.get("to_zone") == "battlefield"
+        ][-1]
+        self.assertTrue(evolved_move.payload["exhausted"])
+        self.assertIsNone(evolved_move.payload["attack_restricted_turn_no"])
 
     def test_evolve_drive_places_new_unit_at_source_position(self) -> None:
         state = create_game_state(self.catalog)

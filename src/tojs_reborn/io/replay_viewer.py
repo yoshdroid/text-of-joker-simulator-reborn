@@ -324,7 +324,7 @@ class ReplayViewerState:
             self.unit_card_instance_ids.setdefault(unit_id, card_instance_id)
             self.unit_levels[unit_id] = level
             self.card_instance_levels[card_instance_id] = level
-            self.unit_exhausted.setdefault(unit_id, False)
+            self.unit_exhausted[unit_id] = bool(payload.get("exhausted", self.unit_exhausted.get(unit_id, False)))
             self.unit_damage.setdefault(unit_id, 0)
         self._remove_from_zone(player, from_zone, card_instance_id, unit_id)
         self._add_to_zone(player, to_zone, card_instance_id, unit_id, payload)

@@ -1761,7 +1761,13 @@ class ProtocolTest(unittest.TestCase):
                     "actor_player_id": "P1",
                     "cause_event_no": None,
                     "source": {"card_no": "1-0-026", "card_instance_id": "c0004", "unit_id": "u0004", "ability_id": None},
-                    "payload": {"from_zone": "hand", "to_zone": "battlefield", "owner_player_id": "P1", "battlefield_index": 1},
+                    "payload": {
+                        "from_zone": "hand",
+                        "to_zone": "battlefield",
+                        "owner_player_id": "P1",
+                        "battlefield_index": 1,
+                        "exhausted": True,
+                    },
                 },
             ],
         }
@@ -1770,6 +1776,7 @@ class ProtocolTest(unittest.TestCase):
 
         battlefield = model["frames"][2]["players"][0]["battlefield"]
         self.assertEqual([unit["unit_id"] for unit in battlefield], ["u0001", "u0004", "u0003"])
+        self.assertTrue(battlefield[1]["exhausted"])
 
     def test_replay_viewer_cli_prints_match_cli_replay(self) -> None:
         output_dir = ROOT / "test_output" / "replay_viewer"
