@@ -22,6 +22,7 @@ def run_replay_gui_cli(argv: Sequence[str] | None = None) -> int:
     parser.add_argument("--images", default="carddata/images")
     parser.add_argument("--start-event-no", type=int)
     parser.add_argument("--card-width", type=int, default=DEFAULT_REPLAY_CARD_WIDTH)
+    parser.add_argument("--card-scale", type=float, default=1.0)
     parser.add_argument("--play-delay-ms", type=int, default=DEFAULT_PLAY_DELAY_MS)
     parser.add_argument("--fullscreen", action="store_true", help="Start the Tk window maximized/fullscreen.")
     parser.add_argument("--no-window", action="store_true", help="Print the selected frame summary instead of opening Tk.")
@@ -39,6 +40,7 @@ def run_replay_gui_cli(argv: Sequence[str] | None = None) -> int:
             model=model,
             start_frame_index=frame_index,
             card_width=args.card_width,
+            card_scale=args.card_scale,
             play_delay_ms=args.play_delay_ms,
             fullscreen=args.fullscreen,
         ).run()
@@ -55,6 +57,7 @@ class ReplayTkGui:
         model: dict[str, Any],
         start_frame_index: int,
         card_width: int,
+        card_scale: float,
         play_delay_ms: int,
         fullscreen: bool = False,
     ) -> None:
@@ -66,8 +69,8 @@ class ReplayTkGui:
         self.model = model
         self.frames: list[dict[str, Any]] = list(model.get("frames") or [])
         self.frame_index = start_frame_index
-        self.card_width = card_width
-        self.card_height = int(card_width * 1.42)
+        self.card_scale = max(0.1, card_scale)
+        self.card_width, self.card_height = _scaled_card_size(card_width, self.card_scale)
         self.play_delay_ms = max(1, play_delay_ms)
         self.image_cache: dict[tuple[str, int, int, bool], Any] = {}
         self.playing = False
@@ -210,15 +213,18 @@ class ReplayTkGui:
         )
         self.board_canvas.create_text(16, y, anchor="nw", fill="#f2f5f8", font=("TkDefaultFont", 11, "bold"), text=title)
         y += 24
-        for label, zone in (
-            ("Battlefield", "battlefield"),
-            ("Hand", "hand"),
-            ("Trigger", "trigger_zone"),
-            ("Discard", "discard_pile"),
-            ("Deck", "deck"),
-        ):
+        for label, zone in self._zone_order():
             y = self._render_zone(y, label, zone, player.get(zone) or [])
         return y + 8
+
+    def _zone_order(self) -> tuple[tuple[str, str], ...]:
+        return (
+            ("Battlefield", "battlefield"),
+            ("Trigger", "trigger_zone"),
+            ("Hand", "hand"),
+            ("Discard", "discard_pile"),
+            ("Deck", "deck"),
+        )
 
     def _render_zone(self, y: int, label: str, zone: str, tiles: list[dict[str, Any]]) -> int:
         self.board_canvas.create_text(24, y, anchor="nw", fill="#9fb0c1", font=("TkDefaultFont", 9, "bold"), text=f"{label} ({len(tiles)})")
@@ -258,10 +264,8 @@ class ReplayTkGui:
         text = f"{tile.get('card_no')}\n{tile.get('name') or ''}"
         if tile.get("kind") == "unit":
             text += f"\nU {tile.get('unit_id')}\nLV{tile.get('level')} BP{tile.get('current_bp')}"
-            if tile.get("exhausted"):
-                text += "\nTAPPED"
-        elif zone == "hand":
-            text += f"\nLV{tile.get('level', 1)}"
+        elif zone in {"hand", "trigger_zone"}:
+            text += "\n" + self._card_status_text(tile)
         self.board_canvas.create_text(
             x + tile_width // 2,
             y + tile_height // 2,
@@ -278,14 +282,17 @@ class ReplayTkGui:
     def _render_tile_overlay(self, x: int, y: int, width: int, height: int, tile: dict[str, Any], zone: str) -> None:
         if tile.get("kind") == "unit":
             text = f"LV{tile.get('level')} BP{tile.get('current_bp')}"
-            if tile.get("exhausted"):
-                text += " TAP"
-        elif zone == "hand":
-            text = f"LV{tile.get('level', 1)}"
+        elif zone in {"hand", "trigger_zone"}:
+            text = self._card_status_text(tile)
         else:
             return
         self.board_canvas.create_rectangle(x + 1, y + height - 15, x + width - 1, y + height - 1, fill="#101419", outline="")
         self.board_canvas.create_text(x + 3, y + height - 13, anchor="nw", fill="#f2f5f8", font=("TkDefaultFont", 7), text=text)
+
+    def _card_status_text(self, tile: dict[str, Any]) -> str:
+        cp = tile.get("cp")
+        cp_text = cp if cp is not None else "-"
+        return f"LV{tile.get('level', 1)} CP{cp_text}"
 
     def _render_tile_highlight(self, x: int, y: int, width: int, height: int) -> None:
         self.board_canvas.create_rectangle(
@@ -366,6 +373,11 @@ def _load_optional_card_catalog(path: str) -> dict[str, CardDefinition]:
     if not card_path.exists():
         return {}
     return load_card_catalog(card_path)
+
+
+def _scaled_card_size(card_width: int, card_scale: float) -> tuple[int, int]:
+    scale = max(0.1, card_scale)
+    return max(1, int(card_width * scale)), max(1, int(card_width * 1.42 * scale))
 
 
 def _frame_index_for_event_no(frames: list[dict[str, Any]], event_no: int | None) -> int:

@@ -33,7 +33,7 @@ from tojs_reborn.io.player_runner import (
 )
 from tojs_reborn.io.process_player import start_process_player
 from tojs_reborn.io.replay_cli import run_replay_cli
-from tojs_reborn.io.replay_gui import DEFAULT_REPLAY_CARD_WIDTH, ReplayTkGui, run_replay_gui_cli
+from tojs_reborn.io.replay_gui import DEFAULT_REPLAY_CARD_WIDTH, ReplayTkGui, _scaled_card_size, run_replay_gui_cli
 from tojs_reborn.io.replay_gui_model import build_replay_gui_model
 from tojs_reborn.io.replay_viewer import format_replay_actions, format_replay_events, run_replay_viewer_cli
 from tojs_reborn.io.scenario_cli import run_scenario_cli
@@ -2319,6 +2319,27 @@ class ProtocolTest(unittest.TestCase):
         self.assertEqual(gui._tile_dimensions("battlefield", {"kind": "unit", "exhausted": False}), (72, 102))
         self.assertEqual(gui._tile_dimensions("battlefield", {"kind": "unit", "exhausted": True}), (102, 72))
         self.assertEqual(gui._tile_dimensions("deck", {"kind": "card"}), (18, 26))
+
+    def test_replay_gui_v8_zone_order_and_card_status_text(self) -> None:
+        gui = ReplayTkGui.__new__(ReplayTkGui)
+
+        self.assertEqual(
+            gui._zone_order(),
+            (
+                ("Battlefield", "battlefield"),
+                ("Trigger", "trigger_zone"),
+                ("Hand", "hand"),
+                ("Discard", "discard_pile"),
+                ("Deck", "deck"),
+            ),
+        )
+        self.assertEqual(gui._card_status_text({"level": 2, "cp": 3}), "LV2 CP3")
+        self.assertEqual(gui._card_status_text({"level": 1, "cp": None}), "LV1 CP-")
+
+    def test_replay_gui_card_scale_adjusts_base_dimensions(self) -> None:
+        self.assertEqual(_scaled_card_size(36, 1.0), (36, 51))
+        self.assertEqual(_scaled_card_size(36, 1.5), (54, 76))
+        self.assertEqual(_scaled_card_size(36, 2.0), (72, 102))
 
     def test_json_line_player_uses_valid_action_response(self) -> None:
         legal_actions = [{"type": "pass"}, {"type": "drive_unit", "card_instance_id": "c0001"}]
