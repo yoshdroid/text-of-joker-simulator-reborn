@@ -878,6 +878,39 @@
         }
       ]
     },
+    "1-0-039": {
+      "card_name": "冥王ハデス",
+      "abilities": [
+        {
+          "ability_key": "1-0-039:a1",
+          "ability_name": "血塗られし報復",
+          "source_text": "このユニットがフィールドに出た時、対戦相手の全てのレベル２以上のユニットを破壊する。",
+          "status": "supported",
+          "timing": "SELF_CIP",
+          "optional": false,
+          "priority": {
+            "band": "unit",
+            "order": "source_only"
+          },
+          "condition": null,
+          "cost_steps": [],
+          "selector": {
+            "id": "targets",
+            "type": "unit",
+            "controller": "rival",
+            "count": "all",
+            "required": false,
+            "min_level": 2
+          },
+          "effect_steps": [
+            {
+              "effect": "destroy_units",
+              "target": "targets"
+            }
+          ]
+        }
+      ]
+    },
     "1-0-040": {
       "card_name": "ハッパロイド",
       "abilities": [

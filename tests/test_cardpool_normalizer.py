@@ -37,8 +37,8 @@ class CardpoolNormalizerTest(unittest.TestCase):
         ability = happaloid["abilities"][0]
 
         self.assertEqual(report["errors"], [])
-        self.assertEqual(report["supported_ability_count"], 40)
-        self.assertEqual(report["status_counts"]["supported"], 40)
+        self.assertEqual(report["supported_ability_count"], 41)
+        self.assertEqual(report["status_counts"]["supported"], 41)
         self.assertGreater(report["timing_counts"]["SELF_CIP"], 0)
         self.assertGreater(report["effect_counts"]["draw_cards"], 0)
         self.assertGreater(report["effect_counts"]["discard_from_hand"], 0)
@@ -78,6 +78,10 @@ class CardpoolNormalizerTest(unittest.TestCase):
         self.assertEqual([ability["timing"] for ability in lilim_abilities], ["SELF_CIP", "SELF_ATK"])
         self.assertEqual(lilim_abilities[0]["effect_steps"], [{"effect": "deal_damage_to_unit", "target": "target", "amount": 4000}])
         self.assertEqual(lilim_abilities[1]["effect_steps"], [{"effect": "destroy_trigger_zone_card", "target": "target"}])
+        hades = card_by_no["1-0-039"]["abilities"][0]
+        self.assertEqual(hades["timing"], "SELF_CIP")
+        self.assertEqual(hades["selector"]["min_level"], 2)
+        self.assertEqual(hades["effect_steps"], [{"effect": "destroy_units", "target": "targets"}])
 
     def test_normalize_cardpool_accepts_window_timing_prefixes(self) -> None:
         card = excel_card("1-0-040")

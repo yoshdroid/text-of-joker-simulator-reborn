@@ -350,6 +350,29 @@ class EngineTest(unittest.TestCase):
         self.assertIn(rival_trigger.instance_id, state.players["P2"].discard_pile.cards)
         self.assertIn("random_resolved", [event.type for event in state.event_store.events])
 
+    def test_hades_cip_destroys_all_level_two_or_higher_rival_units(self) -> None:
+        state = create_game_state(self.catalog)
+        _base_card, base_unit = self._add_battlefield_unit(state, "P1", "1-0-027")
+        level1_card, level1_unit = self._add_battlefield_unit(state, "P2", "1-0-001")
+        level2_card, level2_unit = self._add_battlefield_unit(state, "P2", "1-0-004")
+        level3_card, level3_unit = self._add_battlefield_unit(state, "P2", "1-0-007")
+        level2_unit.level = 2
+        level3_unit.level = 3
+        entering_card = state.create_card_instance("1-0-039", "P1")
+        state.players["P1"].hand.add(entering_card.instance_id)
+        state.players["P1"].current_cp = 10
+
+        drive_unit(state, "P1", entering_card.instance_id, evolve_target_unit_id=base_unit.unit_id)
+
+        self.assertIn(level1_unit.unit_id, state.units)
+        self.assertIn(level1_unit.unit_id, state.players["P2"].battlefield.units)
+        self.assertNotIn(level2_unit.unit_id, state.units)
+        self.assertNotIn(level3_unit.unit_id, state.units)
+        self.assertIn(level2_card.instance_id, state.players["P2"].discard_pile.cards)
+        self.assertIn(level3_card.instance_id, state.players["P2"].discard_pile.cards)
+        destroyed_events = [event for event in state.event_store.events if event.type == "unit_destroyed"]
+        self.assertEqual([event.source.unit_id for event in destroyed_events], [level2_unit.unit_id, level3_unit.unit_id])
+
     def test_evolve_drive_requires_same_color_battlefield_target(self) -> None:
         state = create_game_state(self.catalog)
         _green_card, green_unit = self._add_battlefield_unit(state, "P1", "1-0-040")
