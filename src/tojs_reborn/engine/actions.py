@@ -13,6 +13,7 @@ from .rules import (
 )
 from .resolver import AbilityCostChoice, OptionalAbilityChoice, resolve_unit_entered, resolve_unit_overclocked
 from .state import AbilityDefinition, GameState, UnitState
+from .targets import resolve_player_id, resolve_unit_target_for_effect, resolve_unit_targets_for_effect, unit_candidates_for_selector
 
 
 EFFECT_FIZZLED_REASONS = {
@@ -580,7 +581,7 @@ def _handle_deal_damage_to_unit(
     ability_event: FactEvent,
     step: dict,
 ) -> None:
-    target = _resolve_unit_target_for_effect(state, unit, ability, ability_event, step.get("target"))
+    target = resolve_unit_target_for_effect(state, unit, ability, ability_event, step.get("target"))
     if target is None:
         _append_effect_fizzled(state, unit.owner_player_id, ability_event, step, "no_valid_target")
         return
@@ -601,7 +602,7 @@ def _handle_deal_damage_to_units(
     ability_event: FactEvent,
     step: dict,
 ) -> None:
-    targets = _resolve_unit_targets_for_effect(state, unit, ability, ability_event, step.get("target"))
+    targets = resolve_unit_targets_for_effect(state, unit, ability, ability_event, step.get("target"))
     if not targets:
         _append_effect_fizzled(state, unit.owner_player_id, ability_event, step, "no_valid_target")
         return
@@ -625,7 +626,7 @@ def _handle_deal_life_damage(
     ability_event: FactEvent,
     step: dict,
 ) -> None:
-    target_player_id = _resolve_player_id(unit.owner_player_id, step.get("player"))
+    target_player_id = resolve_player_id(unit.owner_player_id, step.get("player"))
     player = state.players[target_player_id]
     amount = int(step.get("amount", 0))
     before_life = player.life
@@ -656,7 +657,7 @@ def _handle_change_cp(
 ) -> None:
     change_cp(
         state,
-        _resolve_player_id(unit.owner_player_id, step.get("player")),
+        resolve_player_id(unit.owner_player_id, step.get("player")),
         int(step.get("amount", 0)),
         cause_event_no=ability_event.event_no,
         source=ability_event.source,
@@ -670,7 +671,7 @@ def _handle_modify_bp(
     ability_event: FactEvent,
     step: dict,
 ) -> None:
-    target = _resolve_unit_target_for_effect(state, unit, ability, ability_event, step.get("target"))
+    target = resolve_unit_target_for_effect(state, unit, ability, ability_event, step.get("target"))
     if target is None:
         _append_effect_fizzled(state, unit.owner_player_id, ability_event, step, "no_valid_target")
         return
@@ -707,7 +708,7 @@ def _handle_modify_base_bp(
     ability_event: FactEvent,
     step: dict,
 ) -> None:
-    target = _resolve_unit_target_for_effect(state, unit, ability, ability_event, step.get("target"))
+    target = resolve_unit_target_for_effect(state, unit, ability, ability_event, step.get("target"))
     if target is None:
         _append_effect_fizzled(state, unit.owner_player_id, ability_event, step, "no_valid_target")
         return
@@ -748,7 +749,7 @@ def _handle_recover_action(
     ability_event: FactEvent,
     step: dict,
 ) -> None:
-    target = _resolve_unit_target_for_effect(state, unit, ability, ability_event, step.get("target"))
+    target = resolve_unit_target_for_effect(state, unit, ability, ability_event, step.get("target"))
     if target is None:
         _append_effect_fizzled(state, unit.owner_player_id, ability_event, step, "no_valid_target")
         return
@@ -774,7 +775,7 @@ def _handle_consume_action(
     ability_event: FactEvent,
     step: dict,
 ) -> None:
-    target = _resolve_unit_target_for_effect(state, unit, ability, ability_event, step.get("target"))
+    target = resolve_unit_target_for_effect(state, unit, ability, ability_event, step.get("target"))
     if target is None:
         _append_effect_fizzled(state, unit.owner_player_id, ability_event, step, "no_valid_target")
         return
@@ -800,7 +801,7 @@ def _handle_move_random_discard_to_hand(
     ability_event: FactEvent,
     step: dict,
 ) -> None:
-    player_id = _resolve_player_id(unit.owner_player_id, step.get("player"))
+    player_id = resolve_player_id(unit.owner_player_id, step.get("player"))
     player = state.players[player_id]
     category = step.get("category")
     candidates = [
@@ -861,7 +862,7 @@ def _handle_move_discard_to_hand(
     if not isinstance(selector, dict):
         _append_effect_fizzled(state, unit.owner_player_id, ability_event, step, "selector_missing")
         return
-    player_id = _resolve_player_id(unit.owner_player_id, selector.get("controller"))
+    player_id = resolve_player_id(unit.owner_player_id, selector.get("controller"))
     player = state.players[player_id]
     category = selector.get("category")
     candidates = [
@@ -976,7 +977,7 @@ def _handle_destroy_unit(
     ability_event: FactEvent,
     step: dict,
 ) -> None:
-    target = _resolve_unit_target_for_effect(state, unit, ability, ability_event, step.get("target"))
+    target = resolve_unit_target_for_effect(state, unit, ability, ability_event, step.get("target"))
     if target is None:
         _append_effect_fizzled(state, unit.owner_player_id, ability_event, step, "no_valid_target")
         return
@@ -992,7 +993,7 @@ def _handle_destroy_units(
     ability_event: FactEvent,
     step: dict,
 ) -> None:
-    targets = _resolve_unit_targets_for_effect(state, unit, ability, ability_event, step.get("target"))
+    targets = resolve_unit_targets_for_effect(state, unit, ability, ability_event, step.get("target"))
     if not targets:
         _append_effect_fizzled(state, unit.owner_player_id, ability_event, step, "no_valid_target")
         return
@@ -1028,7 +1029,7 @@ def _handle_return_unit_to_hand(
     ability_event: FactEvent,
     step: dict,
 ) -> None:
-    target = _resolve_unit_target_for_effect(state, unit, ability, ability_event, step.get("target"))
+    target = resolve_unit_target_for_effect(state, unit, ability, ability_event, step.get("target"))
     if target is None:
         _append_effect_fizzled(state, unit.owner_player_id, ability_event, step, "no_valid_target")
         return
@@ -1082,169 +1083,6 @@ def _handle_return_unit_to_hand(
     del state.units[target.unit_id]
 
 
-def _resolve_unit_target(
-    state: GameState,
-    source_unit: UnitState,
-    target_ref,
-    selector: dict | None = None,
-) -> UnitState | None:
-    if target_ref == "source":
-        return source_unit
-    if isinstance(target_ref, str) and target_ref in state.units:
-        return state.units[target_ref]
-    if selector is None:
-        return source_unit if target_ref in (None, "source") else None
-    controller = selector.get("controller")
-    if controller == "rival":
-        player_id = opponent_id(source_unit.owner_player_id)
-    elif controller == "owner":
-        player_id = source_unit.owner_player_id
-    else:
-        player_id = source_unit.owner_player_id
-    candidates = _unit_candidates_for_selector(state, player_id, selector)
-    return candidates[0] if candidates else None
-
-
-def _resolve_unit_target_for_effect(
-    state: GameState,
-    source_unit: UnitState,
-    ability: AbilityDefinition,
-    ability_event: FactEvent,
-    target_ref,
-) -> UnitState | None:
-    event_target = _resolve_event_unit_target(state, source_unit, ability_event, target_ref)
-    if event_target is not None:
-        return event_target
-    selector = ability.raw.get("selector")
-    if not isinstance(selector, dict):
-        return _resolve_unit_target(state, source_unit, target_ref)
-    if target_ref != selector.get("id") or selector.get("type") != "unit":
-        return _resolve_unit_target(state, source_unit, target_ref, selector)
-    controller = selector.get("controller")
-    if controller == "rival":
-        player_id = opponent_id(source_unit.owner_player_id)
-    elif controller == "owner":
-        player_id = source_unit.owner_player_id
-    else:
-        player_id = source_unit.owner_player_id
-    candidates = [unit.unit_id for unit in _unit_candidates_for_selector(state, player_id, selector)]
-    if not candidates:
-        return None
-    request_event = state.event_store.append(
-        "choice_requested",
-        round_no=state.round_no,
-        turn_no=state.turn_no,
-        actor_player_id=source_unit.owner_player_id,
-        cause_event_no=ability_event.event_no,
-        source=ability_event.source,
-        payload={
-            "choice_id": selector.get("id"),
-            "type": "unit",
-            "candidate_unit_ids": candidates,
-            "required": bool(selector.get("required", True)),
-        },
-    )
-    chosen_unit_id = candidates[0]
-    state.event_store.append(
-        "choice_selected",
-        round_no=state.round_no,
-        turn_no=state.turn_no,
-        actor_player_id=source_unit.owner_player_id,
-        cause_event_no=request_event.event_no,
-        source=ability_event.source,
-        payload={
-            "choice_id": selector.get("id"),
-            "chosen_unit_id": chosen_unit_id,
-            "fallback": "first_legal",
-        },
-    )
-    return state.units[chosen_unit_id]
-
-
-def _resolve_event_unit_target(
-    state: GameState,
-    source_unit: UnitState,
-    ability_event: FactEvent,
-    target_ref,
-) -> UnitState | None:
-    if target_ref not in {"event_attacker", "owner_battle_unit"}:
-        return None
-    cause_event = _window_cause_event_for_ability(state, ability_event)
-    if cause_event is None or cause_event.type != "battle_started":
-        return None
-    attacker_unit_id = cause_event.payload.get("attacker_unit_id") or cause_event.source.unit_id
-    blocker_unit_id = cause_event.payload.get("blocker_unit_id")
-    if target_ref == "event_attacker":
-        return state.units.get(attacker_unit_id) if isinstance(attacker_unit_id, str) else None
-    if isinstance(attacker_unit_id, str):
-        attacker = state.units.get(attacker_unit_id)
-        if attacker is not None and attacker.owner_player_id == source_unit.owner_player_id:
-            return attacker
-    if isinstance(blocker_unit_id, str):
-        blocker = state.units.get(blocker_unit_id)
-        if blocker is not None and blocker.owner_player_id == source_unit.owner_player_id:
-            return blocker
-    return None
-
-
-def _window_cause_event_for_ability(state: GameState, ability_event: FactEvent) -> FactEvent | None:
-    activation_event = _event_by_no_or_none(state, ability_event.cause_event_no)
-    if activation_event is None:
-        return None
-    return _event_by_no_or_none(state, activation_event.cause_event_no)
-
-
-def _event_by_no_or_none(state: GameState, event_no: int | None) -> FactEvent | None:
-    if event_no is None:
-        return None
-    for event in state.event_store.events:
-        if event.event_no == event_no:
-            return event
-    return None
-
-
-def _resolve_unit_targets_for_effect(
-    state: GameState,
-    source_unit: UnitState,
-    ability: AbilityDefinition,
-    _ability_event: FactEvent,
-    target_ref,
-) -> list[UnitState]:
-    selector = ability.raw.get("selector")
-    if not isinstance(selector, dict):
-        target = _resolve_unit_target(state, source_unit, target_ref)
-        return [] if target is None else [target]
-    if target_ref != selector.get("id") or selector.get("type") != "unit":
-        target = _resolve_unit_target(state, source_unit, target_ref, selector)
-        return [] if target is None else [target]
-    controller = selector.get("controller")
-    if controller == "rival":
-        player_id = opponent_id(source_unit.owner_player_id)
-    elif controller == "owner":
-        player_id = source_unit.owner_player_id
-    else:
-        player_id = source_unit.owner_player_id
-    candidates = _unit_candidates_for_selector(state, player_id, selector)
-    count = selector.get("count", 1)
-    if count == "all":
-        return candidates
-    return candidates[: int(count)]
-
-
-def _unit_candidates_for_selector(state: GameState, player_id: str, selector: dict) -> list[UnitState]:
-    candidates = [state.units[unit_id] for unit_id in state.players[player_id].battlefield.units if unit_id in state.units]
-    if "exhausted" in selector:
-        expected = bool(selector["exhausted"])
-        candidates = [unit for unit in candidates if unit.exhausted == expected]
-    if "min_level" in selector:
-        min_level = int(selector["min_level"])
-        candidates = [unit for unit in candidates if unit.level >= min_level]
-    if "max_level" in selector:
-        max_level = int(selector["max_level"])
-        candidates = [unit for unit in candidates if unit.level <= max_level]
-    return candidates
-
-
 def _append_effect_fizzled(
     state: GameState,
     actor_player_id: str,
@@ -1263,12 +1101,6 @@ def _append_effect_fizzled(
         source=ability_event.source,
         payload={"effect": step.get("effect"), "reason": reason},
     )
-
-
-def _resolve_player_id(owner_player_id: str, player_ref) -> str:
-    if player_ref == "rival":
-        return opponent_id(owner_player_id)
-    return owner_player_id
 
 
 def _clear_unit_damage(state: GameState, unit: UnitState, cause_event_no: int, *, reason: str) -> None:
