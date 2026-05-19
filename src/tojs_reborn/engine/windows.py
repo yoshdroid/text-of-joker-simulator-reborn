@@ -414,8 +414,22 @@ def _ability_matches_window(
 ) -> bool:
     if not _timing_matches(ability, prefix, window_name):
         return False
+    if not _window_condition_matches(ability, cause_event, player_id):
+        return False
     if ability.timing.upper().endswith("_UNIT_ENTERED") and cause_event.actor_player_id != player_id:
         return False
+    return True
+
+
+def _window_condition_matches(ability: AbilityDefinition, cause_event: FactEvent, player_id: str) -> bool:
+    condition = ability.raw.get("condition")
+    if not isinstance(condition, dict):
+        return True
+    condition_type = condition.get("type")
+    if condition_type == "event_actor_is_owner":
+        return cause_event.actor_player_id == player_id
+    if condition_type == "event_actor_is_rival":
+        return cause_event.actor_player_id is not None and cause_event.actor_player_id != player_id
     return True
 
 

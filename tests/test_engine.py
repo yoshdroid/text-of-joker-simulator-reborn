@@ -11,7 +11,7 @@ if SRC_PATH.exists():
 from tojs_reborn.cardpool.normalizer import normalize_cardpool
 from tojs_reborn.engine.actions import EFFECT_FIZZLED_REASONS, draw_cards, drive_unit, overclock_unit, override_card, set_trigger
 from tojs_reborn.engine.combat import attack_player, attack_unit, declare_attack, destroy_lethal_units
-from tojs_reborn.engine.events import EventStore
+from tojs_reborn.engine.events import EventSource, EventStore
 from tojs_reborn.engine.integrity import assert_game_state_integrity
 from tojs_reborn.engine.legal_actions import list_block_actions, list_legal_actions
 from tojs_reborn.engine.replay import (
@@ -1629,6 +1629,83 @@ class EngineTest(unittest.TestCase):
         state.players["P1"].current_cp = 1
         window = list_trigger_intercept_window(state, "P1", window="attack", cause_event_no=1)
         self.assertEqual(window["candidates"][0]["card_instance_id"], colorless_intercept.instance_id)
+
+    def test_moon_savior_attack_window_opens_for_owner_attack_and_pass_is_logged(self) -> None:
+        state = create_game_state(self.catalog)
+        state.turn_player_id = "P1"
+        _attacker_card, attacker = self._add_battlefield_unit(state, "P1", "1-0-027")
+        moon_savior = state.create_card_instance("1-0-089", "P1")
+        state.players["P1"].trigger_zone.add(moon_savior.instance_id)
+        state.players["P1"].current_cp = 1
+        cause_event = state.event_store.append(
+            "unit_attacked",
+            round_no=1,
+            turn_no=1,
+            actor_player_id="P1",
+            source=EventSource(card_no=attacker.card_no, card_instance_id=attacker.card_instance_id, unit_id=attacker.unit_id),
+            payload={"attacker_unit_id": attacker.unit_id},
+        )
+
+        activated_count = process_intercept_window(state, "attack", cause_event.event_no)
+
+        self.assertEqual(activated_count, 0)
+        self.assertIn("intercept_window_opened", [event.type for event in state.event_store.events])
+        self.assertEqual([event.type for event in state.event_store.events].count("intercept_passed"), 2)
+        self.assertEqual(state.players["P1"].trigger_zone.cards, [moon_savior.instance_id])
+
+    def test_moon_savior_attack_window_ignores_rival_attack(self) -> None:
+        state = create_game_state(self.catalog)
+        state.turn_player_id = "P2"
+        _owner_card, owner_unit = self._add_battlefield_unit(state, "P1", "1-0-027")
+        _attacker_card, attacker = self._add_battlefield_unit(state, "P2", "1-0-001")
+        moon_savior = state.create_card_instance("1-0-089", "P1")
+        state.players["P1"].trigger_zone.add(moon_savior.instance_id)
+        state.players["P1"].current_cp = 1
+        cause_event = state.event_store.append(
+            "unit_attacked",
+            round_no=1,
+            turn_no=1,
+            actor_player_id="P2",
+            source=EventSource(card_no=attacker.card_no, card_instance_id=attacker.card_instance_id, unit_id=attacker.unit_id),
+            payload={"attacker_unit_id": attacker.unit_id},
+        )
+
+        activated_count = process_intercept_window(state, "attack", cause_event.event_no)
+
+        self.assertEqual(activated_count, 0)
+        self.assertNotIn("intercept_window_opened", [event.type for event in state.event_store.events])
+        self.assertIn(owner_unit.unit_id, state.units)
+
+    def test_moon_savior_destroys_level_two_or_higher_rival_unit(self) -> None:
+        state = create_game_state(self.catalog)
+        state.turn_player_id = "P1"
+        _attacker_card, attacker = self._add_battlefield_unit(state, "P1", "1-0-027")
+        rival_card, rival = self._add_battlefield_unit(state, "P2", "1-0-004")
+        rival.level = 2
+        moon_savior = state.create_card_instance("1-0-089", "P1")
+        state.players["P1"].trigger_zone.add(moon_savior.instance_id)
+        state.players["P1"].current_cp = 1
+        cause_event = state.event_store.append(
+            "unit_attacked",
+            round_no=1,
+            turn_no=1,
+            actor_player_id="P1",
+            source=EventSource(card_no=attacker.card_no, card_instance_id=attacker.card_instance_id, unit_id=attacker.unit_id),
+            payload={"attacker_unit_id": attacker.unit_id},
+        )
+
+        activated_count = process_intercept_window(
+            state,
+            "attack",
+            cause_event.event_no,
+            choose_intercept=lambda _player_id, actions: actions[0],
+        )
+
+        self.assertEqual(activated_count, 1)
+        self.assertNotIn(rival.unit_id, state.units)
+        self.assertIn(rival_card.instance_id, state.players["P2"].discard_pile.cards)
+        self.assertEqual(state.players["P1"].trigger_zone.cards, [])
+        self.assertEqual(state.players["P1"].current_cp, 0)
 
     def test_trigger_window_forces_activation_turn_player_then_opponent(self) -> None:
         catalog = dict(self.catalog)

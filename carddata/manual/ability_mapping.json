@@ -1192,6 +1192,41 @@
         }
       ]
     },
+    "1-0-089": {
+      "card_name": "ムーンセイヴァー",
+      "abilities": [
+        {
+          "ability_key": "1-0-089:a1",
+          "ability_name": "ムーンセイヴァー",
+          "source_text": "あなたのユニットがアタックした時、対戦相手のレベル２以上のユニットを１体選ぶ。それを破壊する。",
+          "status": "supported",
+          "timing": "INTERCEPT_ATTACK",
+          "optional": true,
+          "priority": {
+            "band": "intercept",
+            "order": "left_to_right"
+          },
+          "condition": {
+            "type": "event_actor_is_owner"
+          },
+          "cost_steps": [],
+          "selector": {
+            "id": "target",
+            "type": "unit",
+            "controller": "rival",
+            "count": 1,
+            "required": true,
+            "min_level": 2
+          },
+          "effect_steps": [
+            {
+              "effect": "destroy_unit",
+              "target": "target"
+            }
+          ]
+        }
+      ]
+    },
     "1-0-097": {
       "card_name": "追い風",
       "abilities": [
