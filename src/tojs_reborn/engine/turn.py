@@ -1,6 +1,7 @@
 from __future__ import annotations
 
-from .actions import draw_cards, get_effect_handlers
+from .actions import draw_cards
+from .effects import get_effect_handlers
 from .events import EventSource
 from .resolver import AbilityCostChoice, OptionalAbilityChoice, resolve_turn_ended
 from .rules import get_unit_bp, opponent_id

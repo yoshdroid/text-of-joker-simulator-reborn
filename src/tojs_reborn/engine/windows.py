@@ -64,7 +64,7 @@ def process_trigger_window(
     effect_handlers: dict[str, EffectHandler] | None = None,
 ) -> int:
     if effect_handlers is None:
-        from .actions import get_effect_handlers
+        from .effects import get_effect_handlers
 
         effect_handlers = get_effect_handlers()
     cause_event = _event_by_no(state, cause_event_no)
@@ -109,7 +109,7 @@ def process_intercept_window(
     effect_handlers: dict[str, EffectHandler] | None = None,
 ) -> int:
     if effect_handlers is None:
-        from .actions import get_effect_handlers
+        from .effects import get_effect_handlers
 
         effect_handlers = get_effect_handlers()
     cause_event = _event_by_no(state, cause_event_no)

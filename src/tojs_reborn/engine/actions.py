@@ -11,41 +11,11 @@ from .rules import (
     get_unit_bp,
     opponent_id,
 )
+from .effects import append_effect_fizzled as _append_effect_fizzled, get_effect_handlers
+from .effects.fizzle import EFFECT_FIZZLED_REASONS
 from .resolver import AbilityCostChoice, OptionalAbilityChoice, resolve_unit_entered, resolve_unit_overclocked
 from .state import AbilityDefinition, GameState, UnitState
 from .targets import resolve_player_id, resolve_unit_target_for_effect, resolve_unit_targets_for_effect, unit_candidates_for_selector
-
-
-EFFECT_FIZZLED_REASONS = {
-    "no_valid_target",
-    "selector_missing",
-    "target_already_exhausted",
-    "target_not_exhausted",
-    "target_not_on_battlefield",
-}
-
-
-def get_effect_handlers():
-    return {
-        "change_cp": _handle_change_cp,
-        "consume_action": _handle_consume_action,
-        "deal_damage_to_unit": _handle_deal_damage_to_unit,
-        "deal_damage_to_units": _handle_deal_damage_to_units,
-        "deal_life_damage": _handle_deal_life_damage,
-        "discard_from_hand": _handle_discard_from_hand,
-        "destroy_trigger_zone_card": _handle_destroy_trigger_zone_card,
-        "destroy_unit": _handle_destroy_unit,
-        "destroy_units": _handle_destroy_units,
-        "destroy_all_other_units": _handle_destroy_all_other_units,
-        "draw_card_by_category": _handle_draw_card_by_category,
-        "draw_cards": _handle_draw_cards,
-        "modify_base_bp": _handle_modify_base_bp,
-        "modify_bp": _handle_modify_bp,
-        "move_discard_to_hand": _handle_move_discard_to_hand,
-        "move_random_discard_to_hand": _handle_move_random_discard_to_hand,
-        "recover_action": _handle_recover_action,
-        "return_unit_to_hand": _handle_return_unit_to_hand,
-    }
 
 
 def draw_cards(
@@ -1081,26 +1051,6 @@ def _handle_return_unit_to_hand(
         },
     )
     del state.units[target.unit_id]
-
-
-def _append_effect_fizzled(
-    state: GameState,
-    actor_player_id: str,
-    ability_event: FactEvent,
-    step: dict,
-    reason: str,
-) -> None:
-    if reason not in EFFECT_FIZZLED_REASONS:
-        raise ValueError(f"unknown effect_fizzled reason: {reason}")
-    state.event_store.append(
-        "effect_fizzled",
-        round_no=state.round_no,
-        turn_no=state.turn_no,
-        actor_player_id=actor_player_id,
-        cause_event_no=ability_event.event_no,
-        source=ability_event.source,
-        payload={"effect": step.get("effect"), "reason": reason},
-    )
 
 
 def _clear_unit_damage(state: GameState, unit: UnitState, cause_event_no: int, *, reason: str) -> None:

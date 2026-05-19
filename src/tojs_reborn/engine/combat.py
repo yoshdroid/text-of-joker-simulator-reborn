@@ -2,7 +2,7 @@ from __future__ import annotations
 
 from collections.abc import Callable
 
-from .actions import get_effect_handlers
+from .effects import get_effect_handlers
 from .events import EventSource
 from .rules import get_unit_bp, opponent_id
 from .resolver import (
