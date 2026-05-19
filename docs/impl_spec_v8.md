@@ -88,3 +88,23 @@ v8 では、ゲーム開始時の初期デッキシャッフルを `GameState.rn
 一方で、`match_started` より前に `engine_started` / `deck_registered` / `battle_field_deployed` などのイベントを正式に持たせる場合、replay の `initial_state` と intents の境界を再設計する必要がある。
 現行 replay は match setup 後の状態を初期スナップショットとして保存しているため、pre-match event を単純に event log へ追加すると replay 再現時のイベント列がずれる。
 このため、pre-match event 化は v8 の追加討議候補として残し、まずは RNG 共通化のみを実装対象とする。
+
+## v8 追加候補
+
+1. pre-match event model
+   - `engine_started` / `player_entered` / `deck_registered` / `battle_field_deployed` を event log と replay intents のどちらに置くかを決める。
+   - `initial_state` を「engine 起動直後」に寄せるか、「battle_field_deployed 後」のままにするかを整理する。
+   - deck registration 時点で strict deck rule、プレイヤー情報、JOKER 種別を検証できるようにする。
+
+2. 通常 match replay 由来のシナリオ化
+   - `g_b_controlbeat_vs_r_g_beatdown` で発生した重要イベントを、固定 GUI シナリオへ切り出す。
+   - まずは `サプライズボックス`、`魔槍のリリム`、`冥王ハデス`、`ムーンセイヴァー`、`悪の覚醒/ダーク・アーマー/不可侵防壁` を個別シナリオ化する。
+   - 通常 match の seed が変わっても、カード単位の確認導線が失われないようにする。
+
+3. intercept / trigger window の GUI 視認性
+   - pass した intercept window もイベントログ上で「発動しない」を読みやすく表示する。
+   - window open 時に、候補カードと発動不能理由（CP不足、同色ユニット不在、対象なし）をデバッグ表示できるモードを検討する。
+
+4. v8 以降のカード効果追加
+   - controlbeat / beatdown デッキ内で未実装のカード効果を洗い出し、match replay で遭遇しやすい順に実装する。
+   - 実装単位は「カード1枚 + engine test + scenario replay + GUI確認表更新」を基本とする。
