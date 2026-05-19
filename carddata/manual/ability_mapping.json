@@ -326,6 +326,67 @@
         }
       ]
     },
+    "1-0-012": {
+      "card_name": "魔槍のリリム",
+      "abilities": [
+        {
+          "ability_key": "1-0-012:a1",
+          "ability_name": "デーモンスピア",
+          "source_text": "このユニットがフィールドに出た時、対戦相手のユニットを１体選ぶ。それに４０００ダメージを与える。",
+          "status": "supported",
+          "timing": "SELF_CIP",
+          "optional": false,
+          "priority": {
+            "band": "unit",
+            "order": "source_only"
+          },
+          "condition": null,
+          "cost_steps": [],
+          "selector": {
+            "id": "target",
+            "type": "unit",
+            "controller": "rival",
+            "count": 1,
+            "required": false
+          },
+          "effect_steps": [
+            {
+              "effect": "deal_damage_to_unit",
+              "target": "target",
+              "amount": 4000
+            }
+          ]
+        },
+        {
+          "ability_key": "1-0-012:a2",
+          "ability_name": "トリガーロスト",
+          "source_text": "このユニットがアタックした時、対戦相手のトリガーゾーンにあるカードを１枚ランダムで破壊する。",
+          "status": "supported",
+          "timing": "SELF_ATK",
+          "optional": false,
+          "priority": {
+            "band": "unit",
+            "order": "source_only"
+          },
+          "condition": null,
+          "cost_steps": [],
+          "selector": {
+            "id": "target",
+            "type": "trigger_zone_card",
+            "controller": "rival",
+            "count": 1,
+            "required": false,
+            "random": true
+          },
+          "effect_steps": [
+            {
+              "effect": "destroy_trigger_zone_card",
+              "target": "target"
+            }
+          ]
+        }
+      ]
+    },
     "1-0-019": {
       "card_name": "ジャンプー",
       "abilities": [

@@ -319,6 +319,37 @@ class EngineTest(unittest.TestCase):
         self.assertIn("effect_fizzled", [event.type for event in state.event_store.events])
         self.assertNotIn("damage_dealt", [event.type for event in state.event_store.events])
 
+    def test_lilim_cip_deals_4000_damage_to_rival_unit(self) -> None:
+        state = create_game_state(self.catalog)
+        _base_card, base_unit = self._add_battlefield_unit(state, "P1", "1-0-004")
+        rival_card, rival_unit = self._add_battlefield_unit(state, "P2", "1-0-040")
+        entering_card = state.create_card_instance("1-0-012", "P1")
+        state.players["P1"].hand.add(entering_card.instance_id)
+        state.players["P1"].current_cp = 10
+
+        drive_unit(state, "P1", entering_card.instance_id, evolve_target_unit_id=base_unit.unit_id)
+
+        damage_events = [event for event in state.event_store.events if event.type == "damage_dealt"]
+        self.assertEqual(damage_events[-1].payload["target_unit_id"], rival_unit.unit_id)
+        self.assertEqual(damage_events[-1].payload["amount"], 4000)
+        self.assertIn(rival_card.instance_id, state.players["P2"].discard_pile.cards)
+
+    def test_lilim_attack_destroys_random_rival_trigger_zone_card(self) -> None:
+        state = create_game_state(self.catalog)
+        _base_card, base_unit = self._add_battlefield_unit(state, "P1", "1-0-004")
+        entering_card = state.create_card_instance("1-0-012", "P1")
+        rival_trigger = state.create_card_instance("1-0-061", "P2")
+        state.players["P1"].hand.add(entering_card.instance_id)
+        state.players["P2"].trigger_zone.add(rival_trigger.instance_id)
+        state.players["P1"].current_cp = 10
+        lilim = drive_unit(state, "P1", entering_card.instance_id, evolve_target_unit_id=base_unit.unit_id)
+
+        declare_attack(state, "P1", lilim.unit_id)
+
+        self.assertEqual(state.players["P2"].trigger_zone.cards, [])
+        self.assertIn(rival_trigger.instance_id, state.players["P2"].discard_pile.cards)
+        self.assertIn("random_resolved", [event.type for event in state.event_store.events])
+
     def test_evolve_drive_requires_same_color_battlefield_target(self) -> None:
         state = create_game_state(self.catalog)
         _green_card, green_unit = self._add_battlefield_unit(state, "P1", "1-0-040")
