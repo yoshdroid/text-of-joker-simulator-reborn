@@ -1,5 +1,7 @@
 from __future__ import annotations
 
+from collections.abc import Callable
+
 from .actions import get_effect_handlers
 from .events import EventSource
 from .rules import get_unit_bp, opponent_id
@@ -12,6 +14,8 @@ from .resolver import (
     resolve_unit_overclocked,
 )
 from .state import GameState, UnitState
+
+BattleStartedCallback = Callable[[GameState, int], None]
 
 
 def attack_player(state: GameState, player_id: str, attacker_unit_id: str) -> None:
@@ -97,6 +101,7 @@ def resolve_blocked_battle(
     block_event_no: int,
     optional_ability_choice: OptionalAbilityChoice | None = None,
     ability_cost_choice: AbilityCostChoice | None = None,
+    battle_started_callback: BattleStartedCallback | None = None,
 ) -> None:
     block_event = state.event_store.events[block_event_no - 1]
     if block_event.type != "block_declared":
@@ -112,6 +117,8 @@ def resolve_blocked_battle(
         source=_unit_source(attacker),
         payload={"attacker_unit_id": attacker.unit_id, "blocker_unit_id": blocker.unit_id},
     )
+    if battle_started_callback is not None:
+        battle_started_callback(state, battle_event.event_no)
     _deal_battle_damage(state, attacker, blocker, battle_event.event_no)
     _deal_battle_damage(state, blocker, attacker, battle_event.event_no)
     winner = _emit_battle_result(state, attacker, blocker, battle_event.event_no)
@@ -128,6 +135,7 @@ def declare_block(
     cause_event_no: int,
     optional_ability_choice: OptionalAbilityChoice | None = None,
     ability_cost_choice: AbilityCostChoice | None = None,
+    battle_started_callback: BattleStartedCallback | None = None,
 ):
     blocker = _get_owned_unit(state, player_id, blocker_unit_id)
     block_event = state.event_store.append(
@@ -140,7 +148,7 @@ def declare_block(
         payload={"blocker_unit_id": blocker_unit_id, "attacker_unit_id": attacker_unit_id},
     )
     resolve_unit_blocked(state, blocker, block_event, get_effect_handlers(), optional_ability_choice, ability_cost_choice)
-    resolve_blocked_battle(state, block_event.event_no, optional_ability_choice, ability_cost_choice)
+    resolve_blocked_battle(state, block_event.event_no, optional_ability_choice, ability_cost_choice, battle_started_callback)
     return block_event
 
 

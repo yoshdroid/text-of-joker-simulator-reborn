@@ -13,7 +13,7 @@ from tojs_reborn.engine.replay import build_replay_record, snapshot_initial_stat
 from tojs_reborn.engine.rules import opponent_id, turn_cp_for
 from tojs_reborn.engine.state import AbilityDefinition, GameState, UnitState
 from tojs_reborn.engine.turn import end_turn, start_turn
-from tojs_reborn.engine.windows import process_windows_for_events
+from tojs_reborn.engine.windows import process_intercept_window, process_windows_for_events
 
 
 class ActionPlayer(Protocol):
@@ -265,6 +265,7 @@ class MatchRunner:
                     attack_event.event_no,
                     self._choose_optional_ability,
                     self._choose_ability_cost,
+                    self._process_battle_window,
                 )
                 self._process_windows_from(block_first_event_no)
             else:
@@ -279,6 +280,9 @@ class MatchRunner:
 
     def _process_windows_from(self, first_event_no: int) -> None:
         process_windows_for_events(self.state, first_event_no, self._choose_window_action)
+
+    def _process_battle_window(self, state: GameState, battle_event_no: int) -> None:
+        process_intercept_window(state, "battle", battle_event_no, self._choose_window_action)
 
     def _choose_window_action(self, player_id: str, legal_actions: list[dict]) -> dict:
         return self._choose_action(player_id, legal_actions, role="window_action")

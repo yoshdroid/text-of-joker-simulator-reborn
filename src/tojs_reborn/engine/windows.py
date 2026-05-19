@@ -186,13 +186,14 @@ def process_windows_for_events(
             processed_count += process_trigger_window(state, event.event_no, effect_handlers)
             intercept_window = _AUTOMATIC_INTERCEPT_WINDOWS.get(event.type)
             if intercept_window is not None:
-                processed_count += process_intercept_window(
-                    state,
-                    intercept_window,
-                    event.event_no,
-                    choose_intercept,
-                    effect_handlers,
-                )
+                if not _window_already_opened(state, event.event_no, intercept_window):
+                    processed_count += process_intercept_window(
+                        state,
+                        intercept_window,
+                        event.event_no,
+                        choose_intercept,
+                        effect_handlers,
+                    )
         index += 1
     return processed_count
 
@@ -466,6 +467,15 @@ def _event_by_no(state: GameState, event_no: int) -> FactEvent:
         if event.event_no == event_no:
             return event
     raise ValueError(f"unknown event_no: {event_no}")
+
+
+def _window_already_opened(state: GameState, cause_event_no: int, window: str) -> bool:
+    return any(
+        event.type == "intercept_window_opened"
+        and event.cause_event_no == cause_event_no
+        and event.payload.get("window") == window
+        for event in state.event_store.events
+    )
 
 
 def _event_index_at_or_after(state: GameState, event_no: int) -> int:

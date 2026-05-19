@@ -448,6 +448,45 @@ class ProtocolTest(unittest.TestCase):
         self.assertEqual(state.players["P2"].life, 6)
         self.assertIn("intercept_activated", [event.type for event in state.event_store.events])
 
+    def test_match_runner_processes_battle_intercept_before_damage(self) -> None:
+        class BattleInterceptPlayer:
+            def choose_action(self, player_id: str, legal_actions: list[dict]) -> dict:
+                for action_type in ("activate_intercept", "block", "attack", "pass_window", "no_block", "pass"):
+                    for action in legal_actions:
+                        if action.get("type") == action_type:
+                            return action
+                return legal_actions[0]
+
+        catalog = dict(self.catalog)
+        catalog["T-BLOCK-001"] = CardDefinition(
+            card_no="T-BLOCK-001",
+            category="unit",
+            color="test",
+            name="large blocker",
+            cp=1,
+            bp_by_level=(5, 5, 5),
+            abilities=(),
+        )
+        state = create_game_state(catalog)
+        state.turn_no = 3
+        attacker_card = state.create_card_instance("1-0-001", "P1")
+        attacker = state.create_unit(attacker_card.instance_id)
+        blocker_card = state.create_card_instance("T-BLOCK-001", "P2")
+        blocker = state.create_unit(blocker_card.instance_id)
+        evil_awaken = state.create_card_instance("1-0-081", "P1")
+        state.players["P1"].battlefield.add(attacker.unit_id)
+        state.players["P1"].trigger_zone.add(evil_awaken.instance_id)
+        state.players["P2"].battlefield.add(blocker.unit_id)
+        runner = MatchRunner(state, players={"P1": BattleInterceptPlayer(), "P2": BattleInterceptPlayer()})
+
+        runner.run_turn_action("P1")
+
+        event_types = [event.type for event in state.event_store.events]
+        self.assertLess(event_types.index("bp_modified"), event_types.index("damage_dealt"))
+        self.assertIn(attacker.unit_id, state.units)
+        self.assertNotIn(blocker.unit_id, state.units)
+        self.assertEqual(state.players["P1"].discard_pile.cards, [evil_awaken.instance_id])
+
     def test_match_runner_processes_tailwind_intercept_after_owner_unit_enters(self) -> None:
         state = create_game_state(self.catalog)
         state.turn_player_id = "P1"
