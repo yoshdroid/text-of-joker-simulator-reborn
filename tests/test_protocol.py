@@ -300,6 +300,22 @@ class ProtocolTest(unittest.TestCase):
         )
         self.assertEqual(choose_sample_action(legal_actions, "pass")["type"], "pass")
 
+    def test_sample_intercept_all_prioritizes_available_intercepts(self) -> None:
+        window_actions = [
+            {"type": "pass_window", "window": "battle"},
+            {"type": "activate_intercept", "card_instance_id": "c0001", "window": "battle"},
+            {"type": "activate_intercept", "card_instance_id": "c0002", "window": "battle"},
+        ]
+        normal_actions = [
+            {"type": "pass"},
+            {"type": "drive_unit", "card_instance_id": "c0001"},
+            {"type": "attack", "attacker_unit_id": "u0001"},
+        ]
+
+        self.assertEqual(choose_sample_action(window_actions, "intercept_all")["card_instance_id"], "c0001")
+        self.assertEqual(choose_sample_action(window_actions, "intercept-all")["card_instance_id"], "c0001")
+        self.assertEqual(choose_sample_action(normal_actions, "intercept_all")["type"], "attack")
+
     def test_state_update_and_mulligan_messages_round_trip(self) -> None:
         state = create_game_state(self.catalog)
 

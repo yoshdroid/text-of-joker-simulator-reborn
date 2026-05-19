@@ -108,6 +108,8 @@ def _build_player(spec: str, *, seed: int = 0, player_id: str = "") -> ActionPla
         return SampleStrategyPlayer(mode="random", seed=seed, player_id_hint=player_id)
     if spec == "sample:aggressive":
         return SampleStrategyPlayer(mode="aggressive", seed=seed, player_id_hint=player_id)
+    if spec in {"sample:intercept_all", "sample:intercept-all"}:
+        return SampleStrategyPlayer(mode="intercept_all", seed=seed, player_id_hint=player_id)
     if spec.startswith("cmd:"):
         return start_process_player(spec.removeprefix("cmd:"))
     raise ValueError(f"unknown player spec: {spec}")

@@ -10,6 +10,7 @@ python -m tojs_reborn.io.match_cli --cards carddata/generated/cards.normalized.j
 
 - `sample:random`: match seed と player id から deterministic RNG を作り、合法手をランダム選択する。
 - `sample:aggressive`: attack、block、intercept、evolve、drive、trigger set を優先する。
+- `sample:intercept-all`: window 中は発動可能な intercept を最優先で発動し、それ以外は aggressive と同じ優先順で行動する。
 - `--verify-replay`: 保存した intent と event log を再実行して一致を確認する。
 - `--check-integrity`: 主要 action 後に state integrity を検査する。
 

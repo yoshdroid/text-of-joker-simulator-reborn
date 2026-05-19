@@ -15,6 +15,8 @@ def choose_sample_action(legal_actions: list[dict[str, Any]], mode: str, rng: ra
         return choose_pass_action(legal_actions)
     if mode == "random":
         return (rng or random.Random(0)).choice(legal_actions)
+    if mode in {"intercept_all", "intercept-all"}:
+        return choose_intercept_all_action(legal_actions)
     if mode == "aggressive":
         return choose_aggressive_action(legal_actions)
     return choose_first_action(legal_actions)
@@ -58,6 +60,13 @@ def choose_aggressive_action(legal_actions: list[dict[str, Any]]) -> dict[str, A
             if predicate(action):
                 return action
     return legal_actions[0]
+
+
+def choose_intercept_all_action(legal_actions: list[dict[str, Any]]) -> dict[str, Any]:
+    for action in legal_actions:
+        if _is_activate_intercept(action):
+            return action
+    return choose_aggressive_action(legal_actions)
 
 
 @dataclass
