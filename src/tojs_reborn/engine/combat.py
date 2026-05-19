@@ -338,6 +338,17 @@ def _reward_battle_winner(
                 source=_unit_source(winner),
                 payload={"level": winner.level, "reason": "battle_win"},
             )
+            if winner.exhausted:
+                winner.exhausted = False
+                state.event_store.append(
+                    "unit_action_recovered",
+                    round_no=state.round_no,
+                    turn_no=state.turn_no,
+                    actor_player_id=winner.owner_player_id,
+                    cause_event_no=overclock_event.event_no,
+                    source=_unit_source(winner),
+                    payload={"unit_id": winner.unit_id, "reason": "overclock"},
+                )
             resolve_unit_overclocked(
                 state,
                 winner,

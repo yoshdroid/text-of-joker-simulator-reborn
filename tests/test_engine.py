@@ -913,6 +913,37 @@ class EngineTest(unittest.TestCase):
             ],
         )
 
+    def test_battle_win_level_three_overclock_recovers_action(self) -> None:
+        catalog = dict(self.catalog)
+        catalog["T-WIN-001"] = CardDefinition(
+            card_no="T-WIN-001",
+            category="unit",
+            color="test",
+            name="battle winner",
+            cp=1,
+            bp_by_level=(8, 8, 8),
+            abilities=(),
+        )
+        state = create_game_state(catalog)
+        attacker_card = state.create_card_instance("T-WIN-001", "P1", level=2)
+        blocker_card = state.create_card_instance("1-0-040", "P2")
+        attacker = state.create_unit(attacker_card.instance_id)
+        blocker = state.create_unit(blocker_card.instance_id)
+        state.players["P1"].battlefield.add(attacker.unit_id)
+        state.players["P2"].battlefield.add(blocker.unit_id)
+
+        attack_unit(state, "P1", attacker.unit_id, blocker.unit_id)
+
+        self.assertIn(attacker.unit_id, state.units)
+        self.assertEqual(attacker.level, 3)
+        self.assertFalse(attacker.exhausted)
+        event_types = [event.type for event in state.event_store.events]
+        self.assertIn("unit_overclocked", event_types)
+        self.assertIn("unit_action_recovered", event_types)
+        recover_event = [event for event in state.event_store.events if event.type == "unit_action_recovered"][-1]
+        self.assertEqual(recover_event.payload["unit_id"], attacker.unit_id)
+        self.assertEqual(recover_event.payload["reason"], "overclock")
+
     def test_drive_unit_requires_cp_and_turn_player(self) -> None:
         state = create_game_state(self.catalog)
         happaloid = state.create_card_instance("1-0-040", "P1")
