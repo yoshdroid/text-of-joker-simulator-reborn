@@ -79,3 +79,12 @@ GUI側のみの問題かもしれず切り分けが必要。
 # second implementation spec ver.8
 
 ここまでの確認修正実装が完了したら、v8として続けるべき実装アイテムを検討し、この下に追記して。
+
+## RNG 方針メモ
+
+v8 では、ゲーム開始時の初期デッキシャッフルを `GameState.rng` に統一する。
+これにより、初期シャッフル、マリガン、デッキリフレッシュ、ランダム対象選択が同じ seed 由来のエンジン RNG を順に消費する。
+
+一方で、`match_started` より前に `engine_started` / `deck_registered` / `battle_field_deployed` などのイベントを正式に持たせる場合、replay の `initial_state` と intents の境界を再設計する必要がある。
+現行 replay は match setup 後の状態を初期スナップショットとして保存しているため、pre-match event を単純に event log へ追加すると replay 再現時のイベント列がずれる。
+このため、pre-match event 化は v8 の追加討議候補として残し、まずは RNG 共通化のみを実装対象とする。

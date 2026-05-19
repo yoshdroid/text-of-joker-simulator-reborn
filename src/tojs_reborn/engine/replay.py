@@ -86,6 +86,7 @@ def snapshot_initial_state(state: GameState) -> dict[str, Any]:
         "turn_player_id": state.turn_player_id,
         "next_card_instance_no": state.next_card_instance_no,
         "next_unit_no": state.next_unit_no,
+        "rng_state": _rng_state_to_json(state.rng.getstate()),
         "card_instances": {
             instance_id: {
                 "card_no": instance.card_no,
@@ -133,6 +134,8 @@ def state_from_snapshot(
     seed: int = 0,
 ) -> GameState:
     state = create_game_state(card_catalog, seed=seed)
+    if "rng_state" in snapshot:
+        state.rng.setstate(_rng_state_from_json(snapshot["rng_state"]))
     state.round_no = int(snapshot["round_no"])
     state.turn_no = int(snapshot["turn_no"])
     state.turn_player_id = snapshot["turn_player_id"]
@@ -173,6 +176,18 @@ def state_from_snapshot(
         state.units[unit_id] = unit
     state.next_unit_no = int(snapshot["next_unit_no"])
     return state
+
+
+def _rng_state_to_json(value):
+    if isinstance(value, tuple):
+        return [_rng_state_to_json(item) for item in value]
+    return value
+
+
+def _rng_state_from_json(value):
+    if isinstance(value, list):
+        return tuple(_rng_state_from_json(item) for item in value)
+    return value
 
 
 def state_digest(state: GameState) -> dict[str, Any]:

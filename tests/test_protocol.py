@@ -1,6 +1,7 @@
 import sys
 import os
 import json
+import random
 import subprocess
 import unittest
 from collections import Counter
@@ -591,6 +592,43 @@ class ProtocolTest(unittest.TestCase):
         ]
         self.assertNotEqual(actual_opening_card_nos, fixed_opening_card_nos)
         self.assertEqual(state.players["P1"].initial_deck_card_nos, deck.expanded_card_nos())
+
+    def test_match_setup_initial_shuffle_uses_shared_engine_rng(self) -> None:
+        deck = parse_decklist(
+            {
+                "cards": [
+                    {"card_no": "1-0-001", "count": 1},
+                    {"card_no": "1-0-004", "count": 1},
+                    {"card_no": "1-0-007", "count": 1},
+                    {"card_no": "1-0-010", "count": 1},
+                    {"card_no": "1-0-040", "count": 1},
+                    {"card_no": "1-0-044", "count": 1},
+                    {"card_no": "1-0-048", "count": 1},
+                    {"card_no": "1-0-061", "count": 1},
+                ]
+            },
+            self.catalog,
+        )
+        expected_p1 = deck.expanded_card_nos()
+        expected_p2 = deck.expanded_card_nos()
+        rng = random.Random(9)
+        rng.shuffle(expected_p1)
+        rng.shuffle(expected_p2)
+
+        state = setup_match_state(
+            self.catalog,
+            {"P1": deck, "P2": deck},
+            config=MatchSetupConfig(seed=9),
+        )
+
+        actual_p1_hand = [state.card_instances[card_id].card_no for card_id in state.players["P1"].hand.cards]
+        actual_p1_deck = [state.card_instances[card_id].card_no for card_id in state.players["P1"].deck.cards]
+        actual_p2_hand = [state.card_instances[card_id].card_no for card_id in state.players["P2"].hand.cards]
+        actual_p2_deck = [state.card_instances[card_id].card_no for card_id in state.players["P2"].deck.cards]
+        self.assertEqual(actual_p1_hand, expected_p1[:4])
+        self.assertEqual(actual_p1_deck, expected_p1[4:])
+        self.assertEqual(actual_p2_hand, expected_p2[:4])
+        self.assertEqual(actual_p2_deck, expected_p2[4:])
 
     def test_match_runner_mulligan_phase_records_and_replays_result(self) -> None:
         class MulliganOncePlayer:
