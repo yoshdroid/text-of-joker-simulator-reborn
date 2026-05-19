@@ -1389,7 +1389,7 @@ class ProtocolTest(unittest.TestCase):
         self.assertIn("event=3", action_lines[2][0])
         self.assertIn("c0003", action_lines[2][0])
 
-    def test_replay_gui_model_marks_ability_resolved_event_lines_bold(self) -> None:
+    def test_replay_gui_model_marks_ability_and_intercept_pass_event_lines_bold(self) -> None:
         replay_record = {
             "initial_state": {
                 "round_no": 1,
@@ -1422,13 +1422,24 @@ class ProtocolTest(unittest.TestCase):
                     "source": {"card_no": "1-0-040", "card_instance_id": "c0001", "unit_id": "u0001", "ability_id": "1-0-040:a1"},
                     "payload": {"ability_name": "draw", "timing": "SELF_CIP", "optional": False},
                 },
+                {
+                    "event_no": 3,
+                    "type": "intercept_passed",
+                    "round_no": 1,
+                    "turn_no": 1,
+                    "actor_player_id": "P2",
+                    "cause_event_no": 1,
+                    "source": None,
+                    "payload": {"window": "battle"},
+                },
             ],
         }
 
         model = build_replay_gui_model(replay_record, card_catalog=self.catalog)
 
-        self.assertEqual(model["event_line_tags"], [None, "action"])
+        self.assertEqual(model["event_line_tags"], [None, "action", "action"])
         self.assertIn("ability_resolved", model["event_lines"][1])
+        self.assertIn("intercept_passed", model["event_lines"][2])
 
     def test_replay_gui_model_tracks_turn_player_from_turn_started_events(self) -> None:
         replay_record = {
