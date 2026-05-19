@@ -7,7 +7,7 @@ from collections.abc import Callable
 from pathlib import Path
 from typing import Any, Sequence
 
-from tojs_reborn.engine.combat import attack_player, attack_unit, declare_attack, resolve_unblocked_attack
+from tojs_reborn.engine.combat import attack_player, attack_unit, declare_attack, declare_block, destroy_unit, resolve_unblocked_attack
 from tojs_reborn.engine.actions import drive_unit, override_card
 from tojs_reborn.engine.replay import build_replay_record, snapshot_initial_state, verify_replay_record
 from tojs_reborn.engine.state import GameState, load_card_catalog
@@ -60,10 +60,13 @@ SCENARIOS: dict[str, ScenarioBuilder] = {
     "block_bypass_player_attack": lambda catalog: _scenario_block_bypass_player_attack(catalog),
     "bishamon_evolve_destroy_all": lambda catalog: _scenario_bishamon_evolve_destroy_all(catalog),
     "bloodhound_level3_damage": lambda catalog: _scenario_bloodhound_level3_damage(catalog),
+    "barbatos_base_bp": lambda catalog: _scenario_barbatos_base_bp(catalog),
+    "battle_intercepts": lambda catalog: _scenario_battle_intercepts(catalog),
     "category_search_no_refresh": lambda catalog: _scenario_category_search_no_refresh(catalog),
     "dartagnan_cip_attack_draw": lambda catalog: _scenario_dartagnan_cip_attack_draw(catalog),
     "deck_refresh_draw": lambda catalog: _scenario_deck_refresh_draw(catalog),
     "display_stand_trigger_draw": lambda catalog: _scenario_display_stand_trigger_draw(catalog),
+    "ectoplasm_destroy": lambda catalog: _scenario_ectoplasm_destroy(catalog),
     "goliath_level3_life_damage": lambda catalog: _scenario_goliath_level3_life_damage(catalog),
     "happaloid_cip_draw": lambda catalog: _scenario_happaloid_cip_draw(catalog),
     "hand_limit_draw": lambda catalog: _scenario_hand_limit_draw(catalog),
@@ -72,6 +75,7 @@ SCENARIOS: dict[str, ScenarioBuilder] = {
     "kaim_cip_trigger_search": lambda catalog: _scenario_kaim_cip_trigger_search(catalog),
     "leafia_block_bp_modifier": lambda catalog: _scenario_leafia_block_bp_modifier(catalog),
     "new_armor_trigger": lambda catalog: _scenario_new_armor_trigger(catalog),
+    "new_armor_surprise_box_chain": lambda catalog: _scenario_new_armor_surprise_box_chain(catalog),
     "oc_consume_action": lambda catalog: _scenario_oc_consume_action(catalog),
     "lina_discard_choice": lambda catalog: _scenario_lina_discard_choice(catalog),
     "raguel_exhausted_damage": lambda catalog: _scenario_raguel_exhausted_damage(catalog),
@@ -577,6 +581,106 @@ def _scenario_new_armor_trigger(catalog: dict[str, Any]) -> tuple[GameState, dic
 
     drive_unit(state, "P1", entering.instance_id)
     process_windows_for_events(state, 1)
+    return state, initial_state
+
+
+def _scenario_new_armor_surprise_box_chain(catalog: dict[str, Any]) -> tuple[GameState, dict[str, Any]]:
+    from tojs_reborn.engine.state import create_game_state
+
+    state = create_game_state(catalog, seed=_scenario_seed(57))
+    state.turn_player_id = "P1"
+    new_armor = _create_initial_deck_card(state, "P1", "1-0-061")
+    surprise_box = _create_initial_deck_card(state, "P1", "1-0-057")
+    entering = _create_initial_deck_card(state, "P1", "1-0-001")
+    unit_card = _create_initial_deck_card(state, "P1", "1-0-004")
+    intercept_card = _create_initial_deck_card(state, "P1", "1-0-097")
+    first_trigger = _create_initial_deck_card(state, "P1", "1-0-062")
+    second_trigger = _create_initial_deck_card(state, "P1", "1-0-061")
+    state.players["P1"].trigger_zone.add(new_armor.instance_id)
+    state.players["P1"].trigger_zone.add(surprise_box.instance_id)
+    state.players["P1"].hand.add(entering.instance_id)
+    state.players["P1"].deck.cards.extend([unit_card.instance_id, intercept_card.instance_id, first_trigger.instance_id, second_trigger.instance_id])
+    state.players["P1"].current_cp = 1
+    initial_state = snapshot_initial_state(state)
+
+    drive_unit(state, "P1", entering.instance_id)
+    process_windows_for_events(state, 1)
+    activated_cards = [event.payload["card"]["card_no"] for event in state.event_store.events if event.type == "trigger_activated"]
+    if activated_cards != ["1-0-061", "1-0-057"]:
+        raise AssertionError(f"expected New Armor then Surprise Box activation, got {activated_cards}")
+    return state, initial_state
+
+
+def _scenario_battle_intercepts(catalog: dict[str, Any]) -> tuple[GameState, dict[str, Any]]:
+    from tojs_reborn.engine.state import create_game_state
+
+    state = create_game_state(catalog, seed=_scenario_seed(81))
+    state.turn_player_id = "P1"
+    attacker_card, attacker = _add_battlefield_unit(state, "P1", "1-0-001")
+    blocker_card, blocker = _add_battlefield_unit(state, "P2", "1-0-045")
+    evil_awaken = _create_initial_deck_card(state, "P1", "1-0-081")
+    impervious_wall = _create_initial_deck_card(state, "P2", "1-0-096")
+    state.players["P1"].trigger_zone.add(evil_awaken.instance_id)
+    state.players["P2"].trigger_zone.add(impervious_wall.instance_id)
+    state.players["P1"].current_cp = 0
+    state.players["P2"].current_cp = 0
+    initial_state = snapshot_initial_state(state)
+
+    attack_event = declare_attack(state, "P1", attacker.unit_id)
+    declare_block(
+        state,
+        "P2",
+        blocker.unit_id,
+        attacker.unit_id,
+        attack_event.event_no,
+        battle_started_callback=lambda scenario_state, event_no: process_windows_for_events(
+            scenario_state, event_no, choose_intercept=_choose_first_intercept
+        ),
+    )
+    activated_cards = [event.payload["card"]["card_no"] for event in state.event_store.events if event.type == "intercept_activated"]
+    if activated_cards != ["1-0-081", "1-0-096"]:
+        raise AssertionError(f"expected battle intercepts to activate from attacker then blocker, got {activated_cards}")
+    _ = attacker_card, blocker_card
+    return state, initial_state
+
+
+def _scenario_barbatos_base_bp(catalog: dict[str, Any]) -> tuple[GameState, dict[str, Any]]:
+    from tojs_reborn.engine.state import create_game_state
+
+    state = create_game_state(catalog, seed=_scenario_seed(51))
+    state.turn_player_id = "P1"
+    base_card, base_unit = _add_battlefield_unit(state, "P1", "1-0-040")
+    barbatos = _create_initial_deck_card(state, "P1", "1-0-051")
+    _target_card, target = _add_battlefield_unit(state, "P2", "1-0-048")
+    state.players["P1"].hand.add(barbatos.instance_id)
+    state.players["P1"].current_cp = 7
+    initial_state = snapshot_initial_state(state)
+
+    drive_unit(state, "P1", barbatos.instance_id, evolve_target_unit_id=base_unit.unit_id)
+    if not target.base_bp_modifiers:
+        raise AssertionError("barbatos scenario expected permanent base BP modifier")
+    _ = base_card
+    return state, initial_state
+
+
+def _scenario_ectoplasm_destroy(catalog: dict[str, Any]) -> tuple[GameState, dict[str, Any]]:
+    from tojs_reborn.engine.state import create_game_state
+
+    state = create_game_state(catalog, seed=_scenario_seed(92))
+    state.turn_player_id = "P1"
+    _support_card, support = _add_battlefield_unit(state, "P1", "1-0-027")
+    _destroyed_card, destroyed = _add_battlefield_unit(state, "P1", "1-0-031")
+    _rival_card, rival = _add_battlefield_unit(state, "P2", "1-0-040")
+    ectoplasm = _create_initial_deck_card(state, "P1", "1-0-092")
+    state.players["P1"].trigger_zone.add(ectoplasm.instance_id)
+    state.players["P1"].current_cp = 3
+    initial_state = snapshot_initial_state(state)
+
+    first_event_no = len(state.event_store.events) + 1
+    destroy_unit(state, destroyed, first_event_no, reason="scenario")
+    process_windows_for_events(state, first_event_no, choose_intercept=_choose_first_intercept)
+    if rival.unit_id in state.units or support.unit_id not in state.units:
+        raise AssertionError("ectoplasm scenario expected rival destroyed while blue support remains")
     return state, initial_state
 
 

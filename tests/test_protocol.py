@@ -2060,6 +2060,8 @@ class ProtocolTest(unittest.TestCase):
             {
                 "attack_bp_modifier",
                 "attack_consume_action",
+                "barbatos_base_bp",
+                "battle_intercepts",
                 "bishamon_evolve_destroy_all",
                 "block_bypass_player_attack",
                 "bloodhound_level3_damage",
@@ -2067,6 +2069,7 @@ class ProtocolTest(unittest.TestCase):
                 "dartagnan_cip_attack_draw",
                 "deck_refresh_draw",
                 "display_stand_trigger_draw",
+                "ectoplasm_destroy",
                 "goliath_level3_life_damage",
                 "hand_limit_draw",
                 "happaloid_cip_draw",
@@ -2075,6 +2078,7 @@ class ProtocolTest(unittest.TestCase):
                 "kaim_cip_trigger_search",
                 "leafia_block_bp_modifier",
                 "lina_discard_choice",
+                "new_armor_surprise_box_chain",
                 "new_armor_trigger",
                 "oc_consume_action",
                 "raguel_exhausted_damage",
@@ -2103,6 +2107,23 @@ class ProtocolTest(unittest.TestCase):
         self.assertIn("unit_action_consumed", [event["type"] for event in attack_consume["events"]])
         attack_consume_choices = [event for event in attack_consume["events"] if event["type"] == "choice_requested"]
         self.assertEqual(len(attack_consume_choices[-1]["payload"].get("candidate_unit_ids")), 1)
+        surprise_chain = json.loads((output_dir / "new_armor_surprise_box_chain.json").read_text(encoding="utf-8"))
+        self.assertEqual(
+            [event["payload"]["card"]["card_no"] for event in surprise_chain["events"] if event["type"] == "trigger_activated"],
+            ["1-0-061", "1-0-057"],
+        )
+        battle_intercepts = json.loads((output_dir / "battle_intercepts.json").read_text(encoding="utf-8"))
+        self.assertEqual(
+            [event["payload"]["card"]["card_no"] for event in battle_intercepts["events"] if event["type"] == "intercept_activated"],
+            ["1-0-081", "1-0-096"],
+        )
+        battle_event_types = [event["type"] for event in battle_intercepts["events"]]
+        self.assertLess(battle_event_types.index("bp_modified"), battle_event_types.index("damage_dealt"))
+        barbatos = json.loads((output_dir / "barbatos_base_bp.json").read_text(encoding="utf-8"))
+        self.assertIn("base_bp_modified", [event["type"] for event in barbatos["events"]])
+        ectoplasm = json.loads((output_dir / "ectoplasm_destroy.json").read_text(encoding="utf-8"))
+        self.assertIn("intercept_activated", [event["type"] for event in ectoplasm["events"]])
+        self.assertGreaterEqual([event["type"] for event in ectoplasm["events"]].count("unit_destroyed"), 2)
         block_bypass = json.loads((output_dir / "block_bypass_player_attack.json").read_text(encoding="utf-8"))
         self.assertIn("life_changed", [event["type"] for event in block_bypass["events"]])
         self.assertNotIn("block_declared", [event["type"] for event in block_bypass["events"]])
