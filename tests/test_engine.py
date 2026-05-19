@@ -1651,6 +1651,44 @@ class EngineTest(unittest.TestCase):
         ]
         self.assertEqual(move_events[-1].payload["category"], "intercept")
 
+    def test_adjacent_cip_triggers_continue_after_first_trigger_leaves_zone(self) -> None:
+        state = create_game_state(self.catalog)
+        state.turn_player_id = "P1"
+        new_armor = state.create_card_instance("1-0-061", "P1")
+        surprise_box = state.create_card_instance("1-0-057", "P1")
+        entering = state.create_card_instance("1-0-001", "P1")
+        intercept_card = state.create_card_instance("1-0-097", "P1")
+        first_trigger_draw = state.create_card_instance("1-0-062", "P1")
+        second_trigger_draw = state.create_card_instance("1-0-063", "P1")
+        state.players["P1"].trigger_zone.cards.extend([new_armor.instance_id, surprise_box.instance_id])
+        state.players["P1"].hand.add(entering.instance_id)
+        state.players["P1"].deck.cards.extend([
+            intercept_card.instance_id,
+            first_trigger_draw.instance_id,
+            second_trigger_draw.instance_id,
+        ])
+        state.players["P1"].current_cp = 1
+
+        drive_unit(state, "P1", entering.instance_id)
+        from tojs_reborn.engine.windows import process_windows_for_events
+
+        process_windows_for_events(state, 1)
+
+        activation_events = [event for event in state.event_store.events if event.type == "trigger_activated"]
+        self.assertEqual(
+            [event.source.card_no for event in activation_events],
+            ["1-0-061", "1-0-057"],
+        )
+        self.assertEqual(state.players["P1"].trigger_zone.cards, [])
+        self.assertEqual(
+            set(state.players["P1"].discard_pile.cards),
+            {new_armor.instance_id, surprise_box.instance_id},
+        )
+        self.assertEqual(
+            state.players["P1"].hand.cards,
+            [intercept_card.instance_id, first_trigger_draw.instance_id, second_trigger_draw.instance_id],
+        )
+
     def test_new_armor_trigger_fires_and_draws_zero_when_no_intercept_in_deck(self) -> None:
         state = create_game_state(self.catalog)
         state.turn_player_id = "P1"

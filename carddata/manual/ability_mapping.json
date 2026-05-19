@@ -446,6 +446,34 @@
         }
       ]
     },
+    "1-0-057": {
+      "card_name": "サプライズボックス",
+      "abilities": [
+        {
+          "ability_key": "1-0-057:a1",
+          "ability_name": "サプライズボックス",
+          "source_text": "あなたのユニットがフィールドに出た時、あなたはトリガーカードを２枚引く。",
+          "status": "supported",
+          "timing": "TRIGGER_UNIT_ENTERED",
+          "optional": false,
+          "priority": {
+            "band": "trigger",
+            "order": "left_to_right"
+          },
+          "condition": null,
+          "cost_steps": [],
+          "selector": null,
+          "effect_steps": [
+            {
+              "effect": "draw_card_by_category",
+              "player": "owner",
+              "category": "trigger",
+              "count": 2
+            }
+          ]
+        }
+      ]
+    },
     "1-0-061": {
       "card_name": "新品の鎧",
       "abilities": [

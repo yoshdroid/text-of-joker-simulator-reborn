@@ -37,8 +37,8 @@ class CardpoolNormalizerTest(unittest.TestCase):
         ability = happaloid["abilities"][0]
 
         self.assertEqual(report["errors"], [])
-        self.assertEqual(report["supported_ability_count"], 37)
-        self.assertEqual(report["status_counts"]["supported"], 37)
+        self.assertEqual(report["supported_ability_count"], 38)
+        self.assertEqual(report["status_counts"]["supported"], 38)
         self.assertGreater(report["timing_counts"]["SELF_CIP"], 0)
         self.assertGreater(report["effect_counts"]["draw_cards"], 0)
         self.assertGreater(report["effect_counts"]["discard_from_hand"], 0)
@@ -51,6 +51,12 @@ class CardpoolNormalizerTest(unittest.TestCase):
         )
         display_stand = card_by_no["1-0-062"]["abilities"][0]
         new_armor = card_by_no["1-0-061"]["abilities"][0]
+        surprise_box = card_by_no["1-0-057"]["abilities"][0]
+        self.assertEqual(surprise_box["timing"], "TRIGGER_UNIT_ENTERED")
+        self.assertEqual(
+            surprise_box["effect_steps"],
+            [{"effect": "draw_card_by_category", "player": "owner", "category": "trigger", "count": 2}],
+        )
         self.assertEqual(display_stand["timing"], "TRIGGER_UNIT_ENTERED")
         self.assertEqual(display_stand["effect_steps"], [{"effect": "draw_cards", "player": "owner", "count": 1}])
         self.assertEqual(new_armor["timing"], "TRIGGER_UNIT_ENTERED")
