@@ -645,12 +645,13 @@ def _scenario_battle_intercepts(catalog: dict[str, Any]) -> tuple[GameState, dic
 
 
 def _scenario_barbatos_base_bp(catalog: dict[str, Any]) -> tuple[GameState, dict[str, Any]]:
-    from tojs_reborn.engine.rules import get_unit_base_bp
+    from tojs_reborn.engine.rules import get_unit_base_bp, get_unit_bp
     from tojs_reborn.engine.state import create_game_state
 
     state = create_game_state(catalog, seed=_scenario_seed(51))
     state.turn_player_id = "P1"
     base_card, base_unit = _add_battlefield_unit(state, "P1", "1-0-040")
+    _blocker_card, blocker = _add_battlefield_unit(state, "P1", "1-0-040")
     barbatos = _create_initial_deck_card(state, "P1", "1-0-051")
     _target_card, target = _add_battlefield_unit(state, "P2", "1-0-048")
     state.players["P1"].hand.add(barbatos.instance_id)
@@ -666,8 +667,13 @@ def _scenario_barbatos_base_bp(catalog: dict[str, Any]) -> tuple[GameState, dict
     if get_unit_base_bp(state, target) != 3000:
         raise AssertionError("barbatos scenario expected permanent base BP modifier after P1 turn end")
     start_turn(state, "P2", draw_count=0, cp=3)
+    attack_unit(state, "P2", target.unit_id, blocker.unit_id)
+    if target.unit_id not in state.units or blocker.unit_id in state.units:
+        raise AssertionError("barbatos scenario expected Giga Mammoth to win against Happaloid")
+    if get_unit_bp(state, target) != 4000:
+        raise AssertionError("barbatos scenario expected Giga Mammoth BP to be 4000 after battle win")
     end_turn(state, "P2")
-    if get_unit_base_bp(state, target) != 3000:
+    if get_unit_bp(state, target) != 4000:
         raise AssertionError("barbatos scenario expected permanent base BP modifier after P2 turn end")
     _ = base_card
     return state, initial_state

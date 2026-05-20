@@ -2132,6 +2132,13 @@ class ProtocolTest(unittest.TestCase):
         self.assertLess(battle_event_types.index("bp_modified"), battle_event_types.index("damage_dealt"))
         barbatos = json.loads((output_dir / "barbatos_base_bp.json").read_text(encoding="utf-8"))
         self.assertIn("base_bp_modified", [event["type"] for event in barbatos["events"]])
+        barbatos_level_events = [event for event in barbatos["events"] if event["type"] == "unit_level_changed"]
+        self.assertEqual(barbatos_level_events[-1]["payload"].get("after_bp"), 4000)
+        barbatos_final_target = next(
+            unit for unit in barbatos["final_state"]["units"].values() if unit["card_no"] == "1-0-048"
+        )
+        self.assertEqual(barbatos_final_target["level"], 2)
+        self.assertEqual(barbatos_final_target["base_bp_modifiers"][-1]["amount"], -4000)
         ectoplasm = json.loads((output_dir / "ectoplasm_destroy.json").read_text(encoding="utf-8"))
         self.assertIn("intercept_activated", [event["type"] for event in ectoplasm["events"]])
         self.assertGreaterEqual([event["type"] for event in ectoplasm["events"]].count("unit_destroyed"), 2)
