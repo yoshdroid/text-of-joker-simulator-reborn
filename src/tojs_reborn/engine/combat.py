@@ -239,6 +239,8 @@ def destroy_units(state: GameState, units: list[UnitState], cause_event_no: int,
 
 
 def _destroy_unit(state: GameState, unit: UnitState, cause_event_no: int, *, reason: str = "battle") -> None:
+    if unit.unit_id in state.pending_destroyed_units:
+        return
     player = state.players[unit.owner_player_id]
     destroyed_event = state.event_store.append(
         "unit_destroyed",
@@ -251,6 +253,31 @@ def _destroy_unit(state: GameState, unit: UnitState, cause_event_no: int, *, rea
     )
     resolve_unit_destroyed(state, unit, destroyed_event, get_effect_handlers())
 
+    from .windows import has_matching_intercept_window
+
+    if has_matching_intercept_window(state, "unit_destroyed", destroyed_event.event_no):
+        state.pending_destroyed_units[unit.unit_id] = {
+            "cause_event_no": cause_event_no,
+            "destroyed_event_no": destroyed_event.event_no,
+        }
+        return
+    _move_destroyed_unit_to_discard(state, unit, cause_event_no)
+
+
+def finalize_pending_destroyed_unit(state: GameState, destroyed_event_no: int) -> None:
+    for unit_id, pending in list(state.pending_destroyed_units.items()):
+        if pending.get("destroyed_event_no") != destroyed_event_no:
+            continue
+        unit = state.units.get(unit_id)
+        if unit is not None:
+            _move_destroyed_unit_to_discard(state, unit, int(pending["cause_event_no"]))
+        del state.pending_destroyed_units[unit_id]
+
+
+def _move_destroyed_unit_to_discard(state: GameState, unit: UnitState, cause_event_no: int) -> None:
+    player = state.players[unit.owner_player_id]
+    if unit.unit_id not in player.battlefield.units:
+        return
     player.battlefield.remove(unit.unit_id)
     player.discard_pile.add(unit.card_instance_id)
     state.event_store.append(

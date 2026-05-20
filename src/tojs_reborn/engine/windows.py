@@ -195,8 +195,17 @@ def process_windows_for_events(
                         choose_intercept,
                         effect_handlers,
                     )
+                if intercept_window == "unit_destroyed":
+                    from .combat import finalize_pending_destroyed_unit
+
+                    finalize_pending_destroyed_unit(state, event.event_no)
         index += 1
     return processed_count
+
+
+def has_matching_intercept_window(state: GameState, window: str, cause_event_no: int) -> bool:
+    cause_event = _event_by_no(state, cause_event_no)
+    return _has_matching_card(state, "intercept", "INTERCEPT", window, cause_event)
 
 
 def _activate_first_matching_card(

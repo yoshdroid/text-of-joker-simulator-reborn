@@ -83,6 +83,7 @@ class GameState:
     next_unit_no: int = 1
     seed: int = 0
     rng: random.Random = field(default_factory=lambda: random.Random(0))
+    pending_destroyed_units: dict[str, dict[str, Any]] = field(default_factory=dict)
 
     def create_card_instance(self, card_no: str, owner_player_id: str, level: int = 1) -> CardInstance:
         instance = CardInstance(

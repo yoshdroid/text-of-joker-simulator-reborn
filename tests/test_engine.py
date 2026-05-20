@@ -10,7 +10,7 @@ if SRC_PATH.exists():
 
 from tojs_reborn.cardpool.normalizer import normalize_cardpool
 from tojs_reborn.engine.actions import EFFECT_FIZZLED_REASONS, draw_cards, drive_unit, overclock_unit, override_card, set_trigger
-from tojs_reborn.engine.combat import attack_player, attack_unit, declare_attack, destroy_lethal_units
+from tojs_reborn.engine.combat import attack_player, attack_unit, declare_attack, destroy_lethal_units, destroy_unit
 from tojs_reborn.engine.events import EventSource, EventStore
 from tojs_reborn.engine.integrity import assert_game_state_integrity
 from tojs_reborn.engine.legal_actions import list_block_actions, list_legal_actions
@@ -23,7 +23,7 @@ from tojs_reborn.engine.replay import (
 from tojs_reborn.engine.rules import MAX_HAND_SIZE, MAX_TRIGGER_ZONE_CARDS, get_unit_base_bp, get_unit_bp, ruleset_to_dict, turn_cp_for
 from tojs_reborn.engine.state import AbilityDefinition, CardDefinition, create_game_state
 from tojs_reborn.engine.turn import end_turn, start_turn
-from tojs_reborn.engine.windows import list_trigger_intercept_window, process_intercept_window, process_trigger_window
+from tojs_reborn.engine.windows import list_trigger_intercept_window, process_intercept_window, process_trigger_window, process_windows_for_events
 
 
 EXCEL_PATH = ROOT / "carddata" / "text-of-joker.cardpool.xlsx"
@@ -1785,39 +1785,37 @@ class EngineTest(unittest.TestCase):
     def test_ectoplasm_destroyed_unit_window_destroys_rival_unit(self) -> None:
         state = create_game_state(self.catalog)
         state.turn_player_id = "P1"
-        _support_card, support_unit = self._add_battlefield_unit(state, "P1", "1-0-027")
-        destroyed_card = state.create_card_instance("1-0-031", "P1")
-        destroyed_unit = state.create_unit(destroyed_card.instance_id)
+        _destroyed_card, destroyed_unit = self._add_battlefield_unit(state, "P1", "1-0-031")
         rival_card, rival_unit = self._add_battlefield_unit(state, "P2", "1-0-040")
         ectoplasm = state.create_card_instance("1-0-092", "P1")
         state.players["P1"].trigger_zone.add(ectoplasm.instance_id)
         state.players["P1"].current_cp = 3
-        cause_event = state.event_store.append(
-            "unit_destroyed",
-            round_no=1,
-            turn_no=1,
-            actor_player_id="P1",
-            source=EventSource(
-                card_no=destroyed_unit.card_no,
-                card_instance_id=destroyed_unit.card_instance_id,
-                unit_id=destroyed_unit.unit_id,
-            ),
-            payload={"reason": "battle"},
-        )
 
-        activated_count = process_intercept_window(
+        first_event_no = len(state.event_store.events) + 1
+        destroy_unit(state, destroyed_unit, first_event_no, reason="scenario")
+        self.assertIn(destroyed_unit.unit_id, state.units)
+        self.assertIn(destroyed_unit.unit_id, state.players["P1"].battlefield.units)
+        activated_count = process_windows_for_events(
             state,
-            "unit_destroyed",
-            cause_event.event_no,
+            first_event_no,
             choose_intercept=lambda _player_id, actions: actions[0],
         )
 
         self.assertEqual(activated_count, 1)
-        self.assertIn(support_unit.unit_id, state.units)
+        self.assertNotIn(destroyed_unit.unit_id, state.units)
         self.assertNotIn(rival_unit.unit_id, state.units)
         self.assertIn(rival_card.instance_id, state.players["P2"].discard_pile.cards)
+        self.assertIn(destroyed_unit.card_instance_id, state.players["P1"].discard_pile.cards)
         self.assertEqual(state.players["P1"].current_cp, 0)
         self.assertEqual(state.players["P1"].trigger_zone.cards, [])
+        events = state.event_store.events
+        destroyed_move_index = next(
+            index
+            for index, event in enumerate(events)
+            if event.type == "card_moved" and event.source.unit_id == destroyed_unit.unit_id
+        )
+        last_pass_index = max(index for index, event in enumerate(events) if event.type == "intercept_passed")
+        self.assertGreater(destroyed_move_index, last_pass_index)
 
     def test_battle_intercept_window_opens_attacker_side_first(self) -> None:
         state = create_game_state(self.catalog)

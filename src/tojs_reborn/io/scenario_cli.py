@@ -684,7 +684,6 @@ def _scenario_ectoplasm_destroy(catalog: dict[str, Any]) -> tuple[GameState, dic
 
     state = create_game_state(catalog, seed=_scenario_seed(92))
     state.turn_player_id = "P1"
-    _support_card, support = _add_battlefield_unit(state, "P1", "1-0-027")
     _destroyed_card, destroyed = _add_battlefield_unit(state, "P1", "1-0-031")
     _rival_card, rival = _add_battlefield_unit(state, "P2", "1-0-040")
     ectoplasm = _create_initial_deck_card(state, "P1", "1-0-092")
@@ -695,8 +694,17 @@ def _scenario_ectoplasm_destroy(catalog: dict[str, Any]) -> tuple[GameState, dic
     first_event_no = len(state.event_store.events) + 1
     destroy_unit(state, destroyed, first_event_no, reason="scenario")
     process_windows_for_events(state, first_event_no, choose_intercept=_choose_first_intercept)
-    if rival.unit_id in state.units or support.unit_id not in state.units:
-        raise AssertionError("ectoplasm scenario expected rival destroyed while blue support remains")
+    if rival.unit_id in state.units or destroyed.unit_id in state.units:
+        raise AssertionError("ectoplasm scenario expected source and rival units to be destroyed")
+    event_types = [event.type for event in state.event_store.events]
+    destroyed_move_index = next(
+        index
+        for index, event in enumerate(state.event_store.events)
+        if event.type == "card_moved" and event.source.unit_id == destroyed.unit_id
+    )
+    last_pass_index = max(index for index, event in enumerate(state.event_store.events) if event.type == "intercept_passed")
+    if not event_types.index("unit_destroyed") < event_types.index("intercept_window_opened") < last_pass_index < destroyed_move_index:
+        raise AssertionError("ectoplasm scenario expected source unit to move after unit_destroyed intercept window")
     return state, initial_state
 
 
