@@ -23,8 +23,10 @@ KNOWN_TIMINGS = {
     "SELF_BLOCK",
     "SELF_TURN_END",
     "TRIGGER_ANY",
+    "TRIGGER_UNIT_DESTROYED",
     "INTERCEPT_ANY",
     "INTERCEPT_ATTACK",
+    "PASSIVE",
 }
 
 KNOWN_TIMING_PREFIXES = (
@@ -45,13 +47,16 @@ KNOWN_EFFECTS = {
     "destroy_all_other_units",
     "draw_card_by_category",
     "draw_cards",
+    "grant_keyword",
     "modify_bp",
+    "modify_bp_units",
     "modify_base_bp",
     "move_random_discard_to_hand",
     "move_card",
     "move_discard_to_hand",
     "recover_action",
     "return_unit_to_hand",
+    "set_unit_level",
 }
 
 ENGINE_SUPPORTED_EFFECTS = {
@@ -67,12 +72,15 @@ ENGINE_SUPPORTED_EFFECTS = {
     "destroy_all_other_units",
     "draw_card_by_category",
     "draw_cards",
+    "grant_keyword",
     "modify_bp",
+    "modify_bp_units",
     "modify_base_bp",
     "move_random_discard_to_hand",
     "move_discard_to_hand",
     "recover_action",
     "return_unit_to_hand",
+    "set_unit_level",
 }
 
 

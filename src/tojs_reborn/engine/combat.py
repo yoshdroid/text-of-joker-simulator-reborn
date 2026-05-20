@@ -38,7 +38,7 @@ def declare_attack(
 
 def attack_bypasses_block(state: GameState, attacker_unit_id: str) -> bool:
     attacker = state.units[attacker_unit_id]
-    return attacker.card_no == "1-0-008"
+    return "unblockable" in attacker.keywords
 
 
 def resolve_unblocked_attack(state: GameState, attack_event_no: int) -> None:

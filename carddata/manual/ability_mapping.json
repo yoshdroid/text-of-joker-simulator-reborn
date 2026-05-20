@@ -590,6 +590,311 @@
         }
       ]
     },
+    "1-0-008": {
+      "card_name": "バルキリークララ",
+      "abilities": [
+        {
+          "ability_key": "1-0-008:a1",
+          "ability_name": "聖女の加護",
+          "source_text": "このユニットはブロックされない。",
+          "status": "supported",
+          "timing": "PASSIVE",
+          "optional": false,
+          "priority": {
+            "band": "static",
+            "order": "source_only"
+          },
+          "condition": null,
+          "cost_steps": [],
+          "selector": null,
+          "effect_steps": [
+            {
+              "effect": "grant_keyword",
+              "target": "source",
+              "keyword": "unblockable",
+              "duration": "permanent"
+            }
+          ]
+        }
+      ]
+    },
+    "1-0-015": {
+      "card_name": "サイボーグ僧兵",
+      "abilities": [
+        {
+          "ability_key": "1-0-015:a1",
+          "ability_name": "ブロッカー",
+          "source_text": "このユニットがブロックした時、ターン終了時までこのユニットのＢＰを＋２０００する。",
+          "status": "supported",
+          "timing": "SELF_BLOCK",
+          "optional": false,
+          "priority": {
+            "band": "unit",
+            "order": "source_only"
+          },
+          "condition": null,
+          "cost_steps": [],
+          "selector": null,
+          "effect_steps": [
+            {
+              "effect": "modify_bp",
+              "target": "source",
+              "amount": 2000,
+              "duration": "turn"
+            }
+          ]
+        }
+      ]
+    },
+    "1-0-022": {
+      "card_name": "ルインガーディアン",
+      "abilities": [
+        {
+          "ability_key": "1-0-022:a1",
+          "ability_name": "ブロッカー",
+          "source_text": "このユニットがブロックした時、ターン終了時までこのユニットのＢＰを＋２０００する。",
+          "status": "supported",
+          "timing": "SELF_BLOCK",
+          "optional": false,
+          "priority": {
+            "band": "unit",
+            "order": "source_only"
+          },
+          "condition": null,
+          "cost_steps": [],
+          "selector": null,
+          "effect_steps": [
+            {
+              "effect": "modify_bp",
+              "target": "source",
+              "amount": 2000,
+              "duration": "turn"
+            }
+          ]
+        }
+      ]
+    },
+    "1-0-034": {
+      "card_name": "ガシャドクロ",
+      "abilities": [
+        {
+          "ability_key": "1-0-034:a1",
+          "ability_name": "死への誘い",
+          "source_text": "このユニットが破壊された時、対戦相手に１ライフダメージを与える。",
+          "status": "supported",
+          "timing": "SELF_PIG",
+          "optional": false,
+          "priority": {
+            "band": "unit",
+            "order": "source_only"
+          },
+          "condition": null,
+          "cost_steps": [],
+          "selector": null,
+          "effect_steps": [
+            {
+              "effect": "deal_life_damage",
+              "player": "rival",
+              "amount": 1
+            }
+          ]
+        }
+      ]
+    },
+    "1-0-050": {
+      "card_name": "鬼ブル",
+      "abilities": [
+        {
+          "ability_key": "1-0-050:a1",
+          "ability_name": "無条件移動",
+          "source_text": "このユニットがアタックした時、このユニットの基本ＢＰを＋１０００する。",
+          "status": "supported",
+          "timing": "SELF_ATK",
+          "optional": false,
+          "priority": {
+            "band": "unit",
+            "order": "source_only"
+          },
+          "condition": null,
+          "cost_steps": [],
+          "selector": null,
+          "effect_steps": [
+            {
+              "effect": "modify_base_bp",
+              "target": "source",
+              "amount": 1000,
+              "duration": "permanent"
+            }
+          ]
+        }
+      ]
+    },
+    "1-0-054": {
+      "card_name": "ベーシックキャノン",
+      "abilities": [
+        {
+          "ability_key": "1-0-054:a1",
+          "ability_name": "ベーシックキャノン",
+          "source_text": "あなたのユニットがフィールドに出た時、対戦相手のユニットを１体選ぶ。それに１０００ダメージを与える。",
+          "status": "supported",
+          "timing": "TRIGGER_UNIT_ENTERED",
+          "optional": false,
+          "priority": {
+            "band": "trigger",
+            "order": "left_to_right"
+          },
+          "condition": {
+            "type": "event_actor_is_owner"
+          },
+          "cost_steps": [],
+          "selector": {
+            "id": "target",
+            "type": "unit",
+            "controller": "rival",
+            "count": 1,
+            "required": true
+          },
+          "effect_steps": [
+            {
+              "effect": "deal_damage_to_unit",
+              "target": "target",
+              "amount": 1000
+            }
+          ]
+        }
+      ]
+    },
+    "1-0-056": {
+      "card_name": "不穏な霧",
+      "abilities": [
+        {
+          "ability_key": "1-0-056:a1",
+          "ability_name": "不穏な霧",
+          "source_text": "あなたのユニットが破壊された時、ＣＰを＋２する。",
+          "status": "supported",
+          "timing": "TRIGGER_UNIT_DESTROYED",
+          "optional": false,
+          "priority": {
+            "band": "trigger",
+            "order": "left_to_right"
+          },
+          "condition": {
+            "type": "event_actor_is_owner"
+          },
+          "cost_steps": [],
+          "selector": null,
+          "effect_steps": [
+            {
+              "effect": "change_cp",
+              "player": "owner",
+              "amount": 2
+            }
+          ]
+        }
+      ]
+    },
+    "1-0-066": {
+      "card_name": "開戦指示",
+      "abilities": [
+        {
+          "ability_key": "1-0-066:a1",
+          "ability_name": "開戦指示",
+          "source_text": "あなたのユニットが戦闘した時、あなたの全てユニットのＢＰを＋１０００する。",
+          "status": "supported",
+          "timing": "INTERCEPT_BATTLE",
+          "optional": true,
+          "priority": {
+            "band": "intercept",
+            "order": "left_to_right"
+          },
+          "condition": {
+            "type": "battle_unit_controller_is_owner"
+          },
+          "cost_steps": [],
+          "selector": {
+            "id": "targets",
+            "type": "unit",
+            "controller": "owner",
+            "count": "all",
+            "required": false
+          },
+          "effect_steps": [
+            {
+              "effect": "modify_bp_units",
+              "target": "targets",
+              "amount": 1000,
+              "duration": "turn"
+            }
+          ]
+        }
+      ]
+    },
+    "1-0-067": {
+      "card_name": "一騎打ち",
+      "abilities": [
+        {
+          "ability_key": "1-0-067:a1",
+          "ability_name": "一騎打ち",
+          "source_text": "あなたのユニットが戦闘した時、それの基本ＢＰを＋１０００する。",
+          "status": "supported",
+          "timing": "INTERCEPT_BATTLE",
+          "optional": true,
+          "priority": {
+            "band": "intercept",
+            "order": "left_to_right"
+          },
+          "condition": {
+            "type": "battle_unit_controller_is_owner"
+          },
+          "cost_steps": [],
+          "selector": null,
+          "effect_steps": [
+            {
+              "effect": "modify_base_bp",
+              "target": "owner_battle_unit",
+              "amount": 1000,
+              "duration": "permanent"
+            }
+          ]
+        }
+      ]
+    },
+    "1-0-083": {
+      "card_name": "フォトン",
+      "abilities": [
+        {
+          "ability_key": "1-0-083:a1",
+          "ability_name": "フォトン",
+          "source_text": "あなたのユニットがフィールドに出た時、対戦相手の行動済ユニットを１体選ぶ。それに３０００ダメージを与える。",
+          "status": "supported",
+          "timing": "INTERCEPT_UNIT_ENTERED",
+          "optional": true,
+          "priority": {
+            "band": "intercept",
+            "order": "left_to_right"
+          },
+          "condition": {
+            "type": "event_actor_is_owner"
+          },
+          "cost_steps": [],
+          "selector": {
+            "id": "target",
+            "type": "unit",
+            "controller": "rival",
+            "count": 1,
+            "required": true,
+            "exhausted": true
+          },
+          "effect_steps": [
+            {
+              "effect": "deal_damage_to_unit",
+              "target": "target",
+              "amount": 3000
+            }
+          ]
+        }
+      ]
+    },
     "1-0-065": {
       "card_name": "パワーショーテージ",
       "abilities": [

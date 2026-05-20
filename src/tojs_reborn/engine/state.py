@@ -159,4 +159,9 @@ def _printed_keywords(card: CardDefinition) -> list[str]:
     for ability in card.abilities:
         if ability.name == "不屈" and "indomitable" not in keywords:
             keywords.append("indomitable")
+        for step in ability.effect_steps:
+            if step.get("effect") == "grant_keyword":
+                keyword = str(step.get("keyword", ""))
+                if keyword and keyword not in keywords:
+                    keywords.append(keyword)
     return keywords

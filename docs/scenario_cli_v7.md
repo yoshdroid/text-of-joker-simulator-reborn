@@ -84,4 +84,5 @@ python -m tojs_reborn.io.replay_gui --cards carddata/generated/cards.normalized.
 | `heroic_sword_battle` | 英雄の剣 | `1-0-074` 英雄の剣を battle intercept で発動し、自分の戦闘中ユニットのBPがターン終了時まで+2000され、ターン終了で戻る。 | ✓ |  | v8追加 |
 | `power_shortage_battle` | パワーショーテージ | `1-0-065` パワーショーテージを battle intercept で発動し、戦闘中の対戦相手ユニットのBPをターン終了時まで-2000する。 | ✓ |  | v8追加 |
 | `exquisite_provocation_no_oc` | 絶妙な挑発 | `1-0-069` 絶妙な挑発で対戦相手ユニットをLV3にするが、そのユニットのOC効果は発動しない。 | ✓ |  | v8追加 |
+| `v8_next_10_cards` | v8追加候補10枚 | バルキリークララ、鬼ブル、ガシャドクロ、開戦指示など、v8追加候補10枚の代表挙動をまとめて確認する。 | ✓ |  | v8追加 |
 - カテゴリサーチはデッキリフレッシュのきっかけにならない。デッキが空ならサーチは不発になり、`cards_drawn.count` は0になる。

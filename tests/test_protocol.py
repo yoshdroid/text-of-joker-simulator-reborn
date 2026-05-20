@@ -2099,6 +2099,7 @@ class ProtocolTest(unittest.TestCase):
                 "rairyu_evolve_damage",
                 "tailwind_intercept_cp",
                 "trigger_lost_random",
+                "v8_next_10_cards",
                 "viper_discard_unit_recover",
             },
         )

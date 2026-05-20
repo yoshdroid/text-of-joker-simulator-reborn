@@ -85,6 +85,7 @@ SCENARIOS: dict[str, ScenarioBuilder] = {
     "rairyu_evolve_damage": lambda catalog: _scenario_rairyu_evolve_damage(catalog),
     "tailwind_intercept_cp": lambda catalog: _scenario_tailwind_intercept_cp(catalog),
     "trigger_lost_random": lambda catalog: _scenario_trigger_lost_random(catalog),
+    "v8_next_10_cards": lambda catalog: _scenario_v8_next_10_cards(catalog),
     "viper_discard_unit_recover": lambda catalog: _scenario_viper_discard_unit_recover(catalog),
 }
 
@@ -320,6 +321,56 @@ def _scenario_block_bypass_player_attack(catalog: dict[str, Any]) -> tuple[GameS
 
     attack_event = declare_attack(state, "P1", attacker.unit_id)
     resolve_unblocked_attack(state, attack_event.event_no)
+    return state, initial_state
+
+
+def _scenario_v8_next_10_cards(catalog: dict[str, Any]) -> tuple[GameState, dict[str, Any]]:
+    from tojs_reborn.engine.rules import get_unit_base_bp, get_unit_bp
+    from tojs_reborn.engine.state import create_game_state
+
+    state = create_game_state(catalog, seed=_scenario_seed(110))
+    state.turn_no = 3
+    state.turn_player_id = "P1"
+    _clara_card, clara = _add_battlefield_unit(state, "P1", "1-0-008")
+    _clara_blocker_card, _clara_blocker = _add_battlefield_unit(state, "P2", "1-0-045")
+    initial_state = snapshot_initial_state(state)
+
+    attack_event = declare_attack(state, "P1", clara.unit_id)
+    resolve_unblocked_attack(state, attack_event.event_no)
+
+    _oni_card, oni = _add_battlefield_unit(state, "P1", "1-0-050")
+    before_oni_base = get_unit_base_bp(state, oni)
+    attack_player(state, "P1", oni.unit_id)
+    if get_unit_base_bp(state, oni) != before_oni_base + 1000:
+        raise AssertionError("v8 next scenario expected Oni Bull base BP to increase")
+
+    _gasha_card, gasha = _add_battlefield_unit(state, "P2", "1-0-034")
+    before_life = state.players["P1"].life
+    destroy_unit(state, gasha, len(state.event_store.events) + 1, reason="scenario")
+    if state.players["P1"].life != before_life - 1:
+        raise AssertionError("v8 next scenario expected Gashadokuro PIG life damage")
+
+    _attacker_card, attacker = _add_battlefield_unit(state, "P1", "1-0-001")
+    _ally_card, ally = _add_battlefield_unit(state, "P1", "1-0-040")
+    _blocker_card, blocker = _add_battlefield_unit(state, "P2", "1-0-040")
+    order = _create_initial_deck_card(state, "P1", "1-0-066")
+    state.players["P1"].trigger_zone.add(order.instance_id)
+    state.players["P1"].current_cp = 1
+    before_ally_bp = get_unit_bp(state, ally)
+    battle_attack_event = declare_attack(state, "P1", attacker.unit_id)
+    declare_block(
+        state,
+        "P2",
+        blocker.unit_id,
+        attacker.unit_id,
+        battle_attack_event.event_no,
+        battle_started_callback=lambda scenario_state, event_no: process_windows_for_events(
+            scenario_state, event_no, choose_intercept=_choose_first_intercept
+        ),
+    )
+    if get_unit_bp(state, ally) != before_ally_bp + 1000:
+        raise AssertionError("v8 next scenario expected Opening Order to modify all owner units")
+
     return state, initial_state
 
 

@@ -671,6 +671,49 @@ def _handle_modify_bp(
     )
 
 
+def _handle_modify_bp_units(
+    state: GameState,
+    unit: UnitState,
+    ability: AbilityDefinition,
+    ability_event: FactEvent,
+    step: dict,
+) -> None:
+    targets = resolve_unit_targets_for_effect(state, unit, ability, ability_event, step.get("target"))
+    if not targets:
+        _append_effect_fizzled(state, unit.owner_player_id, ability_event, step, "no_valid_target")
+        return
+    for target in targets:
+        if target.unit_id not in state.units:
+            continue
+        _handle_modify_bp(state, unit, ability, ability_event, {**step, "target": target.unit_id})
+
+
+def _handle_grant_keyword(
+    state: GameState,
+    unit: UnitState,
+    ability: AbilityDefinition,
+    ability_event: FactEvent,
+    step: dict,
+) -> None:
+    target = resolve_unit_target_for_effect(state, unit, ability, ability_event, step.get("target"))
+    if target is None:
+        _append_effect_fizzled(state, unit.owner_player_id, ability_event, step, "no_valid_target")
+        return
+    keyword = str(step.get("keyword", ""))
+    if not keyword or keyword in target.keywords:
+        return
+    target.keywords.append(keyword)
+    state.event_store.append(
+        "keyword_granted",
+        round_no=state.round_no,
+        turn_no=state.turn_no,
+        actor_player_id=unit.owner_player_id,
+        cause_event_no=ability_event.event_no,
+        source=ability_event.source,
+        payload={"unit_id": target.unit_id, "keyword": keyword, "duration": step.get("duration", "permanent")},
+    )
+
+
 def _handle_modify_base_bp(
     state: GameState,
     unit: UnitState,

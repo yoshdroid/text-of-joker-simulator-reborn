@@ -10,7 +10,7 @@ if SRC_PATH.exists():
 
 from tojs_reborn.cardpool.normalizer import normalize_cardpool
 from tojs_reborn.engine.actions import EFFECT_FIZZLED_REASONS, draw_cards, drive_unit, overclock_unit, override_card, set_trigger
-from tojs_reborn.engine.combat import attack_player, attack_unit, declare_attack, declare_block, destroy_lethal_units, destroy_unit
+from tojs_reborn.engine.combat import attack_bypasses_block, attack_player, attack_unit, declare_attack, declare_block, destroy_lethal_units, destroy_unit
 from tojs_reborn.engine.events import EventSource, EventStore
 from tojs_reborn.engine.integrity import assert_game_state_integrity
 from tojs_reborn.engine.legal_actions import list_block_actions, list_legal_actions
@@ -233,7 +233,7 @@ class EngineTest(unittest.TestCase):
         second_draw = state.create_card_instance("1-0-004", "P1")
         state.players["P1"].hand.add(entering.instance_id)
         state.players["P1"].deck.cards.extend([first_draw.instance_id, second_draw.instance_id])
-        state.players["P1"].current_cp = 1
+        state.players["P1"].current_cp = 3
 
         drive_unit(state, "P1", entering.instance_id)
 
@@ -766,7 +766,7 @@ class EngineTest(unittest.TestCase):
         opponent_draw = state.create_card_instance("1-0-004", "P2")
         state.players["P1"].hand.add(entering.instance_id)
         state.players["P2"].deck.cards.append(opponent_draw.instance_id)
-        state.players["P1"].current_cp = 1
+        state.players["P1"].current_cp = 3
 
         drive_unit(state, "P1", entering.instance_id)
 
@@ -1935,6 +1935,97 @@ class EngineTest(unittest.TestCase):
         end_turn(state, "P1")
         self.assertEqual(get_unit_bp(state, attacker), 4000)
         self.assertIn("modifier_expired", [event.type for event in state.event_store.events])
+
+    def test_next_candidate_cards_resolve_basic_effects(self) -> None:
+        # Valkyrie Clara is already engine-supported through the printed unblockable keyword.
+        state = create_game_state(self.catalog)
+        clara_card, clara = self._add_battlefield_unit(state, "P1", "1-0-008")
+        self.assertIn("unblockable", clara.keywords)
+        self.assertTrue(attack_bypasses_block(state, clara.unit_id))
+        _ = clara_card
+
+        for card_no in ("1-0-015", "1-0-022"):
+            state = create_game_state(self.catalog)
+            state.turn_player_id = "P1"
+            _attacker_card, attacker = self._add_battlefield_unit(state, "P1", "1-0-001")
+            _blocker_card, blocker = self._add_battlefield_unit(state, "P2", card_no)
+            attack_unit(state, "P1", attacker.unit_id, blocker.unit_id)
+            self.assertIn("bp_modified", [event.type for event in state.event_store.events])
+
+        state = create_game_state(self.catalog)
+        state.turn_player_id = "P1"
+        _gasha_card, gasha = self._add_battlefield_unit(state, "P1", "1-0-034")
+        destroy_unit(state, gasha, 1, reason="scenario")
+        self.assertEqual(state.players["P2"].life, 6)
+
+        state = create_game_state(self.catalog)
+        state.turn_player_id = "P1"
+        _oni_card, oni = self._add_battlefield_unit(state, "P1", "1-0-050")
+        before_bp = get_unit_base_bp(state, oni)
+        attack_player(state, "P1", oni.unit_id)
+        self.assertEqual(get_unit_base_bp(state, oni), before_bp + 1000)
+
+        state = create_game_state(self.catalog)
+        state.turn_player_id = "P1"
+        entering = state.create_card_instance("1-0-040", "P1")
+        _rival_card, rival = self._add_battlefield_unit(state, "P2", "1-0-001")
+        basic_cannon = state.create_card_instance("1-0-054", "P1")
+        state.players["P1"].hand.add(entering.instance_id)
+        state.players["P1"].trigger_zone.add(basic_cannon.instance_id)
+        state.players["P1"].current_cp = 1
+        drive_unit(state, "P1", entering.instance_id)
+        process_windows_for_events(state, 1)
+        self.assertEqual(rival.current_damage, 1000)
+
+        state = create_game_state(self.catalog)
+        state.turn_player_id = "P1"
+        _unit_card, unit = self._add_battlefield_unit(state, "P1", "1-0-001")
+        fog = state.create_card_instance("1-0-056", "P1")
+        state.players["P1"].trigger_zone.add(fog.instance_id)
+        destroy_unit(state, unit, 1, reason="scenario")
+        process_windows_for_events(state, 1)
+        self.assertEqual(state.players["P1"].current_cp, 2)
+
+        state = create_game_state(self.catalog)
+        state.turn_player_id = "P1"
+        _attacker_card, attacker = self._add_battlefield_unit(state, "P1", "1-0-001")
+        _ally_card, ally = self._add_battlefield_unit(state, "P1", "1-0-040")
+        _blocker_card, blocker = self._add_battlefield_unit(state, "P2", "1-0-040")
+        order = state.create_card_instance("1-0-066", "P1")
+        before_ally_bp = get_unit_bp(state, ally)
+        state.players["P1"].trigger_zone.add(order.instance_id)
+        state.players["P1"].current_cp = 1
+        attack_event = declare_attack(state, "P1", attacker.unit_id)
+        declare_block(state, "P2", blocker.unit_id, attacker.unit_id, attack_event.event_no, battle_started_callback=lambda s, e: process_windows_for_events(s, e, choose_intercept=lambda _p, actions: actions[0]))
+        self.assertEqual(get_unit_bp(state, ally), before_ally_bp + 1000)
+
+        state = create_game_state(self.catalog)
+        state.turn_player_id = "P1"
+        _attacker_card, attacker = self._add_battlefield_unit(state, "P1", "1-0-001")
+        _blocker_card, blocker = self._add_battlefield_unit(state, "P2", "1-0-040")
+        duel = state.create_card_instance("1-0-067", "P1")
+        state.players["P1"].trigger_zone.add(duel.instance_id)
+        state.players["P1"].current_cp = 1
+        attack_event = declare_attack(state, "P1", attacker.unit_id)
+        declare_block(state, "P2", blocker.unit_id, attacker.unit_id, attack_event.event_no, battle_started_callback=lambda s, e: process_windows_for_events(s, e, choose_intercept=lambda _p, actions: actions[0]))
+        base_event = next(event for event in state.event_store.events if event.type == "base_bp_modified")
+        self.assertEqual(base_event.payload["target_unit_id"], attacker.unit_id)
+        self.assertEqual(base_event.payload["amount"], 1000)
+
+        state = create_game_state(self.catalog)
+        state.turn_player_id = "P1"
+        entering = state.create_card_instance("1-0-014", "P1")
+        _ready_card, ready = self._add_battlefield_unit(state, "P2", "1-0-001")
+        _exhausted_card, exhausted = self._add_battlefield_unit(state, "P2", "1-0-004")
+        exhausted.exhausted = True
+        photon = state.create_card_instance("1-0-083", "P1")
+        state.players["P1"].hand.add(entering.instance_id)
+        state.players["P1"].trigger_zone.add(photon.instance_id)
+        state.players["P1"].current_cp = 3
+        drive_unit(state, "P1", entering.instance_id)
+        process_windows_for_events(state, 1, choose_intercept=lambda _p, actions: actions[0])
+        self.assertEqual(exhausted.current_damage, 3000)
+        self.assertEqual(ready.current_damage, 0)
 
     def test_exquisite_provocation_sets_rival_unit_level_three_without_oc_effect(self) -> None:
         state = create_game_state(self.catalog)
