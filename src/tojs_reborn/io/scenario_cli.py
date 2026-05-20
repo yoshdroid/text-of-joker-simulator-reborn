@@ -645,6 +645,7 @@ def _scenario_battle_intercepts(catalog: dict[str, Any]) -> tuple[GameState, dic
 
 
 def _scenario_barbatos_base_bp(catalog: dict[str, Any]) -> tuple[GameState, dict[str, Any]]:
+    from tojs_reborn.engine.rules import get_unit_base_bp
     from tojs_reborn.engine.state import create_game_state
 
     state = create_game_state(catalog, seed=_scenario_seed(51))
@@ -659,6 +660,15 @@ def _scenario_barbatos_base_bp(catalog: dict[str, Any]) -> tuple[GameState, dict
     drive_unit(state, "P1", barbatos.instance_id, evolve_target_unit_id=base_unit.unit_id)
     if not target.base_bp_modifiers:
         raise AssertionError("barbatos scenario expected permanent base BP modifier")
+    if get_unit_base_bp(state, target) != 3000:
+        raise AssertionError("barbatos scenario expected Giga Mammoth base BP to become 3000")
+    end_turn(state, "P1")
+    if get_unit_base_bp(state, target) != 3000:
+        raise AssertionError("barbatos scenario expected permanent base BP modifier after P1 turn end")
+    start_turn(state, "P2", draw_count=0, cp=3)
+    end_turn(state, "P2")
+    if get_unit_base_bp(state, target) != 3000:
+        raise AssertionError("barbatos scenario expected permanent base BP modifier after P2 turn end")
     _ = base_card
     return state, initial_state
 
