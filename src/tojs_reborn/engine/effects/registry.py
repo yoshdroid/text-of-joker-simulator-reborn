@@ -23,4 +23,5 @@ def get_effect_handlers():
         "move_random_discard_to_hand": actions._handle_move_random_discard_to_hand,
         "recover_action": actions._handle_recover_action,
         "return_unit_to_hand": actions._handle_return_unit_to_hand,
+        "set_unit_level": actions._handle_set_unit_level,
     }

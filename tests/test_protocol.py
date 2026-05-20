@@ -2081,9 +2081,11 @@ class ProtocolTest(unittest.TestCase):
                 "deck_refresh_draw",
                 "display_stand_trigger_draw",
                 "ectoplasm_destroy",
+                "exquisite_provocation_no_oc",
                 "goliath_level3_life_damage",
                 "hand_limit_draw",
                 "happaloid_cip_draw",
+                "heroic_sword_battle",
                 "howling_intercept_draw_two",
                 "jumpoo_bounce_hand_limit",
                 "kaim_cip_trigger_search",
@@ -2092,6 +2094,7 @@ class ProtocolTest(unittest.TestCase):
                 "new_armor_surprise_box_chain",
                 "new_armor_trigger",
                 "oc_consume_action",
+                "power_shortage_battle",
                 "raguel_exhausted_damage",
                 "rairyu_evolve_damage",
                 "tailwind_intercept_cp",
@@ -2130,6 +2133,22 @@ class ProtocolTest(unittest.TestCase):
         )
         battle_event_types = [event["type"] for event in battle_intercepts["events"]]
         self.assertLess(battle_event_types.index("bp_modified"), battle_event_types.index("damage_dealt"))
+        power_shortage = json.loads((output_dir / "power_shortage_battle.json").read_text(encoding="utf-8"))
+        self.assertEqual(
+            [event["payload"].get("after_bp") for event in power_shortage["events"] if event["type"] == "bp_modified"],
+            [1000],
+        )
+        heroic_sword = json.loads((output_dir / "heroic_sword_battle.json").read_text(encoding="utf-8"))
+        self.assertEqual(
+            [event["payload"].get("after_bp") for event in heroic_sword["events"] if event["type"] == "bp_modified"],
+            [5000],
+        )
+        self.assertIn("modifier_expired", [event["type"] for event in heroic_sword["events"]])
+        provocation = json.loads((output_dir / "exquisite_provocation_no_oc.json").read_text(encoding="utf-8"))
+        provocation_level_events = [event for event in provocation["events"] if event["type"] == "unit_level_changed"]
+        self.assertEqual(provocation_level_events[-1]["payload"].get("after_level"), 3)
+        self.assertTrue(provocation_level_events[-1]["payload"].get("suppress_overclock"))
+        self.assertNotIn("unit_overclocked", [event["type"] for event in provocation["events"]])
         barbatos = json.loads((output_dir / "barbatos_base_bp.json").read_text(encoding="utf-8"))
         self.assertIn("base_bp_modified", [event["type"] for event in barbatos["events"]])
         barbatos_level_events = [event for event in barbatos["events"] if event["type"] == "unit_level_changed"]

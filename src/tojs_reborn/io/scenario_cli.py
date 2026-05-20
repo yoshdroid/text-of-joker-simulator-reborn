@@ -66,6 +66,7 @@ SCENARIOS: dict[str, ScenarioBuilder] = {
     "dartagnan_cip_attack_draw": lambda catalog: _scenario_dartagnan_cip_attack_draw(catalog),
     "deck_refresh_draw": lambda catalog: _scenario_deck_refresh_draw(catalog),
     "display_stand_trigger_draw": lambda catalog: _scenario_display_stand_trigger_draw(catalog),
+    "exquisite_provocation_no_oc": lambda catalog: _scenario_exquisite_provocation_no_oc(catalog),
     "ectoplasm_destroy": lambda catalog: _scenario_ectoplasm_destroy(catalog),
     "goliath_level3_life_damage": lambda catalog: _scenario_goliath_level3_life_damage(catalog),
     "happaloid_cip_draw": lambda catalog: _scenario_happaloid_cip_draw(catalog),
@@ -674,6 +675,31 @@ def _scenario_power_shortage_battle(catalog: dict[str, Any]) -> tuple[GameState,
         raise AssertionError("power shortage scenario expected rival battle unit BP to become 1000")
     if blocker.unit_id in state.units:
         raise AssertionError("power shortage scenario expected weakened blocker to be destroyed")
+    return state, initial_state
+
+
+def _scenario_exquisite_provocation_no_oc(catalog: dict[str, Any]) -> tuple[GameState, dict[str, Any]]:
+    from tojs_reborn.engine.state import create_game_state
+
+    state = create_game_state(catalog, seed=_scenario_seed(69))
+    state.turn_player_id = "P1"
+    entering = _create_initial_deck_card(state, "P1", "1-0-040")
+    _target_card, target = _add_battlefield_unit(state, "P2", "1-0-001")
+    provocation = _create_initial_deck_card(state, "P1", "1-0-069")
+    state.players["P1"].hand.add(entering.instance_id)
+    state.players["P1"].trigger_zone.add(provocation.instance_id)
+    state.players["P1"].current_cp = 1
+    initial_state = snapshot_initial_state(state)
+
+    first_event_no = len(state.event_store.events) + 1
+    drive_unit(state, "P1", entering.instance_id)
+    process_windows_for_events(state, first_event_no, choose_intercept=_choose_first_intercept)
+    if target.level != 3:
+        raise AssertionError("exquisite provocation scenario expected rival unit to become LV3")
+    if any(event.type == "unit_overclocked" and event.source.unit_id == target.unit_id for event in state.event_store.events):
+        raise AssertionError("exquisite provocation scenario expected no target overclock event")
+    if any(event.type == "damage_dealt" for event in state.event_store.events):
+        raise AssertionError("exquisite provocation scenario expected suppressed OC effect")
     return state, initial_state
 
 

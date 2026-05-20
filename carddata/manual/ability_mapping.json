@@ -650,6 +650,42 @@
         }
       ]
     },
+    "1-0-069": {
+      "card_name": "絶妙な挑発",
+      "abilities": [
+        {
+          "ability_key": "1-0-069:a1",
+          "ability_name": "絶妙な挑発",
+          "source_text": "自分のユニット登場時、対戦相手ユニット1体をLV3にする。ただしこの効果でOCしたユニットのOC効果は発動しない。",
+          "status": "supported",
+          "timing": "INTERCEPT_UNIT_ENTERED",
+          "optional": true,
+          "priority": {
+            "band": "intercept",
+            "order": "left_to_right"
+          },
+          "condition": {
+            "type": "event_actor_is_owner"
+          },
+          "cost_steps": [],
+          "selector": {
+            "id": "target",
+            "type": "unit",
+            "controller": "rival",
+            "count": 1,
+            "required": true
+          },
+          "effect_steps": [
+            {
+              "effect": "set_unit_level",
+              "target": "target",
+              "level": 3,
+              "suppress_overclock": true
+            }
+          ]
+        }
+      ]
+    },
     "1-0-024": {
       "card_name": "雷龍",
       "abilities": [

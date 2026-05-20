@@ -1936,6 +1936,33 @@ class EngineTest(unittest.TestCase):
         self.assertEqual(get_unit_bp(state, attacker), 4000)
         self.assertIn("modifier_expired", [event.type for event in state.event_store.events])
 
+    def test_exquisite_provocation_sets_rival_unit_level_three_without_oc_effect(self) -> None:
+        state = create_game_state(self.catalog)
+        state.turn_player_id = "P1"
+        entering = state.create_card_instance("1-0-040", "P1")
+        _target_card, target = self._add_battlefield_unit(state, "P2", "1-0-001")
+        provocation = state.create_card_instance("1-0-069", "P1")
+        state.players["P1"].hand.add(entering.instance_id)
+        state.players["P1"].trigger_zone.add(provocation.instance_id)
+        state.players["P1"].current_cp = 1
+
+        first_event_no = len(state.event_store.events) + 1
+        drive_unit(state, "P1", entering.instance_id)
+        activated_count = process_windows_for_events(
+            state,
+            first_event_no,
+            choose_intercept=lambda _player_id, actions: actions[0],
+        )
+
+        self.assertEqual(activated_count, 1)
+        self.assertEqual(target.level, 3)
+        self.assertEqual(state.card_instances[target.card_instance_id].level, 3)
+        self.assertNotIn(
+            target.unit_id,
+            [event.source.unit_id for event in state.event_store.events if event.type == "unit_overclocked"],
+        )
+        self.assertNotIn("damage_dealt", [event.type for event in state.event_store.events])
+
     def test_dark_armor_modifies_owner_battle_unit_and_deals_life_damage(self) -> None:
         state = create_game_state(self.catalog)
         state.turn_player_id = "P1"

@@ -738,6 +738,41 @@ def _handle_recover_action(
     )
 
 
+def _handle_set_unit_level(
+    state: GameState,
+    unit: UnitState,
+    ability: AbilityDefinition,
+    ability_event: FactEvent,
+    step: dict,
+) -> None:
+    target = resolve_unit_target_for_effect(state, unit, ability, ability_event, step.get("target"))
+    if target is None:
+        _append_effect_fizzled(state, unit.owner_player_id, ability_event, step, "no_valid_target")
+        return
+    before_level = target.level
+    after_level = int(step.get("level", before_level))
+    if after_level == before_level:
+        return
+    target.level = after_level
+    state.card_instances[target.card_instance_id].level = after_level
+    state.event_store.append(
+        "unit_level_changed",
+        round_no=state.round_no,
+        turn_no=state.turn_no,
+        actor_player_id=unit.owner_player_id,
+        cause_event_no=ability_event.event_no,
+        source=EventSource(card_no=target.card_no, card_instance_id=target.card_instance_id, unit_id=target.unit_id),
+        payload={
+            "unit_id": target.unit_id,
+            "before_level": before_level,
+            "after_level": after_level,
+            "reason": "effect",
+            "suppress_overclock": bool(step.get("suppress_overclock")),
+            "after_bp": get_unit_bp(state, target),
+        },
+    )
+
+
 def _handle_consume_action(
     state: GameState,
     unit: UnitState,
