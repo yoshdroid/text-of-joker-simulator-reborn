@@ -10,7 +10,7 @@ if SRC_PATH.exists():
 
 from tojs_reborn.cardpool.normalizer import normalize_cardpool
 from tojs_reborn.engine.actions import EFFECT_FIZZLED_REASONS, draw_cards, drive_unit, overclock_unit, override_card, set_trigger
-from tojs_reborn.engine.combat import attack_player, attack_unit, declare_attack, destroy_lethal_units, destroy_unit
+from tojs_reborn.engine.combat import attack_player, attack_unit, declare_attack, declare_block, destroy_lethal_units, destroy_unit
 from tojs_reborn.engine.events import EventSource, EventStore
 from tojs_reborn.engine.integrity import assert_game_state_integrity
 from tojs_reborn.engine.legal_actions import list_block_actions, list_legal_actions
@@ -1875,6 +1875,66 @@ class EngineTest(unittest.TestCase):
         bp_event = [event for event in state.event_store.events if event.type == "bp_modified"][-1]
         self.assertEqual(bp_event.payload["target_unit_id"], attacker.unit_id)
         self.assertEqual(state.players["P1"].trigger_zone.cards, [])
+
+    def test_power_shortage_reduces_rival_battle_unit_bp(self) -> None:
+        state = create_game_state(self.catalog)
+        state.turn_player_id = "P1"
+        _attacker_card, attacker = self._add_battlefield_unit(state, "P1", "1-0-001")
+        _blocker_card, blocker = self._add_battlefield_unit(state, "P2", "1-0-001")
+        power_shortage = state.create_card_instance("1-0-065", "P1")
+        state.players["P1"].trigger_zone.add(power_shortage.instance_id)
+        state.players["P1"].current_cp = 1
+
+        attack_event = declare_attack(state, "P1", attacker.unit_id)
+        declare_block(
+            state,
+            "P2",
+            blocker.unit_id,
+            attacker.unit_id,
+            attack_event.event_no,
+            battle_started_callback=lambda scenario_state, event_no: process_windows_for_events(
+                scenario_state,
+                event_no,
+                choose_intercept=lambda _player_id, actions: actions[0],
+            ),
+        )
+
+        bp_event = next(event for event in state.event_store.events if event.type == "bp_modified")
+        self.assertEqual(bp_event.payload["target_unit_id"], blocker.unit_id)
+        self.assertEqual(bp_event.payload["amount"], -2000)
+        self.assertEqual(bp_event.payload["after_bp"], 1000)
+        self.assertNotIn(blocker.unit_id, state.units)
+
+    def test_heroic_sword_increases_owner_battle_unit_bp_until_turn_end(self) -> None:
+        state = create_game_state(self.catalog)
+        state.turn_player_id = "P1"
+        _attacker_card, attacker = self._add_battlefield_unit(state, "P1", "1-0-001")
+        _blocker_card, blocker = self._add_battlefield_unit(state, "P2", "1-0-040")
+        heroic_sword = state.create_card_instance("1-0-074", "P1")
+        state.players["P1"].trigger_zone.add(heroic_sword.instance_id)
+
+        attack_event = declare_attack(state, "P1", attacker.unit_id)
+        declare_block(
+            state,
+            "P2",
+            blocker.unit_id,
+            attacker.unit_id,
+            attack_event.event_no,
+            battle_started_callback=lambda scenario_state, event_no: process_windows_for_events(
+                scenario_state,
+                event_no,
+                choose_intercept=lambda _player_id, actions: actions[0],
+            ),
+        )
+
+        bp_event = next(event for event in state.event_store.events if event.type == "bp_modified")
+        self.assertEqual(bp_event.payload["target_unit_id"], attacker.unit_id)
+        self.assertEqual(bp_event.payload["amount"], 2000)
+        self.assertEqual(bp_event.payload["after_bp"], 5000)
+        self.assertNotIn(blocker.unit_id, state.units)
+        end_turn(state, "P1")
+        self.assertEqual(get_unit_bp(state, attacker), 4000)
+        self.assertIn("modifier_expired", [event.type for event in state.event_store.events])
 
     def test_dark_armor_modifies_owner_battle_unit_and_deals_life_damage(self) -> None:
         state = create_game_state(self.catalog)

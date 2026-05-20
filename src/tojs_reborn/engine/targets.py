@@ -120,7 +120,7 @@ def _resolve_event_unit_target(
     ability_event: FactEvent,
     target_ref,
 ) -> UnitState | None:
-    if target_ref not in {"event_attacker", "owner_battle_unit"}:
+    if target_ref not in {"event_attacker", "owner_battle_unit", "rival_battle_unit"}:
         return None
     cause_event = _window_cause_event_for_ability(state, ability_event)
     if cause_event is None or cause_event.type != "battle_started":
@@ -129,6 +129,20 @@ def _resolve_event_unit_target(
     blocker_unit_id = cause_event.payload.get("blocker_unit_id")
     if target_ref == "event_attacker":
         return state.units.get(attacker_unit_id) if isinstance(attacker_unit_id, str) else None
+    battle_units = [
+        state.units.get(unit_id)
+        for unit_id in (attacker_unit_id, blocker_unit_id)
+        if isinstance(unit_id, str)
+    ]
+    if target_ref == "rival_battle_unit":
+        return next(
+            (
+                unit
+                for unit in battle_units
+                if unit is not None and unit.owner_player_id != source_unit.owner_player_id
+            ),
+            None,
+        )
     if isinstance(attacker_unit_id, str):
         attacker = state.units.get(attacker_unit_id)
         if attacker is not None and attacker.owner_player_id == source_unit.owner_player_id:

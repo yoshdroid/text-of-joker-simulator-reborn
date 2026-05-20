@@ -70,6 +70,7 @@ SCENARIOS: dict[str, ScenarioBuilder] = {
     "goliath_level3_life_damage": lambda catalog: _scenario_goliath_level3_life_damage(catalog),
     "happaloid_cip_draw": lambda catalog: _scenario_happaloid_cip_draw(catalog),
     "hand_limit_draw": lambda catalog: _scenario_hand_limit_draw(catalog),
+    "heroic_sword_battle": lambda catalog: _scenario_heroic_sword_battle(catalog),
     "howling_intercept_draw_two": lambda catalog: _scenario_howling_intercept_draw_two(catalog),
     "jumpoo_bounce_hand_limit": lambda catalog: _scenario_jumpoo_bounce_hand_limit(catalog),
     "kaim_cip_trigger_search": lambda catalog: _scenario_kaim_cip_trigger_search(catalog),
@@ -77,6 +78,7 @@ SCENARIOS: dict[str, ScenarioBuilder] = {
     "new_armor_trigger": lambda catalog: _scenario_new_armor_trigger(catalog),
     "new_armor_surprise_box_chain": lambda catalog: _scenario_new_armor_surprise_box_chain(catalog),
     "oc_consume_action": lambda catalog: _scenario_oc_consume_action(catalog),
+    "power_shortage_battle": lambda catalog: _scenario_power_shortage_battle(catalog),
     "lina_discard_choice": lambda catalog: _scenario_lina_discard_choice(catalog),
     "raguel_exhausted_damage": lambda catalog: _scenario_raguel_exhausted_damage(catalog),
     "rairyu_evolve_damage": lambda catalog: _scenario_rairyu_evolve_damage(catalog),
@@ -641,6 +643,72 @@ def _scenario_battle_intercepts(catalog: dict[str, Any]) -> tuple[GameState, dic
     if activated_cards != ["1-0-081", "1-0-096"]:
         raise AssertionError(f"expected battle intercepts to activate from attacker then blocker, got {activated_cards}")
     _ = attacker_card, blocker_card
+    return state, initial_state
+
+
+def _scenario_power_shortage_battle(catalog: dict[str, Any]) -> tuple[GameState, dict[str, Any]]:
+    from tojs_reborn.engine.state import create_game_state
+
+    state = create_game_state(catalog, seed=_scenario_seed(65))
+    state.turn_player_id = "P1"
+    _attacker_card, attacker = _add_battlefield_unit(state, "P1", "1-0-001")
+    _blocker_card, blocker = _add_battlefield_unit(state, "P2", "1-0-001")
+    power_shortage = _create_initial_deck_card(state, "P1", "1-0-065")
+    state.players["P1"].trigger_zone.add(power_shortage.instance_id)
+    state.players["P1"].current_cp = 1
+    initial_state = snapshot_initial_state(state)
+
+    attack_event = declare_attack(state, "P1", attacker.unit_id)
+    declare_block(
+        state,
+        "P2",
+        blocker.unit_id,
+        attacker.unit_id,
+        attack_event.event_no,
+        battle_started_callback=lambda scenario_state, event_no: process_windows_for_events(
+            scenario_state, event_no, choose_intercept=_choose_first_intercept
+        ),
+    )
+    bp_event = next(event for event in state.event_store.events if event.type == "bp_modified")
+    if bp_event.payload.get("target_unit_id") != blocker.unit_id or bp_event.payload.get("after_bp") != 1000:
+        raise AssertionError("power shortage scenario expected rival battle unit BP to become 1000")
+    if blocker.unit_id in state.units:
+        raise AssertionError("power shortage scenario expected weakened blocker to be destroyed")
+    return state, initial_state
+
+
+def _scenario_heroic_sword_battle(catalog: dict[str, Any]) -> tuple[GameState, dict[str, Any]]:
+    from tojs_reborn.engine.rules import get_unit_bp
+    from tojs_reborn.engine.state import create_game_state
+
+    state = create_game_state(catalog, seed=_scenario_seed(74))
+    state.turn_player_id = "P1"
+    _attacker_card, attacker = _add_battlefield_unit(state, "P1", "1-0-001")
+    _blocker_card, blocker = _add_battlefield_unit(state, "P2", "1-0-040")
+    heroic_sword = _create_initial_deck_card(state, "P1", "1-0-074")
+    state.players["P1"].trigger_zone.add(heroic_sword.instance_id)
+    state.players["P1"].current_cp = 0
+    initial_state = snapshot_initial_state(state)
+
+    attack_event = declare_attack(state, "P1", attacker.unit_id)
+    declare_block(
+        state,
+        "P2",
+        blocker.unit_id,
+        attacker.unit_id,
+        attack_event.event_no,
+        battle_started_callback=lambda scenario_state, event_no: process_windows_for_events(
+            scenario_state, event_no, choose_intercept=_choose_first_intercept
+        ),
+    )
+    bp_event = next(event for event in state.event_store.events if event.type == "bp_modified")
+    if bp_event.payload.get("target_unit_id") != attacker.unit_id or bp_event.payload.get("after_bp") != 5000:
+        raise AssertionError("heroic sword scenario expected owner battle unit BP to become 5000")
+    if blocker.unit_id in state.units:
+        raise AssertionError("heroic sword scenario expected blocker to be destroyed")
+    end_turn(state, "P1")
+    if get_unit_bp(state, attacker) != 4000:
+        raise AssertionError("heroic sword scenario expected attacker BP to return to LV2 base after turn end")
     return state, initial_state
 
 

@@ -590,6 +590,66 @@
         }
       ]
     },
+    "1-0-065": {
+      "card_name": "パワーショーテージ",
+      "abilities": [
+        {
+          "ability_key": "1-0-065:a1",
+          "ability_name": "パワーショーテージ",
+          "source_text": "あなたのユニットが戦闘した時、戦闘中の対戦相手ユニットのBPをターン終了時まで-2000する。",
+          "status": "supported",
+          "timing": "INTERCEPT_BATTLE",
+          "optional": true,
+          "priority": {
+            "band": "intercept",
+            "order": "left_to_right"
+          },
+          "condition": {
+            "type": "battle_unit_controller_is_owner"
+          },
+          "cost_steps": [],
+          "selector": null,
+          "effect_steps": [
+            {
+              "effect": "modify_bp",
+              "target": "rival_battle_unit",
+              "amount": -2000,
+              "duration": "turn"
+            }
+          ]
+        }
+      ]
+    },
+    "1-0-074": {
+      "card_name": "英雄の剣",
+      "abilities": [
+        {
+          "ability_key": "1-0-074:a1",
+          "ability_name": "英雄の剣",
+          "source_text": "あなたのユニットが戦闘した時、自分の戦闘中ユニットのBPをターン終了時まで+2000する。",
+          "status": "supported",
+          "timing": "INTERCEPT_BATTLE",
+          "optional": true,
+          "priority": {
+            "band": "intercept",
+            "order": "left_to_right"
+          },
+          "condition": {
+            "type": "battle_unit_controller_is_owner"
+          },
+          "cost_steps": [],
+          "selector": null,
+          "effect_steps": [
+            {
+              "effect": "modify_bp",
+              "target": "owner_battle_unit",
+              "amount": 2000,
+              "duration": "turn"
+            }
+          ]
+        }
+      ]
+    },
     "1-0-024": {
       "card_name": "雷龍",
       "abilities": [
