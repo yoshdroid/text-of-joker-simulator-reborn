@@ -333,29 +333,29 @@ def _scenario_v8_next_10_cards(catalog: dict[str, Any]) -> tuple[GameState, dict
     state.turn_player_id = "P1"
     _clara_card, clara = _add_battlefield_unit(state, "P1", "1-0-008")
     _clara_blocker_card, _clara_blocker = _add_battlefield_unit(state, "P2", "1-0-045")
-    initial_state = snapshot_initial_state(state)
-
-    attack_event = declare_attack(state, "P1", clara.unit_id)
-    resolve_unblocked_attack(state, attack_event.event_no)
-
     _oni_card, oni = _add_battlefield_unit(state, "P1", "1-0-050")
-    before_oni_base = get_unit_base_bp(state, oni)
-    attack_player(state, "P1", oni.unit_id)
-    if get_unit_base_bp(state, oni) != before_oni_base + 1000:
-        raise AssertionError("v8 next scenario expected Oni Bull base BP to increase")
-
     _gasha_card, gasha = _add_battlefield_unit(state, "P2", "1-0-034")
-    before_life = state.players["P1"].life
-    destroy_unit(state, gasha, len(state.event_store.events) + 1, reason="scenario")
-    if state.players["P1"].life != before_life - 1:
-        raise AssertionError("v8 next scenario expected Gashadokuro PIG life damage")
-
     _attacker_card, attacker = _add_battlefield_unit(state, "P1", "1-0-001")
     _ally_card, ally = _add_battlefield_unit(state, "P1", "1-0-040")
     _blocker_card, blocker = _add_battlefield_unit(state, "P2", "1-0-040")
     order = _create_initial_deck_card(state, "P1", "1-0-066")
     state.players["P1"].trigger_zone.add(order.instance_id)
     state.players["P1"].current_cp = 1
+    initial_state = snapshot_initial_state(state)
+
+    attack_event = declare_attack(state, "P1", clara.unit_id)
+    resolve_unblocked_attack(state, attack_event.event_no)
+
+    before_oni_base = get_unit_base_bp(state, oni)
+    attack_player(state, "P1", oni.unit_id)
+    if get_unit_base_bp(state, oni) != before_oni_base + 1000:
+        raise AssertionError("v8 next scenario expected Oni Bull base BP to increase")
+
+    before_life = state.players["P1"].life
+    destroy_unit(state, gasha, len(state.event_store.events) + 1, reason="scenario")
+    if state.players["P1"].life != before_life - 1:
+        raise AssertionError("v8 next scenario expected Gashadokuro PIG life damage")
+
     before_ally_bp = get_unit_bp(state, ally)
     battle_attack_event = declare_attack(state, "P1", attacker.unit_id)
     declare_block(
