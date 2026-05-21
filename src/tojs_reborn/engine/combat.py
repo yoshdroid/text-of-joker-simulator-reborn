@@ -4,7 +4,7 @@ from collections.abc import Callable
 
 from .effects import get_effect_handlers
 from .events import EventSource, FactEvent
-from .rules import get_unit_bp, opponent_id
+from .rules import get_unit_bp, get_unit_remaining_bp, opponent_id
 from .resolver import (
     AbilityCostChoice,
     OptionalAbilityChoice,
@@ -140,8 +140,10 @@ def resolve_blocked_battle(
     if not _battle_units_still_present(state, attacker, blocker):
         _emit_battle_cancelled(state, attacker, blocker, battle_event.event_no, reason="unit_left_before_battle_damage")
         return
-    _deal_battle_damage(state, attacker, blocker, battle_event.event_no)
-    _deal_battle_damage(state, blocker, attacker, battle_event.event_no)
+    attacker_damage_amount = get_unit_remaining_bp(state, attacker)
+    blocker_damage_amount = get_unit_remaining_bp(state, blocker)
+    _deal_battle_damage(state, attacker, blocker, battle_event.event_no, amount=attacker_damage_amount)
+    _deal_battle_damage(state, blocker, attacker, battle_event.event_no, amount=blocker_damage_amount)
     winner, battle_result_event = _emit_battle_result(state, attacker, blocker, battle_event.event_no)
     if winner is not None and battle_result_event.type == "battle_won":
         _resolve_pierce_keyword(state, winner, battle_result_event.event_no)
@@ -219,8 +221,7 @@ def _declare_attack(state: GameState, player_id: str, attacker: UnitState):
     return action_event
 
 
-def _deal_battle_damage(state: GameState, source: UnitState, target: UnitState, cause_event_no: int) -> None:
-    amount = get_unit_bp(state, source)
+def _deal_battle_damage(state: GameState, source: UnitState, target: UnitState, cause_event_no: int, *, amount: int) -> None:
     before_damage = target.current_damage
     target.current_damage += amount
     state.event_store.append(

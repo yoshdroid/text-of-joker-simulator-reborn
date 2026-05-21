@@ -1510,6 +1510,27 @@ class EngineTest(unittest.TestCase):
         self.assertIn(attacker.unit_id, state.units)
         self.assertNotIn(blocker.unit_id, state.units)
 
+    def test_battle_damage_uses_remaining_bp_after_prior_damage(self) -> None:
+        state = create_game_state(self.catalog)
+        state.turn_player_id = "P1"
+        attacker_card = state.create_card_instance("1-0-052", "P1")
+        blocker_card = state.create_card_instance("1-0-048", "P2")
+        attacker = state.create_unit(attacker_card.instance_id)
+        blocker = state.create_unit(blocker_card.instance_id)
+        blocker.current_damage = 2000
+        state.players["P1"].battlefield.add(attacker.unit_id)
+        state.players["P2"].battlefield.add(blocker.unit_id)
+
+        attack_unit(state, "P1", attacker.unit_id, blocker.unit_id)
+
+        damage_events = [event for event in state.event_store.events if event.type == "damage_dealt"]
+        self.assertEqual(damage_events[0].payload["amount"], 8000)
+        self.assertEqual(damage_events[1].payload["amount"], 5000)
+        self.assertIn("battle_won", [event.type for event in state.event_store.events])
+        self.assertEqual(attacker.level, 2)
+        self.assertEqual(attacker.current_damage, 0)
+        self.assertNotIn(blocker.unit_id, state.units)
+
     def test_replay_record_verifies_event_log_and_final_state(self) -> None:
         state = create_game_state(self.catalog)
         card = state.create_card_instance("1-0-001", "P1")

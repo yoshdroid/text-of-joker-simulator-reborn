@@ -45,6 +45,10 @@ def get_unit_bp(state: GameState, unit: UnitState) -> int:
     return max(0, get_unit_base_bp(state, unit) + get_unit_modified_bp(state, unit))
 
 
+def get_unit_remaining_bp(state: GameState, unit: UnitState) -> int:
+    return max(0, get_unit_bp(state, unit) - unit.current_damage)
+
+
 def get_unit_base_bp(state: GameState, unit: UnitState) -> int:
     card = state.card_catalog[unit.card_no]
     if not card.bp_by_level:
