@@ -2302,8 +2302,9 @@ class EngineTest(unittest.TestCase):
             ),
         )
         process_windows_for_events(state, 1, choose_intercept=choose_first)
-        self.assertGreaterEqual(extra.current_damage, 5000)
-        self.assertGreaterEqual(len(state.players["P1"].hand.cards), 2)
+        self.assertEqual(extra.current_damage, 2000)
+        self.assertNotIn("battle_won", [event.type for event in state.event_store.events])
+        self.assertEqual(red_unit.level, 1)
 
         tornado = state.create_card_instance("1-0-100", "P1")
         state.players["P1"].trigger_zone.add(tornado.instance_id)

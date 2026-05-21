@@ -92,7 +92,7 @@ python -m tojs_reborn.io.replay_gui --cards carddata/generated/cards.normalized.
 | `v8_intercept_attack` | v8 attack intercept | ダインスレイフ、タイタンの鉄鎖を attack window で確認する。 |  |  | v8追加 |
 | `v8_intercept_player_attack` | v8 player attack intercept | ニードルヘル、チェックメイト、解呪を player attack success window で確認する。 |  |  | v8追加 |
 | `v8_remaining_evolve_units` | v8残り進化ユニット | 蛮王ベリアル、ユーベル・ヘルメス、ジークフリートを同一盤面で確認する。 |  |  | v8追加 |
-| `v8_remaining_intercepts` | v8残りインターセプト | 突撃の合図、アースクエイク、王の陣中見舞い、音速の槍、エンジェルフェザー、逆転の大竜巻、明鏡止水を確認する。 |  |  | v8追加 |
+| `v8_remaining_intercepts` | v8残りインターセプト | 突撃の合図、アースクエイクによる戦闘前離脱、王の陣中見舞い、音速の槍、エンジェルフェザー、逆転の大竜巻、明鏡止水を、トリガーゾーン上限4に収まる流れで確認する。 |  |  | v8追加 |
 | `v8_final_dynamic_units` | v8最終 動的ユニット | ベヒーモスドラゴン、堕天馬アルゲニブ、ジャンヌダルクの動的BP、ランダム沈黙、捨札回収、獣サーチを確認する。 |  |  | v8追加 |
 | `v8_final_battle_modifiers` | v8最終 戦闘修正 | 疑惑のロシアンルーレット、戦友との約束、リミッター解放、タックルを同一戦闘で確認する。 |  |  | v8追加 |
 | `v8_final_tactics_end` | v8最終 タクティクスエンド | タクティクスエンド発動後、同一 battle window の後続効果が発動しないことを確認する。 |  |  | v8追加 |

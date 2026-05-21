@@ -8,7 +8,7 @@ from pathlib import Path
 from typing import Any, Sequence
 
 from tojs_reborn.engine.combat import attack_player, attack_unit, declare_attack, declare_block, destroy_unit, resolve_unblocked_attack
-from tojs_reborn.engine.actions import drive_unit, override_card
+from tojs_reborn.engine.actions import drive_unit, override_card, set_trigger
 from tojs_reborn.engine.replay import build_replay_record, snapshot_initial_state, verify_replay_record
 from tojs_reborn.engine.state import GameState, load_card_catalog
 from tojs_reborn.engine.turn import end_turn, start_turn
@@ -630,12 +630,18 @@ def _scenario_v8_remaining_intercepts(catalog: dict[str, Any]) -> tuple[GameStat
     state.turn_player_id = "P1"
     _red_card, red_unit = _add_battlefield_unit(state, "P1", "1-0-001")
     _yellow_card, _yellow_unit = _add_battlefield_unit(state, "P1", "1-0-014")
-    _green_card, green_unit = _add_battlefield_unit(state, "P1", "1-0-040")
     _blocker_card, blocker = _add_battlefield_unit(state, "P2", "1-0-040")
     _extra_card, extra_target = _add_battlefield_unit(state, "P2", "1-0-048")
+    _second_attacker_card, second_attacker = _add_battlefield_unit(state, "P1", "1-0-052")
+    _second_blocker_card, second_blocker = _add_battlefield_unit(state, "P2", "1-0-048")
+    _feather_attacker_card, feather_attacker = _add_battlefield_unit(state, "P1", "1-0-014")
     entering = _add_hand_card(state, "P1", "1-0-001")
-    for card_no in ("1-0-076", "1-0-082", "1-0-073", "1-0-075"):
+    for card_no in ("1-0-076", "1-0-082"):
         state.players["P1"].trigger_zone.add(_create_initial_deck_card(state, "P1", card_no).instance_id)
+    queued_cards = {
+        card_no: _add_hand_card(state, "P1", card_no)
+        for card_no in ("1-0-073", "1-0-075", "1-0-086", "1-0-100", "1-0-064")
+    }
     for card_no in ("1-0-005", "1-0-006"):
         _add_deck_card(state, "P1", card_no)
     state.players["P1"].current_cp = 10
@@ -658,39 +664,58 @@ def _scenario_v8_remaining_intercepts(catalog: dict[str, Any]) -> tuple[GameStat
             scenario_state, event_no, choose_intercept=_choose_first_intercept
         ),
     )
+    if blocker.unit_id in state.units:
+        raise AssertionError("v8 remaining intercept scenario expected Earthquake to destroy first blocker")
+    if any(event.type == "battle_won" for event in state.event_store.events):
+        raise AssertionError("v8 remaining intercept scenario expected no battle_won when blocker leaves before battle damage")
+    if any(event.type == "life_changed" and event.payload.get("keyword") == "pierce" for event in state.event_store.events):
+        raise AssertionError("v8 remaining intercept scenario expected no pierce damage when battle is cancelled")
+    if red_unit.level != 1:
+        raise AssertionError("v8 remaining intercept scenario expected no clock-up when battle is cancelled")
+
+    set_trigger(state, "P1", queued_cards["1-0-073"].instance_id)
+    set_trigger(state, "P1", queued_cards["1-0-075"].instance_id)
+    attack_event = declare_attack(state, "P1", second_attacker.unit_id)
+    declare_block(
+        state,
+        "P2",
+        second_blocker.unit_id,
+        second_attacker.unit_id,
+        attack_event.event_no,
+        battle_started_callback=lambda scenario_state, event_no: process_windows_for_events(
+            scenario_state, event_no, choose_intercept=_choose_first_intercept
+        ),
+    )
     process_windows_for_events(state, 1, choose_intercept=_choose_first_intercept)
-    if extra_target.current_damage < 5000:
+    if extra_target.current_damage < 3000:
         raise AssertionError("v8 remaining intercept scenario expected Earthquake and Sonic Spear damage")
     if len(state.players["P1"].hand.cards) < 2:
         raise AssertionError("v8 remaining intercept scenario expected King's Encouragement draw")
 
-    feather = _create_initial_deck_card(state, "P1", "1-0-086")
-    state.players["P1"].trigger_zone.add(feather.instance_id)
+    set_trigger(state, "P1", queued_cards["1-0-086"].instance_id)
     state.players["P1"].current_cp = 2
-    attack_player(state, "P1", green_unit.unit_id)
+    attack_player(state, "P1", feather_attacker.unit_id)
     process_windows_for_events(state, 1, choose_intercept=_choose_first_intercept)
     if extra_target.unit_id in state.units:
         raise AssertionError("v8 remaining intercept scenario expected Angel Feather bounce")
 
-    tornado = _create_initial_deck_card(state, "P1", "1-0-100")
-    state.players["P1"].trigger_zone.add(tornado.instance_id)
-    green_unit.exhausted = True
-    _rival_attacker_card, rival_attacker = _add_battlefield_unit(state, "P2", "1-0-040")
-    state.turn_player_id = "P2"
-    state.players["P1"].current_cp = 1
-    declare_attack(state, "P2", rival_attacker.unit_id)
-    process_windows_for_events(state, 1, choose_intercept=_choose_first_intercept)
-    if green_unit.exhausted:
-        raise AssertionError("v8 remaining intercept scenario expected Tornado to recover owner units")
-
-    meikyo = _create_initial_deck_card(state, "P1", "1-0-064")
-    state.players["P1"].trigger_zone.add(meikyo.instance_id)
-    state.turn_player_id = "P1"
+    set_trigger(state, "P1", queued_cards["1-0-100"].instance_id)
+    set_trigger(state, "P1", queued_cards["1-0-064"].instance_id)
+    second_attacker.exhausted = True
     state.players["P1"].current_cp = 0
     end_turn(state, "P1")
     process_windows_for_events(state, 1, choose_intercept=_choose_first_intercept)
     if state.players["P1"].current_cp != 3:
         raise AssertionError("v8 remaining intercept scenario expected Meikyo Shisui CP gain")
+
+    start_turn(state, "P2", draw_count=0, cp=3)
+    _rival_attacker_card, rival_attacker = _add_battlefield_unit(state, "P2", "1-0-040")
+    state.turn_player_id = "P2"
+    state.players["P1"].current_cp = 1
+    declare_attack(state, "P2", rival_attacker.unit_id)
+    process_windows_for_events(state, 1, choose_intercept=_choose_first_intercept)
+    if second_attacker.exhausted:
+        raise AssertionError("v8 remaining intercept scenario expected Tornado to recover owner units")
     return state, initial_state
 
 

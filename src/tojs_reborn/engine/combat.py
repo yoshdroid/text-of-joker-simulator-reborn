@@ -132,8 +132,14 @@ def resolve_blocked_battle(
     )
     if battle_started_callback is not None:
         battle_started_callback(state, battle_event.event_no)
+    if not _battle_units_still_present(state, attacker, blocker):
+        _emit_battle_cancelled(state, attacker, blocker, battle_event.event_no, reason="unit_left_before_battle_damage")
+        return
     resolve_unit_battled(state, attacker, battle_event, get_effect_handlers(), optional_ability_choice, ability_cost_choice)
     resolve_unit_battled(state, blocker, battle_event, get_effect_handlers(), optional_ability_choice, ability_cost_choice)
+    if not _battle_units_still_present(state, attacker, blocker):
+        _emit_battle_cancelled(state, attacker, blocker, battle_event.event_no, reason="unit_left_before_battle_damage")
+        return
     _deal_battle_damage(state, attacker, blocker, battle_event.event_no)
     _deal_battle_damage(state, blocker, attacker, battle_event.event_no)
     winner, battle_result_event = _emit_battle_result(state, attacker, blocker, battle_event.event_no)
@@ -365,6 +371,33 @@ def _emit_battle_result(
         },
     )
     return winner, result_event
+
+
+def _battle_units_still_present(state: GameState, attacker: UnitState, blocker: UnitState) -> bool:
+    return attacker.unit_id in state.units and blocker.unit_id in state.units
+
+
+def _emit_battle_cancelled(
+    state: GameState,
+    attacker: UnitState,
+    blocker: UnitState,
+    cause_event_no: int,
+    *,
+    reason: str,
+) -> FactEvent:
+    return state.event_store.append(
+        "battle_cancelled",
+        round_no=state.round_no,
+        turn_no=state.turn_no,
+        actor_player_id=attacker.owner_player_id,
+        cause_event_no=cause_event_no,
+        source=_unit_source(attacker),
+        payload={
+            "attacker_unit_id": attacker.unit_id,
+            "blocker_unit_id": blocker.unit_id,
+            "reason": reason,
+        },
+    )
 
 
 def _resolve_pierce_keyword(state: GameState, winner: UnitState, cause_event_no: int) -> None:
