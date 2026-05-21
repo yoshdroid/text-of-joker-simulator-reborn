@@ -2851,6 +2851,21 @@ class EngineTest(unittest.TestCase):
         self.assertEqual(recover_events[-1].payload["reason"], "keyword")
         self.assertEqual(recover_events[-1].payload["keyword"], "indomitable")
 
+    def test_silence_suppresses_indomitable_turn_end_recovery(self) -> None:
+        state = create_game_state(self.catalog)
+        state.turn_player_id = "P1"
+        mammoth_card = state.create_card_instance("1-0-048", "P1")
+        mammoth = state.create_unit(mammoth_card.instance_id)
+        mammoth.keywords.append("silence")
+        mammoth.exhausted = True
+        state.players["P1"].battlefield.add(mammoth.unit_id)
+
+        end_turn(state, "P1")
+
+        self.assertTrue(mammoth.exhausted)
+        self.assertEqual(mammoth.keywords, ["indomitable", "silence"])
+        self.assertNotIn("unit_action_recovered", [event.type for event in state.event_store.events])
+
     def test_legal_actions_include_drive_attack_set_trigger_and_override(self) -> None:
         state = create_game_state(self.catalog)
         state.turn_no = 3

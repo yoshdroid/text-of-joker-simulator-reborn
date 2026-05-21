@@ -3,6 +3,7 @@ from __future__ import annotations
 from collections.abc import Callable
 
 from .events import EventSource, FactEvent
+from .rules import unit_is_silenced
 from .state import AbilityDefinition, GameState, UnitState
 
 
@@ -213,6 +214,8 @@ def _resolve_supported_abilities(
     optional_ability_choice: OptionalAbilityChoice | None = None,
     ability_cost_choice: AbilityCostChoice | None = None,
 ) -> None:
+    if timing != "SELF_CIP" and unit_is_silenced(ability_source_unit):
+        return
     card = state.card_catalog[ability_source_unit.card_no]
     for ability in card.abilities:
         if ability.status != "supported" or ability.timing != timing:
@@ -260,6 +263,8 @@ def _resolve_supported_abilities(
 
 
 def _resolve_turn_end_keywords(state: GameState, unit: UnitState, cause_event: FactEvent) -> None:
+    if unit_is_silenced(unit):
+        return
     if "indomitable" not in unit.keywords or not unit.exhausted:
         return
     unit.exhausted = False

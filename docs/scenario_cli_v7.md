@@ -81,19 +81,19 @@ python -m tojs_reborn.io.replay_gui --cards carddata/generated/cards.normalized.
 
 | scenario | 確認対象 | 期待する目視ポイント | engine | GUI | notes |
 | --- | --- | --- | --- | --- | --- |
-| `heroic_sword_battle` | 英雄の剣 | `1-0-074` 英雄の剣を battle intercept で発動し、自分の戦闘中ユニットのBPがターン終了時まで+2000され、ターン終了で戻る。 | ✓ |  | v8追加 |
-| `power_shortage_battle` | パワーショーテージ | `1-0-065` パワーショーテージを battle intercept で発動し、戦闘中の対戦相手ユニットのBPをターン終了時まで-2000する。 | ✓ |  | v8追加 |
-| `exquisite_provocation_no_oc` | 絶妙な挑発 | `1-0-069` 絶妙な挑発で対戦相手ユニットをLV3にするが、そのユニットのOC効果は発動しない。 | ✓ |  | v8追加 |
-| `v8_next_10_cards` | v8追加候補10枚 | バルキリークララ、鬼ブル、ガシャドクロ、開戦指示など、v8追加候補10枚の代表挙動をまとめて確認する。 | ✓ |  | v8追加 |
-| `v8_next_batch_units` | v8次候補ユニット | アワだっくん、メガジョー、バブレスウルフィン、ロデオドライヴを同一盤面で確認する。ロデオドライヴはブロック選択完了後、battle_started前に発動する。 |  |  | v8追加 |
-| `v8_next_batch_triggers` | v8次候補トリガー | 中忍月影、フレスベルグ、タイムブレイク、暗殺部隊、アドバンスエネルギー、マネーゲームを同一盤面で確認する。 |  |  | v8追加 |
-| `v8_intercept_unit_entered_red_green` | v8 unit entered intercept 赤緑 | アーマーブレイク、インペリアルソード、ナチュラルフルーツを同一の unit_entered window で確認する。 |  |  | v8追加 |
-| `v8_intercept_unit_entered_yellow_blue` | v8 unit entered intercept 黄青 | フォトン・ソード、マジックブックを同一の unit_entered window で確認する。 |  |  | v8追加 |
-| `v8_intercept_attack` | v8 attack intercept | ダインスレイフ、タイタンの鉄鎖を attack window で確認する。 |  |  | v8追加 |
-| `v8_intercept_player_attack` | v8 player attack intercept | ニードルヘル、チェックメイト、解呪を player attack success window で確認する。 |  |  | v8追加 |
-| `v8_remaining_evolve_units` | v8残り進化ユニット | 蛮王ベリアル、ユーベル・ヘルメス、ジークフリートを同一盤面で確認する。 |  |  | v8追加 |
-| `v8_remaining_intercepts` | v8残りインターセプト | 突撃の合図、アースクエイクによる戦闘前離脱、王の陣中見舞い、音速の槍、エンジェルフェザー、逆転の大竜巻、明鏡止水を、トリガーゾーン上限4に収まる流れで確認する。 |  |  | v8追加 |
-| `v8_final_dynamic_units` | v8最終 動的ユニット | ベヒーモスドラゴン、堕天馬アルゲニブ、ジャンヌダルクの動的BP、ランダム沈黙、捨札回収、獣サーチを確認する。 |  |  | v8追加 |
+| `heroic_sword_battle` | 英雄の剣 | `1-0-074` 英雄の剣を battle intercept で発動し、自分の戦闘中ユニットのBPがターン終了時まで+2000され、ターン終了で戻る。 | ✓ | ✓ | v8追加 |
+| `power_shortage_battle` | パワーショーテージ | `1-0-065` パワーショーテージを battle intercept で発動し、戦闘中の対戦相手ユニットのBPをターン終了時まで-2000する。 | ✓ | ✓ | v8追加 |
+| `exquisite_provocation_no_oc` | 絶妙な挑発 | `1-0-069` 絶妙な挑発で対戦相手ユニットをLV3にするが、そのユニットのOC効果は発動しない。 | ✓ | ✓ | v8追加 |
+| `v8_next_10_cards` | v8追加候補10枚 | バルキリークララ、鬼ブル、ガシャドクロ、開戦指示など、v8追加候補10枚の代表挙動をまとめて確認する。 | ✓ | ✓ | v8追加 |
+| `v8_next_batch_units` | v8次候補ユニット | アワだっくん、メガジョー、バブレスウルフィン、ロデオドライヴを同一盤面で確認する。ロデオドライヴはブロック選択完了後、battle_started前に発動する。 |  | ✓ | v8追加 |
+| `v8_next_batch_triggers` | v8次候補トリガー | 中忍月影、フレスベルグ、タイムブレイク、暗殺部隊、アドバンスエネルギー、マネーゲームを同一盤面で確認する。 |  | ✓ | v8追加 |
+| `v8_intercept_unit_entered_red_green` | v8 unit entered intercept 赤緑 | アーマーブレイク、インペリアルソード、ナチュラルフルーツを同一の unit_entered window で確認する。 |  | ✓ | v8追加 |
+| `v8_intercept_unit_entered_yellow_blue` | v8 unit entered intercept 黄青 | フォトン・ソード、マジックブックを同一の unit_entered window で確認する。 |  | ✓ | v8追加 |
+| `v8_intercept_attack` | v8 attack intercept | ダインスレイフ、タイタンの鉄鎖を attack window で確認する。 |  | ✓ | v8追加 |
+| `v8_intercept_player_attack` | v8 player attack intercept | ニードルヘル、チェックメイト、解呪を player attack success window で確認する。 |  | ✓ | v8追加 |
+| `v8_remaining_evolve_units` | v8残り進化ユニット | 蛮王ベリアル、ユーベル・ヘルメス、ジークフリートを同一盤面で確認する。 |  | ✓ | v8追加 |
+| `v8_remaining_intercepts` | v8残りインターセプト | 突撃の合図、アースクエイクによる戦闘前離脱、王の陣中見舞い、音速の槍、エンジェルフェザー、逆転の大竜巻、明鏡止水を、トリガーゾーン上限4に収まる流れで確認する。 |  | ✓ | v8追加 |
+| `v8_final_dynamic_units` | v8最終 動的ユニット | ベヒーモスドラゴン、堕天馬アルゲニブ、ジャンヌダルクの動的BP、ランダム沈黙、捨札回収、獣サーチ、沈黙による不屈抑止を確認する。 |  | ✓ | v8追加 |
 | `v8_final_battle_modifiers` | v8最終 戦闘修正 | 疑惑のロシアンルーレット、戦友との約束、リミッター解放、タックルを同一戦闘で確認する。 |  |  | v8追加 |
 | `v8_final_tactics_end` | v8最終 タクティクスエンド | タクティクスエンド発動後、同一 battle window の後続効果が発動しないことを確認する。 |  |  | v8追加 |
 | `v8_final_turn_intercepts` | v8最終 ターン系インターセプト | 移動要塞、ハッピーキャット、ジャッジメントLV3をターン開始・アタックの流れで確認する。 |  |  | v8追加 |

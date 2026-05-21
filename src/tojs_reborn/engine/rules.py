@@ -49,6 +49,10 @@ def get_unit_remaining_bp(state: GameState, unit: UnitState) -> int:
     return max(0, get_unit_bp(state, unit) - unit.current_damage)
 
 
+def unit_is_silenced(unit: UnitState) -> bool:
+    return "silence" in unit.keywords
+
+
 def get_unit_base_bp(state: GameState, unit: UnitState) -> int:
     card = state.card_catalog[unit.card_no]
     if not card.bp_by_level:

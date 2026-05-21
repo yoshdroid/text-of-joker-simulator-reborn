@@ -160,6 +160,10 @@ def create_game_state(card_catalog: dict[str, CardDefinition], *, seed: int = 0)
 def _printed_keywords(card: CardDefinition) -> list[str]:
     keywords = []
     for ability in card.abilities:
+        if ability.name == "\u4e0d\u5c48" and "indomitable" not in keywords:
+            keywords.append("indomitable")
+        if ability.timing != "PASSIVE":
+            continue
         if ability.name == "不屈" and "indomitable" not in keywords:
             keywords.append("indomitable")
         for step in ability.effect_steps:

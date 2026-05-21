@@ -4,7 +4,7 @@ from collections.abc import Callable
 
 from .effects import get_effect_handlers
 from .events import EventSource, FactEvent
-from .rules import get_unit_bp, get_unit_remaining_bp, opponent_id
+from .rules import get_unit_bp, get_unit_remaining_bp, opponent_id, unit_is_silenced
 from .resolver import (
     AbilityCostChoice,
     OptionalAbilityChoice,
@@ -40,7 +40,7 @@ def declare_attack(
 
 def attack_bypasses_block(state: GameState, attacker_unit_id: str) -> bool:
     attacker = state.units[attacker_unit_id]
-    return "unblockable" in attacker.keywords
+    return "unblockable" in attacker.keywords and not unit_is_silenced(attacker)
 
 
 def resolve_unblocked_attack(state: GameState, attack_event_no: int) -> None:
@@ -402,7 +402,7 @@ def _emit_battle_cancelled(
 
 
 def _resolve_pierce_keyword(state: GameState, winner: UnitState, cause_event_no: int) -> None:
-    if "pierce" not in winner.keywords:
+    if "pierce" not in winner.keywords or unit_is_silenced(winner):
         return
     opponent = state.players[opponent_id(winner.owner_player_id)]
     before_life = opponent.life

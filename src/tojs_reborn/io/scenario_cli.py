@@ -758,10 +758,26 @@ def _scenario_v8_final_dynamic_units(catalog: dict[str, Any]) -> tuple[GameState
     if not any(state.card_instances[card_id].card_no == "1-0-046" for card_id in state.players["P1"].hand.cards):
         raise AssertionError("v8 final dynamic scenario expected Algenib beast draw")
 
+    end_turn(state, "P1")
+    start_turn(state, "P2", draw_count=0, cp=3)
+    attack_player(state, "P2", rival.unit_id)
+    end_turn(state, "P2")
+    if not rival.exhausted:
+        raise AssertionError("v8 final dynamic scenario expected silenced Gigamamuto to stay exhausted at turn end")
+    if any(
+        event.type == "unit_action_recovered"
+        and event.payload.get("unit_id") == rival.unit_id
+        and event.payload.get("keyword") == "indomitable"
+        for event in state.event_store.events
+    ):
+        raise AssertionError("v8 final dynamic scenario expected silence to suppress indomitable")
+    start_turn(state, "P1", draw_count=0, cp=7)
+
     jeanne = drive_unit(state, "P1", jeanne_card.instance_id, evolve_target_unit_id=green_base.unit_id)
     if "indomitable" not in jeanne.keywords:
         raise AssertionError("v8 final dynamic scenario expected Jeanne indomitable")
-    if get_unit_base_bp(state, jeanne) != catalog["1-0-049"].bp_by_level[0] * 1000 + 6000:
+    expected_jeanne_bp = catalog["1-0-049"].bp_by_level[0] * 1000 + (7 - state.players["P1"].life) * 2000
+    if get_unit_base_bp(state, jeanne) != expected_jeanne_bp:
         raise AssertionError("v8 final dynamic scenario expected Jeanne life-damage base BP bonus")
     return state, initial_state
 
