@@ -87,4 +87,8 @@ python -m tojs_reborn.io.replay_gui --cards carddata/generated/cards.normalized.
 | `v8_next_10_cards` | v8追加候補10枚 | バルキリークララ、鬼ブル、ガシャドクロ、開戦指示など、v8追加候補10枚の代表挙動をまとめて確認する。 | ✓ |  | v8追加 |
 | `v8_next_batch_units` | v8次候補ユニット | アワだっくん、メガジョー、バブレスウルフィン、ロデオドライヴを同一盤面で確認する。ロデオドライヴはブロック選択完了後、battle_started前に発動する。 |  |  | v8追加 |
 | `v8_next_batch_triggers` | v8次候補トリガー | 中忍月影、フレスベルグ、タイムブレイク、暗殺部隊、アドバンスエネルギー、マネーゲームを同一盤面で確認する。 |  |  | v8追加 |
+| `v8_intercept_unit_entered_red_green` | v8 unit entered intercept 赤緑 | アーマーブレイク、インペリアルソード、ナチュラルフルーツを同一の unit_entered window で確認する。 |  |  | v8追加 |
+| `v8_intercept_unit_entered_yellow_blue` | v8 unit entered intercept 黄青 | フォトン・ソード、マジックブックを同一の unit_entered window で確認する。 |  |  | v8追加 |
+| `v8_intercept_attack` | v8 attack intercept | ダインスレイフ、タイタンの鉄鎖を attack window で確認する。 |  |  | v8追加 |
+| `v8_intercept_player_attack` | v8 player attack intercept | ニードルヘル、チェックメイト、解呪を player attack success window で確認する。 |  |  | v8追加 |
 - カテゴリサーチはデッキリフレッシュのきっかけにならない。デッキが空ならサーチは不発になり、`cards_drawn.count` は0になる。

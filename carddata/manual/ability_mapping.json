@@ -162,6 +162,35 @@
         }
       ]
     },
+    "1-0-006": {
+      "card_name": "拷問官アーテー",
+      "abilities": [
+        {
+          "ability_key": "1-0-006:a1",
+          "ability_name": "スピードムーブ",
+          "source_text": "",
+          "notes": "キーワード能力。ユニットドライブしたターンからアタック可能。",
+          "status": "supported",
+          "timing": "PASSIVE",
+          "optional": false,
+          "priority": {
+            "band": "static",
+            "order": "source_only"
+          },
+          "condition": null,
+          "cost_steps": [],
+          "selector": null,
+          "effect_steps": [
+            {
+              "effect": "grant_keyword",
+              "target": "source",
+              "keyword": "speedmove",
+              "duration": "permanent"
+            }
+          ]
+        }
+      ]
+    },
     "1-0-007": {
       "card_name": "ゴライアス",
       "abilities": [
@@ -1003,6 +1032,141 @@
         }
       ]
     },
+    "1-0-077": {
+      "card_name": "アーマーブレイク",
+      "abilities": [
+        {
+          "ability_key": "1-0-077:a1",
+          "ability_name": "アーマーブレイク",
+          "source_text": "あなたのユニットがフィールドに出た時、対戦相手のユニットを１体選ぶ。それに３０００ダメージを与える。",
+          "status": "supported",
+          "timing": "INTERCEPT_UNIT_ENTERED",
+          "optional": true,
+          "priority": {
+            "band": "intercept",
+            "order": "left_to_right"
+          },
+          "condition": {
+            "type": "event_actor_is_owner"
+          },
+          "cost_steps": [],
+          "selector": {
+            "id": "target",
+            "type": "unit",
+            "controller": "rival",
+            "count": 1,
+            "required": true
+          },
+          "effect_steps": [
+            {
+              "effect": "deal_damage_to_unit",
+              "target": "target",
+              "amount": 3000
+            }
+          ]
+        }
+      ]
+    },
+    "1-0-078": {
+      "card_name": "インペリアルソード",
+      "abilities": [
+        {
+          "ability_key": "1-0-078:a1",
+          "ability_name": "インペリアルソード",
+          "source_text": "あなたのユニットがフィールドに出た時、それに【スピードムーブ】を与える。",
+          "status": "supported",
+          "timing": "INTERCEPT_UNIT_ENTERED",
+          "optional": true,
+          "priority": {
+            "band": "intercept",
+            "order": "left_to_right"
+          },
+          "condition": {
+            "type": "event_actor_is_owner"
+          },
+          "cost_steps": [],
+          "selector": null,
+          "effect_steps": [
+            {
+              "effect": "grant_keyword",
+              "target": "event_unit",
+              "keyword": "speedmove",
+              "duration": "permanent"
+            }
+          ]
+        }
+      ]
+    },
+    "1-0-079": {
+      "card_name": "ダインスレイフ",
+      "abilities": [
+        {
+          "ability_key": "1-0-079:a1",
+          "ability_name": "ダインスレイフ",
+          "source_text": "あなたのユニットがアタックした時、対戦相手のトリガーゾーンにあるカードを１枚ランダムで破壊する。",
+          "status": "supported",
+          "timing": "INTERCEPT_ATTACK",
+          "optional": true,
+          "priority": {
+            "band": "intercept",
+            "order": "left_to_right"
+          },
+          "condition": {
+            "type": "event_actor_is_owner"
+          },
+          "cost_steps": [],
+          "selector": {
+            "id": "target",
+            "type": "trigger_zone_card",
+            "controller": "rival",
+            "count": 1,
+            "required": false,
+            "random": true
+          },
+          "effect_steps": [
+            {
+              "effect": "destroy_trigger_zone_card",
+              "target": "target"
+            }
+          ]
+        }
+      ]
+    },
+    "1-0-080": {
+      "card_name": "ニードルヘル",
+      "abilities": [
+        {
+          "ability_key": "1-0-080:a1",
+          "ability_name": "ニードルヘル",
+          "source_text": "あなたのユニットがプレイヤーアタックに成功した時、対戦相手のユニットを１体選ぶ。それに５０００ダメージを与える。",
+          "status": "supported",
+          "timing": "INTERCEPT_PLAYER_ATTACK_SUCCESS",
+          "optional": true,
+          "priority": {
+            "band": "intercept",
+            "order": "left_to_right"
+          },
+          "condition": {
+            "type": "event_actor_is_owner"
+          },
+          "cost_steps": [],
+          "selector": {
+            "id": "target",
+            "type": "unit",
+            "controller": "rival",
+            "count": 1,
+            "required": true
+          },
+          "effect_steps": [
+            {
+              "effect": "deal_damage_to_unit",
+              "target": "target",
+              "amount": 5000
+            }
+          ]
+        }
+      ]
+    },
     "1-0-083": {
       "card_name": "フォトン",
       "abilities": [
@@ -1162,6 +1326,198 @@
               "effect": "change_cp",
               "player": "owner",
               "amount": 2
+            }
+          ]
+        }
+      ]
+    },
+    "1-0-084": {
+      "card_name": "フォトン・ソード",
+      "abilities": [
+        {
+          "ability_key": "1-0-084:a1",
+          "ability_name": "フォトン・ソード",
+          "source_text": "あなたのユニットがフィールドに出た時、あなたのユニットを１体選ぶ。それの行動権を回復する。",
+          "status": "supported",
+          "timing": "INTERCEPT_UNIT_ENTERED",
+          "optional": true,
+          "priority": {
+            "band": "intercept",
+            "order": "left_to_right"
+          },
+          "condition": {
+            "type": "event_actor_is_owner"
+          },
+          "cost_steps": [],
+          "selector": {
+            "id": "target",
+            "type": "unit",
+            "controller": "owner",
+            "count": 1,
+            "required": true,
+            "exhausted": true
+          },
+          "effect_steps": [
+            {
+              "effect": "recover_action",
+              "target": "target"
+            }
+          ]
+        }
+      ]
+    },
+    "1-0-085": {
+      "card_name": "タイタンの鉄鎖",
+      "abilities": [
+        {
+          "ability_key": "1-0-085:a1",
+          "ability_name": "タイタンの鉄鎖",
+          "source_text": "あなたのユニットがアタックした時、対戦相手のユニットを１体選ぶ。それの行動権を消費する。",
+          "status": "supported",
+          "timing": "INTERCEPT_ATTACK",
+          "optional": true,
+          "priority": {
+            "band": "intercept",
+            "order": "left_to_right"
+          },
+          "condition": {
+            "type": "event_actor_is_owner"
+          },
+          "cost_steps": [],
+          "selector": {
+            "id": "target",
+            "type": "unit",
+            "controller": "rival",
+            "count": 1,
+            "required": true,
+            "exhausted": false
+          },
+          "effect_steps": [
+            {
+              "effect": "consume_action",
+              "target": "target"
+            }
+          ]
+        }
+      ]
+    },
+    "1-0-090": {
+      "card_name": "チェックメイト",
+      "abilities": [
+        {
+          "ability_key": "1-0-090:a1",
+          "ability_name": "チェックメイト",
+          "source_text": "あなたのユニットがプレイヤーアタックに成功した時、対戦相手は手札を１枚ランダムで捨てる。",
+          "status": "supported",
+          "timing": "INTERCEPT_PLAYER_ATTACK_SUCCESS",
+          "optional": true,
+          "priority": {
+            "band": "intercept",
+            "order": "left_to_right"
+          },
+          "condition": {
+            "type": "event_actor_is_owner"
+          },
+          "cost_steps": [],
+          "selector": null,
+          "effect_steps": [
+            {
+              "effect": "discard_from_hand",
+              "player": "rival",
+              "count": 1
+            }
+          ]
+        }
+      ]
+    },
+    "1-0-093": {
+      "card_name": "マジックブック",
+      "abilities": [
+        {
+          "ability_key": "1-0-093:a1",
+          "ability_name": "マジックブック",
+          "source_text": "あなたのユニットがフィールドに出た時、あなたの捨札にあるカードを１枚選ぶ。それを手札に加える。",
+          "status": "supported",
+          "timing": "INTERCEPT_UNIT_ENTERED",
+          "optional": true,
+          "priority": {
+            "band": "intercept",
+            "order": "left_to_right"
+          },
+          "condition": {
+            "type": "event_actor_is_owner"
+          },
+          "cost_steps": [],
+          "selector": {
+            "id": "target",
+            "type": "discard_pile_card",
+            "controller": "owner",
+            "count": 1,
+            "required": true
+          },
+          "effect_steps": [
+            {
+              "effect": "move_discard_to_hand",
+              "target": "target"
+            }
+          ]
+        }
+      ]
+    },
+    "1-0-094": {
+      "card_name": "解呪",
+      "abilities": [
+        {
+          "ability_key": "1-0-094:a1",
+          "ability_name": "解呪",
+          "source_text": "あなたのユニットがプレイヤーアタックに成功した時、対戦相手に１ライフダメージを与える。",
+          "status": "supported",
+          "timing": "INTERCEPT_PLAYER_ATTACK_SUCCESS",
+          "optional": true,
+          "priority": {
+            "band": "intercept",
+            "order": "left_to_right"
+          },
+          "condition": {
+            "type": "event_actor_is_owner"
+          },
+          "cost_steps": [],
+          "selector": null,
+          "effect_steps": [
+            {
+              "effect": "deal_life_damage",
+              "player": "rival",
+              "amount": 1
+            }
+          ]
+        }
+      ]
+    },
+    "1-0-098": {
+      "card_name": "ナチュラルフルーツ",
+      "abilities": [
+        {
+          "ability_key": "1-0-098:a1",
+          "ability_name": "ナチュラルフルーツ",
+          "source_text": "あなたのユニットがフィールドに出た時、それの基本ＢＰを＋２０００する。",
+          "status": "supported",
+          "timing": "INTERCEPT_UNIT_ENTERED",
+          "optional": true,
+          "priority": {
+            "band": "intercept",
+            "order": "left_to_right"
+          },
+          "condition": {
+            "type": "event_actor_is_owner"
+          },
+          "cost_steps": [],
+          "selector": null,
+          "effect_steps": [
+            {
+              "effect": "modify_base_bp",
+              "target": "event_unit",
+              "amount": 2000,
+              "duration": "permanent"
             }
           ]
         }

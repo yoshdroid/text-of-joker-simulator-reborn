@@ -88,6 +88,10 @@ SCENARIOS: dict[str, ScenarioBuilder] = {
     "v8_next_10_cards": lambda catalog: _scenario_v8_next_10_cards(catalog),
     "v8_next_batch_units": lambda catalog: _scenario_v8_next_batch_units(catalog),
     "v8_next_batch_triggers": lambda catalog: _scenario_v8_next_batch_triggers(catalog),
+    "v8_intercept_attack": lambda catalog: _scenario_v8_intercept_attack(catalog),
+    "v8_intercept_player_attack": lambda catalog: _scenario_v8_intercept_player_attack(catalog),
+    "v8_intercept_unit_entered_red_green": lambda catalog: _scenario_v8_intercept_unit_entered_red_green(catalog),
+    "v8_intercept_unit_entered_yellow_blue": lambda catalog: _scenario_v8_intercept_unit_entered_yellow_blue(catalog),
     "viper_discard_unit_recover": lambda catalog: _scenario_viper_discard_unit_recover(catalog),
 }
 
@@ -453,6 +457,115 @@ def _scenario_v8_next_batch_triggers(catalog: dict[str, Any]) -> tuple[GameState
     process_windows_for_events(state, 1)
     if state.players["P1"].current_cp != 4:
         raise AssertionError("v8 next batch triggers expected Advance Energy CP gain")
+    return state, initial_state
+
+
+def _scenario_v8_intercept_unit_entered_red_green(catalog: dict[str, Any]) -> tuple[GameState, dict[str, Any]]:
+    from tojs_reborn.engine.rules import get_unit_base_bp
+    from tojs_reborn.engine.state import create_game_state
+
+    state = create_game_state(catalog, seed=_scenario_seed(113))
+    state.turn_no = 3
+    state.turn_player_id = "P1"
+    _red_card, _red = _add_battlefield_unit(state, "P1", "1-0-001")
+    _green_card, _green = _add_battlefield_unit(state, "P1", "1-0-046")
+    _target_card, target = _add_battlefield_unit(state, "P2", "1-0-040")
+    entering = _add_hand_card(state, "P1", "1-0-001")
+    for card_no in ("1-0-077", "1-0-078", "1-0-098"):
+        intercept = _create_initial_deck_card(state, "P1", card_no)
+        state.players["P1"].trigger_zone.add(intercept.instance_id)
+    state.players["P1"].current_cp = 5
+    initial_state = snapshot_initial_state(state)
+
+    unit = drive_unit(state, "P1", entering.instance_id)
+    process_windows_for_events(state, 1, choose_intercept=_choose_first_intercept)
+    if target.current_damage != 3000:
+        raise AssertionError("v8 red/green unit-entered intercept scenario expected Armor Break damage")
+    if "speedmove" not in unit.keywords or unit.attack_restricted_turn_no is not None:
+        raise AssertionError("v8 red/green unit-entered intercept scenario expected Imperial Sword speedmove")
+    if get_unit_base_bp(state, unit) != catalog["1-0-001"].bp_by_level[0] * 1000 + 2000:
+        raise AssertionError("v8 red/green unit-entered intercept scenario expected Natural Fruits base BP bonus")
+    return state, initial_state
+
+
+def _scenario_v8_intercept_unit_entered_yellow_blue(catalog: dict[str, Any]) -> tuple[GameState, dict[str, Any]]:
+    from tojs_reborn.engine.state import create_game_state
+
+    state = create_game_state(catalog, seed=_scenario_seed(114))
+    state.turn_no = 3
+    state.turn_player_id = "P1"
+    _yellow_card, yellow = _add_battlefield_unit(state, "P1", "1-0-014")
+    yellow.exhausted = True
+    _blue_card, _blue = _add_battlefield_unit(state, "P1", "1-0-032")
+    entering = _add_hand_card(state, "P1", "1-0-001")
+    discarded = _create_initial_deck_card(state, "P1", "1-0-001")
+    state.players["P1"].discard_pile.add(discarded.instance_id)
+    for card_no in ("1-0-084", "1-0-093"):
+        intercept = _create_initial_deck_card(state, "P1", card_no)
+        state.players["P1"].trigger_zone.add(intercept.instance_id)
+    state.players["P1"].current_cp = 5
+    initial_state = snapshot_initial_state(state)
+
+    drive_unit(state, "P1", entering.instance_id)
+    process_windows_for_events(state, 1, choose_intercept=_choose_first_intercept)
+    if yellow.exhausted:
+        raise AssertionError("v8 yellow/blue unit-entered intercept scenario expected Photon Sword recovery")
+    if not state.players["P1"].hand.cards:
+        raise AssertionError("v8 yellow/blue unit-entered intercept scenario expected Magic Book discard recovery")
+    return state, initial_state
+
+
+def _scenario_v8_intercept_attack(catalog: dict[str, Any]) -> tuple[GameState, dict[str, Any]]:
+    from tojs_reborn.engine.state import create_game_state
+
+    state = create_game_state(catalog, seed=_scenario_seed(115))
+    state.turn_no = 3
+    state.turn_player_id = "P1"
+    _attacker_card, attacker = _add_battlefield_unit(state, "P1", "1-0-001")
+    _yellow_card, _yellow = _add_battlefield_unit(state, "P1", "1-0-014")
+    _ready_card, ready = _add_battlefield_unit(state, "P2", "1-0-040")
+    rival_trigger = _create_initial_deck_card(state, "P2", "1-0-061")
+    state.players["P2"].trigger_zone.add(rival_trigger.instance_id)
+    for card_no in ("1-0-079", "1-0-085"):
+        intercept = _create_initial_deck_card(state, "P1", card_no)
+        state.players["P1"].trigger_zone.add(intercept.instance_id)
+    state.players["P1"].current_cp = 2
+    initial_state = snapshot_initial_state(state)
+
+    declare_attack(state, "P1", attacker.unit_id)
+    process_windows_for_events(state, 1, choose_intercept=_choose_first_intercept)
+    if state.players["P2"].trigger_zone.cards:
+        raise AssertionError("v8 attack intercept scenario expected Dainsleif to destroy rival trigger")
+    if not ready.exhausted:
+        raise AssertionError("v8 attack intercept scenario expected Titan Chain to consume action")
+    return state, initial_state
+
+
+def _scenario_v8_intercept_player_attack(catalog: dict[str, Any]) -> tuple[GameState, dict[str, Any]]:
+    from tojs_reborn.engine.state import create_game_state
+
+    state = create_game_state(catalog, seed=_scenario_seed(116))
+    state.turn_no = 3
+    state.turn_player_id = "P1"
+    _red_card, _red = _add_battlefield_unit(state, "P1", "1-0-001")
+    _attacker_card, attacker = _add_battlefield_unit(state, "P1", "1-0-032")
+    _target_card, target = _add_battlefield_unit(state, "P2", "1-0-040")
+    hand_card = _create_initial_deck_card(state, "P2", "1-0-001")
+    state.players["P2"].hand.add(hand_card.instance_id)
+    for card_no in ("1-0-080", "1-0-090", "1-0-094"):
+        intercept = _create_initial_deck_card(state, "P1", card_no)
+        state.players["P1"].trigger_zone.add(intercept.instance_id)
+    state.players["P1"].current_cp = 3
+    initial_state = snapshot_initial_state(state)
+
+    attack_player(state, "P1", attacker.unit_id)
+    process_windows_for_events(state, 1, choose_intercept=_choose_first_intercept)
+    if target.current_damage != 5000:
+        raise AssertionError("v8 player-attack intercept scenario expected Needle Hell damage")
+    if state.players["P2"].hand.cards:
+        raise AssertionError("v8 player-attack intercept scenario expected Checkmate discard")
+    if state.players["P2"].life != 5:
+        raise AssertionError("v8 player-attack intercept scenario expected Dispel life damage")
     return state, initial_state
 
 

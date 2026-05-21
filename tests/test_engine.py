@@ -2123,6 +2123,118 @@ class EngineTest(unittest.TestCase):
         process_windows_for_events(state, 1)
         self.assertEqual(state.players["P1"].current_cp, 2)
 
+    def test_v8_intercept_batch_cards_resolve_basic_effects(self) -> None:
+        state = create_game_state(self.catalog)
+        state.turn_player_id = "P1"
+        speedy_card = state.create_card_instance("1-0-006", "P1")
+        state.players["P1"].hand.add(speedy_card.instance_id)
+        state.players["P1"].current_cp = 2
+        speedy = drive_unit(state, "P1", speedy_card.instance_id)
+        self.assertIn("speedmove", speedy.keywords)
+        self.assertIsNone(speedy.attack_restricted_turn_no)
+        attack_player(state, "P1", speedy.unit_id)
+        self.assertEqual(state.players["P2"].life, 6)
+
+        state = create_game_state(self.catalog)
+        state.turn_player_id = "P1"
+        entering = state.create_card_instance("1-0-001", "P1")
+        imperial = state.create_card_instance("1-0-078", "P1")
+        state.players["P1"].hand.add(entering.instance_id)
+        state.players["P1"].trigger_zone.add(imperial.instance_id)
+        state.players["P1"].current_cp = 1
+        unit = drive_unit(state, "P1", entering.instance_id)
+        process_windows_for_events(state, 1, choose_intercept=lambda _p, actions: actions[0])
+        self.assertIn("speedmove", unit.keywords)
+        self.assertIsNone(unit.attack_restricted_turn_no)
+
+        state = create_game_state(self.catalog)
+        state.turn_player_id = "P1"
+        entering = state.create_card_instance("1-0-001", "P1")
+        armor_break = state.create_card_instance("1-0-077", "P1")
+        _target_card, target = self._add_battlefield_unit(state, "P2", "1-0-040")
+        state.players["P1"].hand.add(entering.instance_id)
+        state.players["P1"].trigger_zone.add(armor_break.instance_id)
+        state.players["P1"].current_cp = 2
+        drive_unit(state, "P1", entering.instance_id)
+        process_windows_for_events(state, 1, choose_intercept=lambda _p, actions: actions[0])
+        self.assertEqual(target.current_damage, 3000)
+
+        state = create_game_state(self.catalog, seed=4)
+        state.turn_player_id = "P1"
+        _attacker_card, attacker = self._add_battlefield_unit(state, "P1", "1-0-001")
+        rival_trigger = state.create_card_instance("1-0-061", "P2")
+        dainsleif = state.create_card_instance("1-0-079", "P1")
+        state.players["P2"].trigger_zone.add(rival_trigger.instance_id)
+        state.players["P1"].trigger_zone.add(dainsleif.instance_id)
+        state.players["P1"].current_cp = 1
+        declare_attack(state, "P1", attacker.unit_id)
+        process_windows_for_events(state, 1, choose_intercept=lambda _p, actions: actions[0])
+        self.assertEqual(state.players["P2"].trigger_zone.cards, [])
+        self.assertEqual(state.players["P2"].discard_pile.cards, [rival_trigger.instance_id])
+
+        state = create_game_state(self.catalog)
+        state.turn_player_id = "P1"
+        _attacker_card, attacker = self._add_battlefield_unit(state, "P1", "1-0-001")
+        _target_card, target = self._add_battlefield_unit(state, "P2", "1-0-040")
+        needle = state.create_card_instance("1-0-080", "P1")
+        state.players["P1"].trigger_zone.add(needle.instance_id)
+        resolve_unblocked_attack(state, declare_attack(state, "P1", attacker.unit_id).event_no)
+        process_windows_for_events(state, 1, choose_intercept=lambda _p, actions: actions[0])
+        self.assertEqual(target.current_damage, 5000)
+
+        state = create_game_state(self.catalog, seed=5)
+        state.turn_player_id = "P1"
+        _attacker_card, attacker = self._add_battlefield_unit(state, "P1", "1-0-032")
+        hand_card = state.create_card_instance("1-0-001", "P2")
+        checkmate = state.create_card_instance("1-0-090", "P1")
+        dispel = state.create_card_instance("1-0-094", "P1")
+        state.players["P2"].hand.add(hand_card.instance_id)
+        state.players["P1"].trigger_zone.cards.extend([checkmate.instance_id, dispel.instance_id])
+        state.players["P1"].current_cp = 3
+        attack_player(state, "P1", attacker.unit_id)
+        process_windows_for_events(state, 1, choose_intercept=lambda _p, actions: actions[0])
+        self.assertEqual(state.players["P2"].hand.cards, [])
+        self.assertEqual(state.players["P2"].life, 5)
+
+        state = create_game_state(self.catalog)
+        state.turn_player_id = "P1"
+        _yellow_card, yellow = self._add_battlefield_unit(state, "P1", "1-0-014")
+        yellow.exhausted = True
+        entering = state.create_card_instance("1-0-014", "P1")
+        photon_sword = state.create_card_instance("1-0-084", "P1")
+        state.players["P1"].hand.add(entering.instance_id)
+        state.players["P1"].trigger_zone.add(photon_sword.instance_id)
+        state.players["P1"].current_cp = 4
+        drive_unit(state, "P1", entering.instance_id)
+        process_windows_for_events(state, 1, choose_intercept=lambda _p, actions: actions[0])
+        self.assertFalse(yellow.exhausted)
+
+        state = create_game_state(self.catalog)
+        state.turn_player_id = "P1"
+        _blue_card, _blue = self._add_battlefield_unit(state, "P1", "1-0-032")
+        entering = state.create_card_instance("1-0-032", "P1")
+        discarded = state.create_card_instance("1-0-001", "P1")
+        magic_book = state.create_card_instance("1-0-093", "P1")
+        state.players["P1"].discard_pile.add(discarded.instance_id)
+        state.players["P1"].hand.add(entering.instance_id)
+        state.players["P1"].trigger_zone.add(magic_book.instance_id)
+        state.players["P1"].current_cp = 4
+        drive_unit(state, "P1", entering.instance_id)
+        process_windows_for_events(state, 1, choose_intercept=lambda _p, actions: actions[0])
+        self.assertIn(discarded.instance_id, state.players["P1"].hand.cards)
+
+        state = create_game_state(self.catalog)
+        state.turn_player_id = "P1"
+        _green_card, _green = self._add_battlefield_unit(state, "P1", "1-0-046")
+        entering = state.create_card_instance("1-0-046", "P1")
+        fruit = state.create_card_instance("1-0-098", "P1")
+        state.players["P1"].hand.add(entering.instance_id)
+        state.players["P1"].trigger_zone.add(fruit.instance_id)
+        state.players["P1"].current_cp = 3
+        unit = drive_unit(state, "P1", entering.instance_id)
+        process_windows_for_events(state, 1, choose_intercept=lambda _p, actions: actions[0])
+        self.assertEqual(get_unit_base_bp(state, unit), self.catalog["1-0-046"].bp_by_level[0] * 1000 + 2000)
+
     def test_exquisite_provocation_sets_rival_unit_level_three_without_oc_effect(self) -> None:
         state = create_game_state(self.catalog)
         state.turn_player_id = "P1"

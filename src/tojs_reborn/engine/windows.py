@@ -190,6 +190,8 @@ def process_windows_for_events(
             trigger_window_name = _trigger_window_name_for_event(event)
             processed_count += process_trigger_window(state, event.event_no, effect_handlers, window_name=trigger_window_name)
             intercept_window = _AUTOMATIC_INTERCEPT_WINDOWS.get(event.type)
+            if intercept_window is None and event.type == "life_changed" and event.payload.get("reason") == "player_attack":
+                intercept_window = "player_attack_success"
             if intercept_window is not None:
                 if not _window_already_opened(state, event.event_no, intercept_window):
                     processed_count += process_intercept_window(

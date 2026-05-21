@@ -221,7 +221,7 @@ def drive_unit(
         del state.units[evolve_target.unit_id]
     unit = state.create_unit(card_instance_id)
     unit.exhausted = inherited_exhausted
-    if card.category == "unit":
+    if card.category == "unit" and "speedmove" not in unit.keywords:
         unit.attack_restricted_turn_no = state.turn_no
     if evolve_target_index is None:
         player.battlefield.add(unit.unit_id)
@@ -703,6 +703,8 @@ def _handle_grant_keyword(
     if not keyword or keyword in target.keywords:
         return
     target.keywords.append(keyword)
+    if keyword == "speedmove":
+        target.attack_restricted_turn_no = None
     state.event_store.append(
         "keyword_granted",
         round_no=state.round_no,
