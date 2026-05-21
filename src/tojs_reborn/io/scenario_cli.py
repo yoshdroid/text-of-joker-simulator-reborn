@@ -720,6 +720,7 @@ def _scenario_v8_remaining_intercepts(catalog: dict[str, Any]) -> tuple[GameStat
 
 def _scenario_v8_final_dynamic_units(catalog: dict[str, Any]) -> tuple[GameState, dict[str, Any]]:
     from tojs_reborn.engine.rules import get_unit_base_bp
+    from tojs_reborn.engine.rules import life_damage_for
     from tojs_reborn.engine.state import create_game_state
 
     state = create_game_state(catalog, seed=_scenario_seed(119))
@@ -776,7 +777,7 @@ def _scenario_v8_final_dynamic_units(catalog: dict[str, Any]) -> tuple[GameState
     jeanne = drive_unit(state, "P1", jeanne_card.instance_id, evolve_target_unit_id=green_base.unit_id)
     if "indomitable" not in jeanne.keywords:
         raise AssertionError("v8 final dynamic scenario expected Jeanne indomitable")
-    expected_jeanne_bp = catalog["1-0-049"].bp_by_level[0] * 1000 + (7 - state.players["P1"].life) * 2000
+    expected_jeanne_bp = catalog["1-0-049"].bp_by_level[0] * 1000 + life_damage_for(state, "P1") * 2000
     if get_unit_base_bp(state, jeanne) != expected_jeanne_bp:
         raise AssertionError("v8 final dynamic scenario expected Jeanne life-damage base BP bonus")
     return state, initial_state

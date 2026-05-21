@@ -53,6 +53,10 @@ def unit_is_silenced(unit: UnitState) -> bool:
     return "silence" in unit.keywords
 
 
+def life_damage_for(state: GameState, player_id: str, ruleset: Ruleset = DEFAULT_RULESET) -> int:
+    return max(0, ruleset.initial_life - state.players[player_id].life)
+
+
 def get_unit_base_bp(state: GameState, unit: UnitState) -> int:
     card = state.card_catalog[unit.card_no]
     if not card.bp_by_level:

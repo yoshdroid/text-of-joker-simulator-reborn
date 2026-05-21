@@ -9,6 +9,7 @@ from .rules import (
     bp_amount_to_game_bp,
     get_unit_base_bp,
     get_unit_bp,
+    life_damage_for,
     opponent_id,
 )
 from .effects import append_effect_fizzled as _append_effect_fizzled, get_effect_handlers
@@ -501,7 +502,7 @@ def _resolve_amount(state: GameState, unit: UnitState, ability_event: FactEvent,
     if amount_from == "owner_discard_count":
         return len(state.players[unit.owner_player_id].discard_pile.cards) * scale
     if amount_from == "owner_life_damage":
-        return max(0, 7 - state.players[unit.owner_player_id].life) * scale
+        return life_damage_for(state, unit.owner_player_id) * scale
     if amount_from == "random_choice":
         choices = [int(value) for value in step.get("choices", [])]
         if not choices:

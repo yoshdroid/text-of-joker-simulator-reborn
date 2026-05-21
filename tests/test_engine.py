@@ -20,7 +20,7 @@ from tojs_reborn.engine.replay import (
     snapshot_initial_state,
     verify_replay_record,
 )
-from tojs_reborn.engine.rules import MAX_HAND_SIZE, MAX_TRIGGER_ZONE_CARDS, get_unit_base_bp, get_unit_bp, ruleset_to_dict, turn_cp_for
+from tojs_reborn.engine.rules import MAX_HAND_SIZE, MAX_TRIGGER_ZONE_CARDS, Ruleset, get_unit_base_bp, get_unit_bp, life_damage_for, ruleset_to_dict, turn_cp_for
 from tojs_reborn.engine.state import AbilityDefinition, CardDefinition, create_game_state
 from tojs_reborn.engine.turn import end_turn, start_turn
 from tojs_reborn.engine.windows import list_trigger_intercept_window, process_intercept_window, process_trigger_window, process_windows_for_events
@@ -2834,6 +2834,16 @@ class EngineTest(unittest.TestCase):
         life_events = [event for event in state.event_store.events if event.type == "life_changed"]
         self.assertEqual(life_events[-1].payload["amount"], -1)
         self.assertEqual(life_events[-1].payload["reason"], "effect")
+
+    def test_life_damage_for_uses_ruleset_initial_life_and_clips_at_zero(self) -> None:
+        state = create_game_state(self.catalog)
+        state.players["P1"].life = 6
+
+        self.assertEqual(life_damage_for(state, "P1"), 1)
+        self.assertEqual(life_damage_for(state, "P1", Ruleset(initial_life=10)), 4)
+
+        state.players["P1"].life = 9
+        self.assertEqual(life_damage_for(state, "P1"), 0)
 
     def test_gigamamuto_indomitable_keyword_recovers_exhausted_source_unit(self) -> None:
         state = create_game_state(self.catalog)
