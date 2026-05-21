@@ -553,8 +553,9 @@ def _scenario_v8_intercept_player_attack(catalog: dict[str, Any]) -> tuple[GameS
     _red_card, _red = _add_battlefield_unit(state, "P1", "1-0-001")
     _attacker_card, attacker = _add_battlefield_unit(state, "P1", "1-0-032")
     _target_card, target = _add_battlefield_unit(state, "P2", "1-0-040")
-    hand_card = _create_initial_deck_card(state, "P2", "1-0-001")
-    state.players["P2"].hand.add(hand_card.instance_id)
+    for card_no in ("1-0-001", "1-0-004", "1-0-005", "1-0-006", "1-0-007", "1-0-010", "1-0-016"):
+        hand_card = _create_initial_deck_card(state, "P2", card_no)
+        state.players["P2"].hand.add(hand_card.instance_id)
     for card_no in ("1-0-080", "1-0-090", "1-0-094"):
         intercept = _create_initial_deck_card(state, "P1", card_no)
         state.players["P1"].trigger_zone.add(intercept.instance_id)
@@ -565,7 +566,7 @@ def _scenario_v8_intercept_player_attack(catalog: dict[str, Any]) -> tuple[GameS
     process_windows_for_events(state, 1, choose_intercept=_choose_first_intercept)
     if target.current_damage != 5000:
         raise AssertionError("v8 player-attack intercept scenario expected Needle Hell damage")
-    if state.players["P2"].hand.cards:
+    if len(state.players["P2"].hand.cards) != 5:
         raise AssertionError("v8 player-attack intercept scenario expected Checkmate discard")
     if state.players["P2"].life != 5:
         raise AssertionError("v8 player-attack intercept scenario expected Dispel life damage")
