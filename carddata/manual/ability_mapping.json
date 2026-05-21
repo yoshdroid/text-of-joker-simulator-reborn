@@ -226,6 +226,40 @@
         }
       ]
     },
+    "1-0-014": {
+      "card_name": "アワだっくん",
+      "abilities": [
+        {
+          "ability_key": "1-0-014:a1",
+          "ability_name": "リブート",
+          "source_text": "このユニットがフィールドに出た時、あなたの黄属性ユニットを１体選ぶ。それの行動権を回復する。",
+          "status": "supported",
+          "timing": "SELF_CIP",
+          "optional": false,
+          "priority": {
+            "band": "unit",
+            "order": "source_only"
+          },
+          "condition": null,
+          "cost_steps": [],
+          "selector": {
+            "id": "target",
+            "type": "unit",
+            "controller": "owner",
+            "count": 1,
+            "required": true,
+            "color": "黄",
+            "exhausted": true
+          },
+          "effect_steps": [
+            {
+              "effect": "recover_action",
+              "target": "target"
+            }
+          ]
+        }
+      ]
+    },
     "1-0-016": {
       "card_name": "金色の狛犬",
       "abilities": [
@@ -674,6 +708,33 @@
         }
       ]
     },
+    "1-0-032": {
+      "card_name": "中忍月影",
+      "abilities": [
+        {
+          "ability_key": "1-0-032:a1",
+          "ability_name": "ロスト",
+          "source_text": "このユニットがプレイヤーアタックに成功した時、対戦相手は手札を１枚ランダムで捨てる。",
+          "status": "supported",
+          "timing": "SELF_PLAYER_ATTACK_SUCCESS",
+          "optional": false,
+          "priority": {
+            "band": "unit",
+            "order": "source_only"
+          },
+          "condition": null,
+          "cost_steps": [],
+          "selector": null,
+          "effect_steps": [
+            {
+              "effect": "discard_from_hand",
+              "player": "rival",
+              "count": 1
+            }
+          ]
+        }
+      ]
+    },
     "1-0-034": {
       "card_name": "ガシャドクロ",
       "abilities": [
@@ -696,6 +757,58 @@
               "effect": "deal_life_damage",
               "player": "rival",
               "amount": 1
+            }
+          ]
+        }
+      ]
+    },
+    "1-0-046": {
+      "card_name": "バブレスウルフィン",
+      "abilities": [
+        {
+          "ability_key": "1-0-046:a1",
+          "ability_name": "貫通",
+          "source_text": "",
+          "notes": "現時点ではキーワード付与のみ。貫通の戦闘ダメージ処理は後続実装で扱う。",
+          "status": "supported",
+          "timing": "PASSIVE",
+          "optional": false,
+          "priority": {
+            "band": "static",
+            "order": "source_only"
+          },
+          "condition": null,
+          "cost_steps": [],
+          "selector": null,
+          "effect_steps": [
+            {
+              "effect": "grant_keyword",
+              "target": "source",
+              "keyword": "pierce",
+              "duration": "permanent"
+            }
+          ]
+        },
+        {
+          "ability_key": "1-0-046:a2",
+          "ability_name": "野生の解放",
+          "source_text": "このユニットが戦闘した時、ターン終了時までこのユニットのＢＰを＋１０００する。",
+          "status": "supported",
+          "timing": "SELF_BATTLE",
+          "optional": false,
+          "priority": {
+            "band": "intercept",
+            "order": "turn_player_first"
+          },
+          "condition": null,
+          "cost_steps": [],
+          "selector": null,
+          "effect_steps": [
+            {
+              "effect": "modify_bp",
+              "target": "owner_battle_unit",
+              "amount": 1000,
+              "duration": "turn"
             }
           ]
         }
@@ -724,6 +837,37 @@
               "target": "source",
               "amount": 1000,
               "duration": "permanent"
+            }
+          ]
+        }
+      ]
+    },
+    "1-0-053": {
+      "card_name": "ロデオドライヴ",
+      "abilities": [
+        {
+          "ability_key": "1-0-053:a1",
+          "ability_name": "ロデオドライヴ",
+          "source_text": "あなたのユニットがアタックした後、ターン終了時までそれのＢＰを＋３０００する。",
+          "notes": "ブロック判断にBP上昇を使えないよう、ブロック選択完了後の専用 window で強制発動する。",
+          "status": "supported",
+          "timing": "TRIGGER_POST_BLOCK_CHOICE",
+          "optional": false,
+          "priority": {
+            "band": "trigger",
+            "order": "left_to_right"
+          },
+          "condition": {
+            "type": "event_actor_is_owner"
+          },
+          "cost_steps": [],
+          "selector": null,
+          "effect_steps": [
+            {
+              "effect": "modify_bp",
+              "target": "event_attacker",
+              "amount": 3000,
+              "duration": "turn"
             }
           ]
         }
@@ -890,6 +1034,134 @@
               "effect": "deal_damage_to_unit",
               "target": "target",
               "amount": 3000
+            }
+          ]
+        }
+      ]
+    },
+    "1-0-055": {
+      "card_name": "タイムブレイク",
+      "abilities": [
+        {
+          "ability_key": "1-0-055:a1",
+          "ability_name": "タイムブレイク",
+          "source_text": "あなたのユニットがプレイヤーアタックに成功した時、対戦相手のユニットを１体選ぶ。それの行動権を消費する。",
+          "status": "supported",
+          "timing": "TRIGGER_PLAYER_ATTACK_SUCCESS",
+          "optional": false,
+          "priority": {
+            "band": "trigger",
+            "order": "left_to_right"
+          },
+          "condition": {
+            "type": "event_actor_is_owner"
+          },
+          "cost_steps": [],
+          "selector": {
+            "id": "target",
+            "type": "unit",
+            "controller": "rival",
+            "count": 1,
+            "required": true,
+            "exhausted": false
+          },
+          "effect_steps": [
+            {
+              "effect": "consume_action",
+              "target": "target"
+            }
+          ]
+        }
+      ]
+    },
+    "1-0-058": {
+      "card_name": "暗殺部隊",
+      "abilities": [
+        {
+          "ability_key": "1-0-058:a1",
+          "ability_name": "暗殺部隊",
+          "source_text": "あなたのユニットがプレイヤーアタックに成功した時、対戦相手のユニットを１体選ぶ。それに２０００ダメージを与える。",
+          "status": "supported",
+          "timing": "TRIGGER_PLAYER_ATTACK_SUCCESS",
+          "optional": false,
+          "priority": {
+            "band": "trigger",
+            "order": "left_to_right"
+          },
+          "condition": {
+            "type": "event_actor_is_owner"
+          },
+          "cost_steps": [],
+          "selector": {
+            "id": "target",
+            "type": "unit",
+            "controller": "rival",
+            "count": 1,
+            "required": true
+          },
+          "effect_steps": [
+            {
+              "effect": "deal_damage_to_unit",
+              "target": "target",
+              "amount": 2000
+            }
+          ]
+        }
+      ]
+    },
+    "1-0-060": {
+      "card_name": "アドバンスエネルギー",
+      "abilities": [
+        {
+          "ability_key": "1-0-060:a1",
+          "ability_name": "アドバンスエネルギー",
+          "source_text": "あなたのユニットが戦闘に勝利した時、ＣＰを＋２する。",
+          "status": "supported",
+          "timing": "TRIGGER_BATTLE_WON",
+          "optional": false,
+          "priority": {
+            "band": "trigger",
+            "order": "left_to_right"
+          },
+          "condition": {
+            "type": "battle_winner_is_owner"
+          },
+          "cost_steps": [],
+          "selector": null,
+          "effect_steps": [
+            {
+              "effect": "change_cp",
+              "player": "owner",
+              "amount": 2
+            }
+          ]
+        }
+      ]
+    },
+    "1-0-063": {
+      "card_name": "マネーゲーム",
+      "abilities": [
+        {
+          "ability_key": "1-0-063:a1",
+          "ability_name": "マネーゲーム",
+          "source_text": "あなたのユニットがプレイヤーアタックに成功した時、あなたのＣＰを＋２する。",
+          "status": "supported",
+          "timing": "TRIGGER_PLAYER_ATTACK_SUCCESS",
+          "optional": false,
+          "priority": {
+            "band": "trigger",
+            "order": "left_to_right"
+          },
+          "condition": {
+            "type": "event_actor_is_owner"
+          },
+          "cost_steps": [],
+          "selector": null,
+          "effect_steps": [
+            {
+              "effect": "change_cp",
+              "player": "owner",
+              "amount": 2
             }
           ]
         }
@@ -1274,6 +1546,70 @@
               "effect": "move_random_discard_to_hand",
               "player": "owner",
               "category": "unit"
+            }
+          ]
+        }
+      ]
+    },
+    "1-0-036": {
+      "card_name": "フレスベルグ",
+      "abilities": [
+        {
+          "ability_key": "1-0-036:a1",
+          "ability_name": "デリート",
+          "source_text": "このユニットがプレイヤーアタックに成功した時、対戦相手のレベル２以上のユニットを１体選ぶ。それを破壊する。",
+          "status": "supported",
+          "timing": "SELF_PLAYER_ATTACK_SUCCESS",
+          "optional": false,
+          "priority": {
+            "band": "unit",
+            "order": "source_only"
+          },
+          "condition": null,
+          "cost_steps": [],
+          "selector": {
+            "id": "target",
+            "type": "unit",
+            "controller": "rival",
+            "count": 1,
+            "required": true,
+            "min_level": 2
+          },
+          "effect_steps": [
+            {
+              "effect": "destroy_unit",
+              "target": "target"
+            }
+          ]
+        }
+      ]
+    },
+    "1-0-038": {
+      "card_name": "メガジョー",
+      "abilities": [
+        {
+          "ability_key": "1-0-038:a1",
+          "ability_name": "飽食の狩人",
+          "source_text": "このユニットがフィールドに出た時、あなたのフィールドに赤・黄・青・緑属性のユニットがいる場合、このユニットの基本ＢＰを＋４０００する。",
+          "status": "supported",
+          "timing": "SELF_CIP",
+          "optional": false,
+          "priority": {
+            "band": "unit",
+            "order": "source_only"
+          },
+          "condition": {
+            "type": "owner_battlefield_has_colors",
+            "colors": ["赤", "黄", "青", "緑"]
+          },
+          "cost_steps": [],
+          "selector": null,
+          "effect_steps": [
+            {
+              "effect": "modify_base_bp",
+              "target": "source",
+              "amount": 4000,
+              "duration": "permanent"
             }
           ]
         }

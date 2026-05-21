@@ -8,6 +8,8 @@ from .rules import get_unit_bp, opponent_id
 from .resolver import (
     AbilityCostChoice,
     OptionalAbilityChoice,
+    resolve_player_attack_succeeded,
+    resolve_unit_battled,
     resolve_unit_attacked,
     resolve_unit_blocked,
     resolve_unit_destroyed,
@@ -47,10 +49,20 @@ def resolve_unblocked_attack(state: GameState, attack_event_no: int) -> None:
         raise ValueError(f"event is not an attack declaration: {attack_event_no}")
     attacker_unit_id = attack_event.payload["attacker_unit_id"]
     attacker = state.units[attacker_unit_id]
+    block_choice_event = state.event_store.append(
+        "block_choice_resolved",
+        round_no=state.round_no,
+        turn_no=state.turn_no,
+        actor_player_id=attacker.owner_player_id,
+        cause_event_no=attack_event.event_no,
+        source=_unit_source(attacker),
+        payload={"attacker_unit_id": attacker.unit_id, "choice": "no_block"},
+    )
+    _process_post_block_choice_trigger_window(state, block_choice_event.event_no)
     opponent = state.players[opponent_id(attacker.owner_player_id)]
     before_life = opponent.life
     opponent.life -= 1
-    state.event_store.append(
+    life_event = state.event_store.append(
         "life_changed",
         round_no=state.round_no,
         turn_no=state.turn_no,
@@ -65,6 +77,7 @@ def resolve_unblocked_attack(state: GameState, attack_event_no: int) -> None:
             "reason": "player_attack",
         },
     )
+    resolve_player_attack_succeeded(state, attacker, life_event, get_effect_handlers())
 
 
 def attack_player_legacy(state: GameState, player_id: str, attacker_unit_id: str) -> None:
@@ -119,6 +132,8 @@ def resolve_blocked_battle(
     )
     if battle_started_callback is not None:
         battle_started_callback(state, battle_event.event_no)
+    resolve_unit_battled(state, attacker, battle_event, get_effect_handlers(), optional_ability_choice, ability_cost_choice)
+    resolve_unit_battled(state, blocker, battle_event, get_effect_handlers(), optional_ability_choice, ability_cost_choice)
     _deal_battle_damage(state, attacker, blocker, battle_event.event_no)
     _deal_battle_damage(state, blocker, attacker, battle_event.event_no)
     winner = _emit_battle_result(state, attacker, blocker, battle_event.event_no)
@@ -148,8 +163,24 @@ def declare_block(
         payload={"blocker_unit_id": blocker_unit_id, "attacker_unit_id": attacker_unit_id},
     )
     resolve_unit_blocked(state, blocker, block_event, get_effect_handlers(), optional_ability_choice, ability_cost_choice)
+    block_choice_event = state.event_store.append(
+        "block_choice_resolved",
+        round_no=state.round_no,
+        turn_no=state.turn_no,
+        actor_player_id=state.units[attacker_unit_id].owner_player_id,
+        cause_event_no=block_event.event_no,
+        source=_unit_source(blocker),
+        payload={"blocker_unit_id": blocker_unit_id, "attacker_unit_id": attacker_unit_id, "choice": "block"},
+    )
+    _process_post_block_choice_trigger_window(state, block_choice_event.event_no)
     resolve_blocked_battle(state, block_event.event_no, optional_ability_choice, ability_cost_choice, battle_started_callback)
     return block_event
+
+
+def _process_post_block_choice_trigger_window(state: GameState, cause_event_no: int) -> None:
+    from .windows import process_trigger_window
+
+    process_trigger_window(state, cause_event_no, get_effect_handlers(), window_name="post_block_choice")
 
 
 def _declare_attack(state: GameState, player_id: str, attacker: UnitState):
@@ -327,6 +358,8 @@ def _emit_battle_result(
             "blocker_unit_id": blocker.unit_id,
             "attacker_lethal": attacker_lethal,
             "blocker_lethal": blocker_lethal,
+            "winner_unit_id": winner.unit_id if winner is not None else None,
+            "winner_player_id": winner.owner_player_id if winner is not None else None,
         },
     )
     return winner

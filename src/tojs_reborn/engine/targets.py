@@ -94,6 +94,9 @@ def unit_candidates_for_selector(state: GameState, player_id: str, selector: dic
     if "max_level" in selector:
         max_level = int(selector["max_level"])
         candidates = [unit for unit in candidates if unit.level <= max_level]
+    if "color" in selector:
+        color = selector["color"]
+        candidates = [unit for unit in candidates if state.card_catalog[unit.card_no].color == color]
     return candidates
 
 
@@ -123,7 +126,9 @@ def _resolve_event_unit_target(
     if target_ref not in {"event_attacker", "owner_battle_unit", "rival_battle_unit"}:
         return None
     cause_event = _window_cause_event_for_ability(state, ability_event)
-    if cause_event is None or cause_event.type != "battle_started":
+    if cause_event is None:
+        return None
+    if cause_event.type not in {"battle_started", "battle_won", "battle_lost", "battle_unresolved", "battle_draw", "block_choice_resolved", "life_changed"}:
         return None
     attacker_unit_id = cause_event.payload.get("attacker_unit_id") or cause_event.source.unit_id
     blocker_unit_id = cause_event.payload.get("blocker_unit_id")
@@ -158,6 +163,8 @@ def _window_cause_event_for_ability(state: GameState, ability_event: FactEvent) 
     activation_event = _event_by_no_or_none(state, ability_event.cause_event_no)
     if activation_event is None:
         return None
+    if activation_event.type in {"battle_started", "battle_won", "battle_lost", "battle_unresolved", "battle_draw", "block_choice_resolved", "life_changed"}:
+        return activation_event
     return _event_by_no_or_none(state, activation_event.cause_event_no)
 
 

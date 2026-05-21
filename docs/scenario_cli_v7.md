@@ -85,4 +85,6 @@ python -m tojs_reborn.io.replay_gui --cards carddata/generated/cards.normalized.
 | `power_shortage_battle` | パワーショーテージ | `1-0-065` パワーショーテージを battle intercept で発動し、戦闘中の対戦相手ユニットのBPをターン終了時まで-2000する。 | ✓ |  | v8追加 |
 | `exquisite_provocation_no_oc` | 絶妙な挑発 | `1-0-069` 絶妙な挑発で対戦相手ユニットをLV3にするが、そのユニットのOC効果は発動しない。 | ✓ |  | v8追加 |
 | `v8_next_10_cards` | v8追加候補10枚 | バルキリークララ、鬼ブル、ガシャドクロ、開戦指示など、v8追加候補10枚の代表挙動をまとめて確認する。 | ✓ |  | v8追加 |
+| `v8_next_batch_units` | v8次候補ユニット | アワだっくん、メガジョー、バブレスウルフィン、ロデオドライヴを同一盤面で確認する。ロデオドライヴはブロック選択完了後、battle_started前に発動する。 |  |  | v8追加 |
+| `v8_next_batch_triggers` | v8次候補トリガー | 中忍月影、フレスベルグ、タイムブレイク、暗殺部隊、アドバンスエネルギー、マネーゲームを同一盤面で確認する。 |  |  | v8追加 |
 - カテゴリサーチはデッキリフレッシュのきっかけにならない。デッキが空ならサーチは不発になり、`cards_drawn.count` は0になる。

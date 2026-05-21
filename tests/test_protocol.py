@@ -2100,6 +2100,8 @@ class ProtocolTest(unittest.TestCase):
                 "tailwind_intercept_cp",
                 "trigger_lost_random",
                 "v8_next_10_cards",
+                "v8_next_batch_triggers",
+                "v8_next_batch_units",
                 "viper_discard_unit_recover",
             },
         )

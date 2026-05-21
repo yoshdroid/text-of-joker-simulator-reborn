@@ -62,6 +62,8 @@ def _window_condition_matches(state: GameState, ability: AbilityDefinition, caus
             and blocker_unit_id in state.units
             and state.units[blocker_unit_id].owner_player_id == player_id
         )
+    if condition_type == "battle_winner_is_owner":
+        return cause_event.payload.get("winner_player_id") == player_id
     return True
 
 

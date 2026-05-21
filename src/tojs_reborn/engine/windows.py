@@ -62,13 +62,16 @@ def process_trigger_window(
     state: GameState,
     cause_event_no: int,
     effect_handlers: dict[str, EffectHandler] | None = None,
+    *,
+    window_name: str | None = None,
 ) -> int:
     if effect_handlers is None:
         from .effects import get_effect_handlers
 
         effect_handlers = get_effect_handlers()
     cause_event = _event_by_no(state, cause_event_no)
-    if not _has_matching_card(state, "trigger", "TRIGGER", cause_event.type, cause_event):
+    window_name = window_name or cause_event.type
+    if not _has_matching_card(state, "trigger", "TRIGGER", window_name, cause_event):
         return 0
     activated_count = 0
     current_player_id = state.turn_player_id
@@ -87,7 +90,7 @@ def process_trigger_window(
             current_player_id,
             card_category="trigger",
             window_prefix="TRIGGER",
-            window_name=cause_event.type,
+            window_name=window_name,
             cause_event=cause_event,
             activation_event_type="trigger_activated",
             effect_handlers=effect_handlers,
@@ -184,7 +187,8 @@ def process_windows_for_events(
     while index < len(state.event_store.events):
         event = state.event_store.events[index]
         if event.type not in _WINDOW_EVENT_TYPES:
-            processed_count += process_trigger_window(state, event.event_no, effect_handlers)
+            trigger_window_name = _trigger_window_name_for_event(event)
+            processed_count += process_trigger_window(state, event.event_no, effect_handlers, window_name=trigger_window_name)
             intercept_window = _AUTOMATIC_INTERCEPT_WINDOWS.get(event.type)
             if intercept_window is not None:
                 if not _window_already_opened(state, event.event_no, intercept_window):
@@ -201,6 +205,12 @@ def process_windows_for_events(
                     finalize_pending_destroyed_unit(state, event.event_no)
         index += 1
     return processed_count
+
+
+def _trigger_window_name_for_event(event: FactEvent) -> str | None:
+    if event.type == "life_changed" and event.payload.get("reason") == "player_attack":
+        return "player_attack_success"
+    return None
 
 
 def has_matching_intercept_window(state: GameState, window: str, cause_event_no: int) -> bool:

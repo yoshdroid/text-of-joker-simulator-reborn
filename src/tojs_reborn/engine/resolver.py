@@ -104,6 +104,25 @@ def resolve_unit_attacked(
     )
 
 
+def resolve_player_attack_succeeded(
+    state: GameState,
+    attacking_unit: UnitState,
+    cause_event: FactEvent,
+    effect_handlers: dict[str, EffectHandler],
+    optional_ability_choice: OptionalAbilityChoice | None = None,
+    ability_cost_choice: AbilityCostChoice | None = None,
+) -> None:
+    _resolve_supported_abilities(
+        state,
+        attacking_unit,
+        "SELF_PLAYER_ATTACK_SUCCESS",
+        cause_event,
+        effect_handlers,
+        optional_ability_choice,
+        ability_cost_choice,
+    )
+
+
 def resolve_unit_blocked(
     state: GameState,
     blocking_unit: UnitState,
@@ -116,6 +135,25 @@ def resolve_unit_blocked(
         state,
         blocking_unit,
         "SELF_BLOCK",
+        cause_event,
+        effect_handlers,
+        optional_ability_choice,
+        ability_cost_choice,
+    )
+
+
+def resolve_unit_battled(
+    state: GameState,
+    battling_unit: UnitState,
+    cause_event: FactEvent,
+    effect_handlers: dict[str, EffectHandler],
+    optional_ability_choice: OptionalAbilityChoice | None = None,
+    ability_cost_choice: AbilityCostChoice | None = None,
+) -> None:
+    _resolve_supported_abilities(
+        state,
+        battling_unit,
+        "SELF_BATTLE",
         cause_event,
         effect_handlers,
         optional_ability_choice,
@@ -440,7 +478,19 @@ def _condition_matches(state: GameState, ability_source_unit: UnitState, ability
         return True
     if not isinstance(condition, dict):
         return False
-    if condition.get("type") != "used_other_card_this_turn":
+    condition_type = condition.get("type")
+    if condition_type == "owner_battlefield_has_colors":
+        required_colors = condition.get("colors")
+        if not isinstance(required_colors, list):
+            return False
+        owner_units = [
+            state.units[unit_id]
+            for unit_id in state.players[ability_source_unit.owner_player_id].battlefield.units
+            if unit_id in state.units
+        ]
+        present_colors = {state.card_catalog[unit.card_no].color for unit in owner_units}
+        return all(color in present_colors for color in required_colors)
+    if condition_type != "used_other_card_this_turn":
         return False
     min_cp = int(condition.get("min_cp", 0))
     color = condition.get("color")

@@ -10,7 +10,7 @@ if SRC_PATH.exists():
 
 from tojs_reborn.cardpool.normalizer import normalize_cardpool
 from tojs_reborn.engine.actions import EFFECT_FIZZLED_REASONS, draw_cards, drive_unit, overclock_unit, override_card, set_trigger
-from tojs_reborn.engine.combat import attack_bypasses_block, attack_player, attack_unit, declare_attack, declare_block, destroy_lethal_units, destroy_unit
+from tojs_reborn.engine.combat import attack_bypasses_block, attack_player, attack_unit, declare_attack, declare_block, destroy_lethal_units, destroy_unit, resolve_unblocked_attack
 from tojs_reborn.engine.events import EventSource, EventStore
 from tojs_reborn.engine.integrity import assert_game_state_integrity
 from tojs_reborn.engine.legal_actions import list_block_actions, list_legal_actions
@@ -105,8 +105,8 @@ class EngineTest(unittest.TestCase):
     def setUp(self) -> None:
         self.catalog = build_catalog()
 
-    def _add_battlefield_unit(self, state, player_id: str, card_no: str):
-        card = state.create_card_instance(card_no, player_id)
+    def _add_battlefield_unit(self, state, player_id: str, card_no: str, *, level: int = 1):
+        card = state.create_card_instance(card_no, player_id, level=level)
         unit = state.create_unit(card.instance_id)
         state.players[player_id].battlefield.add(unit.unit_id)
         return card, unit
@@ -876,7 +876,7 @@ class EngineTest(unittest.TestCase):
         self.assertEqual(state.players["P2"].life, 6)
         self.assertEqual(
             [event.type for event in state.event_store.events],
-            ["action_declared", "unit_attacked", "life_changed"],
+            ["action_declared", "unit_attacked", "block_choice_resolved", "life_changed"],
         )
 
     def test_blocked_battle_destroys_both_units_and_moves_to_discard(self) -> None:
@@ -902,6 +902,7 @@ class EngineTest(unittest.TestCase):
                 "action_declared",
                 "unit_attacked",
                 "block_declared",
+                "block_choice_resolved",
                 "battle_started",
                 "damage_dealt",
                 "damage_dealt",
@@ -2026,6 +2027,93 @@ class EngineTest(unittest.TestCase):
         process_windows_for_events(state, 1, choose_intercept=lambda _p, actions: actions[0])
         self.assertEqual(exhausted.current_damage, 3000)
         self.assertEqual(ready.current_damage, 0)
+
+    def test_next_batch_cards_resolve_basic_effects(self) -> None:
+        state = create_game_state(self.catalog)
+        state.turn_player_id = "P1"
+        _yellow_card, yellow = self._add_battlefield_unit(state, "P1", "1-0-014")
+        yellow.exhausted = True
+        awaduck = state.create_card_instance("1-0-014", "P1")
+        state.players["P1"].hand.add(awaduck.instance_id)
+        state.players["P1"].current_cp = 2
+        drive_unit(state, "P1", awaduck.instance_id)
+        self.assertFalse(yellow.exhausted)
+
+        state = create_game_state(self.catalog, seed=3)
+        state.turn_player_id = "P1"
+        _tsuki_card, tsukikage = self._add_battlefield_unit(state, "P1", "1-0-032")
+        hand_card = state.create_card_instance("1-0-001", "P2")
+        state.players["P2"].hand.add(hand_card.instance_id)
+        attack_player(state, "P1", tsukikage.unit_id)
+        self.assertEqual(state.players["P2"].hand.cards, [])
+        self.assertEqual(state.players["P2"].discard_pile.cards, [hand_card.instance_id])
+
+        state = create_game_state(self.catalog)
+        state.turn_player_id = "P1"
+        _hres_card, hresvelgr = self._add_battlefield_unit(state, "P1", "1-0-036")
+        _target_card, target = self._add_battlefield_unit(state, "P2", "1-0-001", level=2)
+        attack_player(state, "P1", hresvelgr.unit_id)
+        self.assertNotIn(target.unit_id, state.units)
+
+        state = create_game_state(self.catalog)
+        state.turn_player_id = "P1"
+        for card_no in ("1-0-001", "1-0-014", "1-0-046", "1-0-038"):
+            card = state.create_card_instance(card_no, "P1")
+            state.players["P1"].hand.add(card.instance_id)
+            state.players["P1"].current_cp = max(state.players["P1"].current_cp, self.catalog[card_no].cp or 0)
+            unit = drive_unit(state, "P1", card.instance_id)
+            if card_no == "1-0-038":
+                megajaw = unit
+        self.assertEqual(get_unit_base_bp(state, megajaw), self.catalog["1-0-038"].bp_by_level[0] * 1000 + 4000)
+
+        state = create_game_state(self.catalog)
+        state.turn_player_id = "P1"
+        _bub_card, bub = self._add_battlefield_unit(state, "P1", "1-0-046")
+        self.assertIn("pierce", bub.keywords)
+        _blocker_card, blocker = self._add_battlefield_unit(state, "P2", "1-0-040")
+        before_bp = get_unit_bp(state, bub)
+        attack_unit(state, "P1", bub.unit_id, blocker.unit_id)
+        self.assertTrue(any(event.type == "bp_modified" and event.payload.get("target_unit_id") == bub.unit_id for event in state.event_store.events))
+        self.assertGreaterEqual(before_bp + 1000, before_bp)
+
+        state = create_game_state(self.catalog)
+        state.turn_player_id = "P1"
+        _attacker_card, attacker = self._add_battlefield_unit(state, "P1", "1-0-001")
+        _blocker_card, blocker = self._add_battlefield_unit(state, "P2", "1-0-040")
+        rodeo = state.create_card_instance("1-0-053", "P1")
+        state.players["P1"].trigger_zone.add(rodeo.instance_id)
+        before_bp = get_unit_bp(state, attacker)
+        attack_event = declare_attack(state, "P1", attacker.unit_id)
+        self.assertEqual(get_unit_bp(state, attacker), before_bp)
+        declare_block(state, "P2", blocker.unit_id, attacker.unit_id, attack_event.event_no)
+        trigger_event = next(event for event in state.event_store.events if event.type == "trigger_activated")
+        battle_event = next(event for event in state.event_store.events if event.type == "battle_started")
+        self.assertLess(trigger_event.event_no, battle_event.event_no)
+        self.assertEqual(trigger_event.source.card_no, "1-0-053")
+
+        state = create_game_state(self.catalog)
+        state.turn_player_id = "P1"
+        _attacker_card, attacker = self._add_battlefield_unit(state, "P1", "1-0-001")
+        _ready_card, ready = self._add_battlefield_unit(state, "P2", "1-0-040")
+        timebreak = state.create_card_instance("1-0-055", "P1")
+        assassin = state.create_card_instance("1-0-058", "P1")
+        money = state.create_card_instance("1-0-063", "P1")
+        state.players["P1"].trigger_zone.cards.extend([timebreak.instance_id, assassin.instance_id, money.instance_id])
+        attack_player(state, "P1", attacker.unit_id)
+        process_windows_for_events(state, 1)
+        self.assertTrue(ready.exhausted)
+        self.assertEqual(ready.current_damage, 2000)
+        self.assertEqual(state.players["P1"].current_cp, 2)
+
+        state = create_game_state(self.catalog)
+        state.turn_player_id = "P1"
+        _winner_card, winner = self._add_battlefield_unit(state, "P1", "1-0-001")
+        _loser_card, loser = self._add_battlefield_unit(state, "P2", "1-0-040")
+        advance = state.create_card_instance("1-0-060", "P1")
+        state.players["P1"].trigger_zone.add(advance.instance_id)
+        attack_unit(state, "P1", winner.unit_id, loser.unit_id)
+        process_windows_for_events(state, 1)
+        self.assertEqual(state.players["P1"].current_cp, 2)
 
     def test_exquisite_provocation_sets_rival_unit_level_three_without_oc_effect(self) -> None:
         state = create_game_state(self.catalog)

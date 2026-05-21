@@ -86,6 +86,8 @@ SCENARIOS: dict[str, ScenarioBuilder] = {
     "tailwind_intercept_cp": lambda catalog: _scenario_tailwind_intercept_cp(catalog),
     "trigger_lost_random": lambda catalog: _scenario_trigger_lost_random(catalog),
     "v8_next_10_cards": lambda catalog: _scenario_v8_next_10_cards(catalog),
+    "v8_next_batch_units": lambda catalog: _scenario_v8_next_batch_units(catalog),
+    "v8_next_batch_triggers": lambda catalog: _scenario_v8_next_batch_triggers(catalog),
     "viper_discard_unit_recover": lambda catalog: _scenario_viper_discard_unit_recover(catalog),
 }
 
@@ -371,6 +373,84 @@ def _scenario_v8_next_10_cards(catalog: dict[str, Any]) -> tuple[GameState, dict
     if get_unit_bp(state, ally) != before_ally_bp + 1000:
         raise AssertionError("v8 next scenario expected Opening Order to modify all owner units")
 
+    return state, initial_state
+
+
+def _scenario_v8_next_batch_units(catalog: dict[str, Any]) -> tuple[GameState, dict[str, Any]]:
+    from tojs_reborn.engine.rules import get_unit_base_bp, get_unit_bp
+    from tojs_reborn.engine.state import create_game_state
+
+    state = create_game_state(catalog, seed=_scenario_seed(111))
+    state.turn_no = 3
+    state.turn_player_id = "P1"
+    state.players["P1"].current_cp = 7
+    _red_card, _red = _add_battlefield_unit(state, "P1", "1-0-001")
+    _yellow_card, yellow = _add_battlefield_unit(state, "P1", "1-0-014")
+    yellow.exhausted = True
+    _green_card, bub = _add_battlefield_unit(state, "P1", "1-0-046")
+    _blocker_card, blocker = _add_battlefield_unit(state, "P2", "1-0-040")
+    megajaw_card = _add_hand_card(state, "P1", "1-0-038")
+    awaduck_card = _add_hand_card(state, "P1", "1-0-014")
+    rodeo = _create_initial_deck_card(state, "P1", "1-0-053")
+    state.players["P1"].trigger_zone.add(rodeo.instance_id)
+    initial_state = snapshot_initial_state(state)
+
+    megajaw = drive_unit(state, "P1", megajaw_card.instance_id)
+    if get_unit_base_bp(state, megajaw) != catalog["1-0-038"].bp_by_level[0] * 1000 + 4000:
+        raise AssertionError("v8 next batch units expected Megajaw base BP bonus")
+    drive_unit(state, "P1", awaduck_card.instance_id)
+    if yellow.exhausted:
+        raise AssertionError("v8 next batch units expected Awaduck to recover yellow unit action")
+    before_bub_bp = get_unit_bp(state, bub)
+    attack_event = declare_attack(state, "P1", bub.unit_id)
+    if get_unit_bp(state, bub) != before_bub_bp:
+        raise AssertionError("v8 next batch units expected Rodeo Drive to wait for block choice")
+    declare_block(state, "P2", blocker.unit_id, bub.unit_id, attack_event.event_no)
+    activated = [event for event in state.event_store.events if event.type == "trigger_activated"]
+    battle_events = [event for event in state.event_store.events if event.type == "battle_started"]
+    if not activated or activated[0].source.card_no != "1-0-053":
+        raise AssertionError("v8 next batch units expected Rodeo Drive to activate")
+    if not battle_events or activated[0].event_no >= battle_events[0].event_no:
+        raise AssertionError("v8 next batch units expected Rodeo Drive before battle_started")
+    if not any(event.type == "bp_modified" and event.payload.get("target_unit_id") == bub.unit_id for event in state.event_store.events):
+        raise AssertionError("v8 next batch units expected Bubless Wolfin battle BP bonus")
+    return state, initial_state
+
+
+def _scenario_v8_next_batch_triggers(catalog: dict[str, Any]) -> tuple[GameState, dict[str, Any]]:
+    from tojs_reborn.engine.state import create_game_state
+
+    state = create_game_state(catalog, seed=_scenario_seed(112))
+    state.turn_no = 3
+    state.turn_player_id = "P1"
+    _tsuki_card, tsukikage = _add_battlefield_unit(state, "P1", "1-0-032")
+    _hres_card, hresvelgr = _add_battlefield_unit(state, "P1", "1-0-036")
+    _winner_card, winner = _add_battlefield_unit(state, "P1", "1-0-001")
+    _ready_card, ready = _add_battlefield_unit(state, "P2", "1-0-040")
+    _lv2_card, lv2_target = _add_battlefield_unit(state, "P2", "1-0-001", level=2)
+    _loser_card, loser = _add_battlefield_unit(state, "P2", "1-0-040")
+    hand_card = _create_initial_deck_card(state, "P2", "1-0-004")
+    state.players["P2"].hand.add(hand_card.instance_id)
+    for card_no in ("1-0-055", "1-0-058", "1-0-063", "1-0-060"):
+        trigger = _create_initial_deck_card(state, "P1", card_no)
+        state.players["P1"].trigger_zone.add(trigger.instance_id)
+    initial_state = snapshot_initial_state(state)
+
+    attack_player(state, "P1", tsukikage.unit_id)
+    process_windows_for_events(state, 1)
+    if state.players["P2"].hand.cards:
+        raise AssertionError("v8 next batch triggers expected Tsukikage to discard a hand card")
+    if not ready.exhausted or ready.current_damage != 2000:
+        raise AssertionError("v8 next batch triggers expected Time Break and Assassination Squad")
+    if state.players["P1"].current_cp != 2:
+        raise AssertionError("v8 next batch triggers expected Money Game CP gain")
+    attack_player(state, "P1", hresvelgr.unit_id)
+    if lv2_target.unit_id in state.units:
+        raise AssertionError("v8 next batch triggers expected Hresvelgr to destroy LV2 unit")
+    attack_unit(state, "P1", winner.unit_id, loser.unit_id)
+    process_windows_for_events(state, 1)
+    if state.players["P1"].current_cp != 4:
+        raise AssertionError("v8 next batch triggers expected Advance Energy CP gain")
     return state, initial_state
 
 
