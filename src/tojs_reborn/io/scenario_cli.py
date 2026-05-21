@@ -634,6 +634,7 @@ def _scenario_v8_remaining_intercepts(catalog: dict[str, Any]) -> tuple[GameStat
     _extra_card, extra_target = _add_battlefield_unit(state, "P2", "1-0-048")
     _second_attacker_card, second_attacker = _add_battlefield_unit(state, "P1", "1-0-052")
     _second_blocker_card, second_blocker = _add_battlefield_unit(state, "P2", "1-0-048")
+    _rival_attacker_card, rival_attacker = _add_battlefield_unit(state, "P2", "1-0-048")
     _feather_attacker_card, feather_attacker = _add_battlefield_unit(state, "P1", "1-0-014")
     entering = _add_hand_card(state, "P1", "1-0-001")
     for card_no in ("1-0-076", "1-0-082"):
@@ -709,8 +710,6 @@ def _scenario_v8_remaining_intercepts(catalog: dict[str, Any]) -> tuple[GameStat
         raise AssertionError("v8 remaining intercept scenario expected Meikyo Shisui CP gain")
 
     start_turn(state, "P2", draw_count=0, cp=3)
-    _rival_attacker_card, rival_attacker = _add_battlefield_unit(state, "P2", "1-0-040")
-    state.turn_player_id = "P2"
     state.players["P1"].current_cp = 1
     declare_attack(state, "P2", rival_attacker.unit_id)
     process_windows_for_events(state, 1, choose_intercept=_choose_first_intercept)
