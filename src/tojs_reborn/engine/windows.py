@@ -14,6 +14,8 @@ from tojs_reborn.io.views import card_instance_public_view
 WindowChoice = Callable[[str, list[dict[str, Any]]], dict[str, Any]]
 
 _AUTOMATIC_INTERCEPT_WINDOWS = {
+    "battle_won": "battle_won",
+    "turn_started": "turn_started",
     "unit_entered": "unit_entered",
     "unit_attacked": "attack",
     "battle_started": "battle",
@@ -212,6 +214,8 @@ def process_windows_for_events(
 def _trigger_window_name_for_event(event: FactEvent) -> str | None:
     if event.type == "life_changed" and event.payload.get("reason") == "player_attack":
         return "player_attack_success"
+    if event.type == "turn_ended":
+        return "turn_ended"
     return None
 
 

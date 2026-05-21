@@ -716,6 +716,23 @@ def _handle_grant_keyword(
     )
 
 
+def _handle_grant_keyword_units(
+    state: GameState,
+    unit: UnitState,
+    ability: AbilityDefinition,
+    ability_event: FactEvent,
+    step: dict,
+) -> None:
+    targets = resolve_unit_targets_for_effect(state, unit, ability, ability_event, step.get("target"))
+    if not targets:
+        _append_effect_fizzled(state, unit.owner_player_id, ability_event, step, "no_valid_target")
+        return
+    for target in targets:
+        if target.unit_id not in state.units:
+            continue
+        _handle_grant_keyword(state, unit, ability, ability_event, {**step, "target": target.unit_id})
+
+
 def _handle_modify_base_bp(
     state: GameState,
     unit: UnitState,
@@ -757,6 +774,23 @@ def _handle_modify_base_bp(
         destroy_lethal_units(state, [target], ability_event.event_no)
 
 
+def _handle_modify_base_bp_units(
+    state: GameState,
+    unit: UnitState,
+    ability: AbilityDefinition,
+    ability_event: FactEvent,
+    step: dict,
+) -> None:
+    targets = resolve_unit_targets_for_effect(state, unit, ability, ability_event, step.get("target"))
+    if not targets:
+        _append_effect_fizzled(state, unit.owner_player_id, ability_event, step, "no_valid_target")
+        return
+    for target in list(targets):
+        if target.unit_id not in state.units:
+            continue
+        _handle_modify_base_bp(state, unit, ability, ability_event, {**step, "target": target.unit_id})
+
+
 def _handle_recover_action(
     state: GameState,
     unit: UnitState,
@@ -781,6 +815,36 @@ def _handle_recover_action(
         source=ability_event.source,
         payload={"unit_id": target.unit_id, "reason": "effect"},
     )
+
+
+def _handle_recover_action_units(
+    state: GameState,
+    unit: UnitState,
+    ability: AbilityDefinition,
+    ability_event: FactEvent,
+    step: dict,
+) -> None:
+    targets = resolve_unit_targets_for_effect(state, unit, ability, ability_event, step.get("target"))
+    if not targets:
+        _append_effect_fizzled(state, unit.owner_player_id, ability_event, step, "no_valid_target")
+        return
+    recovered_count = 0
+    for target in targets:
+        if target.unit_id not in state.units or not target.exhausted:
+            continue
+        target.exhausted = False
+        recovered_count += 1
+        state.event_store.append(
+            "unit_action_recovered",
+            round_no=state.round_no,
+            turn_no=state.turn_no,
+            actor_player_id=unit.owner_player_id,
+            cause_event_no=ability_event.event_no,
+            source=ability_event.source,
+            payload={"unit_id": target.unit_id, "reason": "effect"},
+        )
+    if recovered_count == 0:
+        _append_effect_fizzled(state, unit.owner_player_id, ability_event, step, "target_not_exhausted")
 
 
 def _handle_set_unit_level(

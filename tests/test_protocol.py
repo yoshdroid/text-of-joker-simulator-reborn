@@ -2106,6 +2106,8 @@ class ProtocolTest(unittest.TestCase):
                 "v8_next_10_cards",
                 "v8_next_batch_triggers",
                 "v8_next_batch_units",
+                "v8_remaining_evolve_units",
+                "v8_remaining_intercepts",
                 "viper_discard_unit_recover",
             },
         )

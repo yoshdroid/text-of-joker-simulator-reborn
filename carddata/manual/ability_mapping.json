@@ -2511,6 +2511,435 @@
         }
       ]
     },
+    "1-0-013": {
+      "card_name": "蛮王ベリアル",
+      "abilities": [
+        {
+          "ability_key": "1-0-013:a1",
+          "ability_name": "憤怒の炎",
+          "source_text": "このユニットがフィールドに出た時、対戦相手のユニット全体に３０００ダメージを与える。",
+          "status": "supported",
+          "timing": "SELF_CIP",
+          "optional": false,
+          "priority": {
+            "band": "unit",
+            "order": "source_only"
+          },
+          "condition": null,
+          "cost_steps": [],
+          "selector": {
+            "id": "targets",
+            "type": "unit",
+            "controller": "rival",
+            "count": "all",
+            "required": false
+          },
+          "effect_steps": [
+            {
+              "effect": "deal_damage_to_units",
+              "target": "targets",
+              "amount": 3000
+            }
+          ]
+        },
+        {
+          "ability_key": "1-0-013:a2",
+          "ability_name": "ダメージブレイク",
+          "source_text": "このユニットがプレイヤーアタックに成功した時、対戦相手のユニットを１体選ぶ。それに７０００ダメージを与える。",
+          "status": "supported",
+          "timing": "SELF_PLAYER_ATTACK_SUCCESS",
+          "optional": false,
+          "priority": {
+            "band": "unit",
+            "order": "source_only"
+          },
+          "condition": null,
+          "cost_steps": [],
+          "selector": {
+            "id": "target",
+            "type": "unit",
+            "controller": "rival",
+            "count": 1,
+            "required": true
+          },
+          "effect_steps": [
+            {
+              "effect": "deal_damage_to_unit",
+              "target": "target",
+              "amount": 7000
+            }
+          ]
+        }
+      ]
+    },
+    "1-0-037": {
+      "card_name": "ユーベル・ヘルメス",
+      "abilities": [
+        {
+          "ability_key": "1-0-037:a1",
+          "ability_name": "ソウルブレード",
+          "source_text": "このユニットがフィールドに出た時、このユニットの基本ＢＰを＋５０００する。あなたは１ライフダメージを受ける。",
+          "status": "supported",
+          "timing": "SELF_CIP",
+          "optional": false,
+          "priority": {
+            "band": "unit",
+            "order": "source_only"
+          },
+          "condition": null,
+          "cost_steps": [],
+          "selector": null,
+          "effect_steps": [
+            {
+              "effect": "modify_base_bp",
+              "target": "source",
+              "amount": 5000,
+              "duration": "permanent"
+            },
+            {
+              "effect": "deal_life_damage",
+              "player": "owner",
+              "amount": 1
+            }
+          ]
+        },
+        {
+          "ability_key": "1-0-037:a2",
+          "ability_name": "ロスト",
+          "source_text": "このユニットが破壊された時、対戦相手は手札を１枚ランダムで捨てる。",
+          "status": "supported",
+          "timing": "SELF_PIG",
+          "optional": false,
+          "priority": {
+            "band": "unit",
+            "order": "source_only"
+          },
+          "condition": null,
+          "cost_steps": [],
+          "selector": null,
+          "effect_steps": [
+            {
+              "effect": "discard_from_hand",
+              "player": "rival",
+              "count": 1
+            }
+          ]
+        }
+      ]
+    },
+    "1-0-052": {
+      "card_name": "ジークフリート",
+      "abilities": [
+        {
+          "ability_key": "1-0-052:a1",
+          "ability_name": "貫通",
+          "source_text": "",
+          "status": "supported",
+          "timing": "PASSIVE",
+          "optional": false,
+          "priority": {
+            "band": "static",
+            "order": "source_only"
+          },
+          "condition": null,
+          "cost_steps": [],
+          "selector": null,
+          "effect_steps": [
+            {
+              "effect": "grant_keyword",
+              "target": "source",
+              "keyword": "pierce",
+              "duration": "permanent"
+            }
+          ]
+        },
+        {
+          "ability_key": "1-0-052:a2",
+          "ability_name": "不屈",
+          "source_text": "",
+          "status": "supported",
+          "timing": "PASSIVE",
+          "optional": false,
+          "priority": {
+            "band": "static",
+            "order": "source_only"
+          },
+          "condition": null,
+          "cost_steps": [],
+          "selector": null,
+          "effect_steps": [
+            {
+              "effect": "grant_keyword",
+              "target": "source",
+              "keyword": "indomitable",
+              "duration": "permanent"
+            }
+          ]
+        },
+        {
+          "ability_key": "1-0-052:a3",
+          "ability_name": "オーラブレード",
+          "source_text": "このユニットがオーバークロックした時、対戦相手の全てのユニットの基本ＢＰを－３０００する。",
+          "status": "supported",
+          "timing": "SELF_OC",
+          "optional": false,
+          "priority": {
+            "band": "unit",
+            "order": "source_only"
+          },
+          "condition": null,
+          "cost_steps": [],
+          "selector": {
+            "id": "targets",
+            "type": "unit",
+            "controller": "rival",
+            "count": "all",
+            "required": false
+          },
+          "effect_steps": [
+            {
+              "effect": "modify_base_bp_units",
+              "target": "targets",
+              "amount": -3000,
+              "duration": "permanent",
+              "destroy_if_lethal": true
+            }
+          ]
+        }
+      ]
+    },
+    "1-0-064": {
+      "card_name": "明鏡止水",
+      "abilities": [
+        {
+          "ability_key": "1-0-064:a1",
+          "ability_name": "明鏡止水",
+          "source_text": "あなたのターン終了時、あなたのＣＰを＋３する。",
+          "status": "supported",
+          "timing": "TRIGGER_TURN_ENDED",
+          "optional": false,
+          "priority": {
+            "band": "trigger",
+            "order": "left_to_right"
+          },
+          "condition": {
+            "type": "event_actor_is_owner"
+          },
+          "cost_steps": [],
+          "selector": null,
+          "effect_steps": [
+            {
+              "effect": "change_cp",
+              "player": "owner",
+              "amount": 3
+            }
+          ]
+        }
+      ]
+    },
+    "1-0-073": {
+      "card_name": "王の陣中見舞い",
+      "abilities": [
+        {
+          "ability_key": "1-0-073:a1",
+          "ability_name": "王の陣中見舞い",
+          "source_text": "あなたのユニットが戦闘に勝利した時、あなたはカードを２枚引く。",
+          "status": "supported",
+          "timing": "INTERCEPT_BATTLE_WON",
+          "optional": true,
+          "priority": {
+            "band": "intercept",
+            "order": "left_to_right"
+          },
+          "condition": {
+            "type": "battle_winner_is_owner"
+          },
+          "cost_steps": [],
+          "selector": null,
+          "effect_steps": [
+            {
+              "effect": "draw_cards",
+              "player": "owner",
+              "count": 2
+            }
+          ]
+        }
+      ]
+    },
+    "1-0-075": {
+      "card_name": "音速の槍",
+      "abilities": [
+        {
+          "ability_key": "1-0-075:a1",
+          "ability_name": "音速の槍",
+          "source_text": "あなたのユニットが戦闘に勝利した時、対戦相手のユニットを１体選ぶ。それに３０００ダメージを与える。",
+          "status": "supported",
+          "timing": "INTERCEPT_BATTLE_WON",
+          "optional": true,
+          "priority": {
+            "band": "intercept",
+            "order": "left_to_right"
+          },
+          "condition": {
+            "type": "battle_winner_is_owner"
+          },
+          "cost_steps": [],
+          "selector": {
+            "id": "target",
+            "type": "unit",
+            "controller": "rival",
+            "count": 1,
+            "required": true
+          },
+          "effect_steps": [
+            {
+              "effect": "deal_damage_to_unit",
+              "target": "target",
+              "amount": 3000
+            }
+          ]
+        }
+      ]
+    },
+    "1-0-076": {
+      "card_name": "突撃の合図",
+      "abilities": [
+        {
+          "ability_key": "1-0-076:a1",
+          "ability_name": "突撃の合図",
+          "source_text": "あなたのユニットがフィールドに出た時、ターン終了時まであなたの全てのユニットに【スピードムーブ】を与える。",
+          "status": "supported",
+          "timing": "INTERCEPT_UNIT_ENTERED",
+          "optional": true,
+          "priority": {
+            "band": "intercept",
+            "order": "left_to_right"
+          },
+          "condition": {
+            "type": "event_actor_is_owner"
+          },
+          "cost_steps": [],
+          "selector": {
+            "id": "targets",
+            "type": "unit",
+            "controller": "owner",
+            "count": "all",
+            "required": false
+          },
+          "effect_steps": [
+            {
+              "effect": "grant_keyword_units",
+              "target": "targets",
+              "keyword": "speedmove",
+              "duration": "turn"
+            }
+          ]
+        }
+      ]
+    },
+    "1-0-082": {
+      "card_name": "アースクエイク",
+      "abilities": [
+        {
+          "ability_key": "1-0-082:a1",
+          "ability_name": "アースクエイク",
+          "source_text": "あなたのユニットが戦闘した時、対戦相手の全てのユニットに２０００ダメージを与える。",
+          "status": "supported",
+          "timing": "INTERCEPT_BATTLE",
+          "optional": true,
+          "priority": {
+            "band": "intercept",
+            "order": "left_to_right"
+          },
+          "condition": {
+            "type": "battle_unit_controller_is_owner"
+          },
+          "cost_steps": [],
+          "selector": {
+            "id": "targets",
+            "type": "unit",
+            "controller": "rival",
+            "count": "all",
+            "required": false
+          },
+          "effect_steps": [
+            {
+              "effect": "deal_damage_to_units",
+              "target": "targets",
+              "amount": 2000
+            }
+          ]
+        }
+      ]
+    },
+    "1-0-086": {
+      "card_name": "エンジェルフェザー",
+      "abilities": [
+        {
+          "ability_key": "1-0-086:a1",
+          "ability_name": "エンジェルフェザー",
+          "source_text": "あなたのユニットがプレイヤーアタックに成功した時、対戦相手のユニットを１体選ぶ。それを対戦相手の手札に戻す。",
+          "status": "supported",
+          "timing": "INTERCEPT_PLAYER_ATTACK_SUCCESS",
+          "optional": true,
+          "priority": {
+            "band": "intercept",
+            "order": "left_to_right"
+          },
+          "condition": {
+            "type": "event_actor_is_owner"
+          },
+          "cost_steps": [],
+          "selector": {
+            "id": "target",
+            "type": "unit",
+            "controller": "rival",
+            "count": 1,
+            "required": true
+          },
+          "effect_steps": [
+            {
+              "effect": "return_unit_to_hand",
+              "target": "target"
+            }
+          ]
+        }
+      ]
+    },
+    "1-0-100": {
+      "card_name": "逆転の大竜巻",
+      "abilities": [
+        {
+          "ability_key": "1-0-100:a1",
+          "ability_name": "逆転の大竜巻",
+          "source_text": "対戦相手のユニットがアタックした時、あなたの全てのユニットの行動権を回復する。",
+          "status": "supported",
+          "timing": "INTERCEPT_ATTACK",
+          "optional": true,
+          "priority": {
+            "band": "intercept",
+            "order": "left_to_right"
+          },
+          "condition": {
+            "type": "event_actor_is_rival"
+          },
+          "cost_steps": [],
+          "selector": {
+            "id": "targets",
+            "type": "unit",
+            "controller": "owner",
+            "count": "all",
+            "required": false
+          },
+          "effect_steps": [
+            {
+              "effect": "recover_action_units",
+              "target": "targets"
+            }
+          ]
+        }
+      ]
+    },
     "1-0-099": {
       "card_name": "ハウリング",
       "abilities": [

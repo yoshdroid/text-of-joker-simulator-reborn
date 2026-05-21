@@ -91,4 +91,6 @@ python -m tojs_reborn.io.replay_gui --cards carddata/generated/cards.normalized.
 | `v8_intercept_unit_entered_yellow_blue` | v8 unit entered intercept 黄青 | フォトン・ソード、マジックブックを同一の unit_entered window で確認する。 |  |  | v8追加 |
 | `v8_intercept_attack` | v8 attack intercept | ダインスレイフ、タイタンの鉄鎖を attack window で確認する。 |  |  | v8追加 |
 | `v8_intercept_player_attack` | v8 player attack intercept | ニードルヘル、チェックメイト、解呪を player attack success window で確認する。 |  |  | v8追加 |
+| `v8_remaining_evolve_units` | v8残り進化ユニット | 蛮王ベリアル、ユーベル・ヘルメス、ジークフリートを同一盤面で確認する。 |  |  | v8追加 |
+| `v8_remaining_intercepts` | v8残りインターセプト | 突撃の合図、アースクエイク、王の陣中見舞い、音速の槍、エンジェルフェザー、逆転の大竜巻、明鏡止水を確認する。 |  |  | v8追加 |
 - カテゴリサーチはデッキリフレッシュのきっかけにならない。デッキが空ならサーチは不発になり、`cards_drawn.count` は0になる。

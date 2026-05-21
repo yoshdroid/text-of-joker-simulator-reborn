@@ -92,6 +92,8 @@ SCENARIOS: dict[str, ScenarioBuilder] = {
     "v8_intercept_player_attack": lambda catalog: _scenario_v8_intercept_player_attack(catalog),
     "v8_intercept_unit_entered_red_green": lambda catalog: _scenario_v8_intercept_unit_entered_red_green(catalog),
     "v8_intercept_unit_entered_yellow_blue": lambda catalog: _scenario_v8_intercept_unit_entered_yellow_blue(catalog),
+    "v8_remaining_evolve_units": lambda catalog: _scenario_v8_remaining_evolve_units(catalog),
+    "v8_remaining_intercepts": lambda catalog: _scenario_v8_remaining_intercepts(catalog),
     "viper_discard_unit_recover": lambda catalog: _scenario_viper_discard_unit_recover(catalog),
 }
 
@@ -570,6 +572,121 @@ def _scenario_v8_intercept_player_attack(catalog: dict[str, Any]) -> tuple[GameS
         raise AssertionError("v8 player-attack intercept scenario expected Checkmate discard")
     if state.players["P2"].life != 5:
         raise AssertionError("v8 player-attack intercept scenario expected Dispel life damage")
+    return state, initial_state
+
+
+def _scenario_v8_remaining_evolve_units(catalog: dict[str, Any]) -> tuple[GameState, dict[str, Any]]:
+    from tojs_reborn.engine.rules import get_unit_base_bp
+    from tojs_reborn.engine.state import create_game_state
+
+    state = create_game_state(catalog, seed=_scenario_seed(117))
+    state.turn_no = 3
+    state.turn_player_id = "P1"
+    _red_base_card, red_base = _add_battlefield_unit(state, "P1", "1-0-001")
+    _blue_base_card, blue_base = _add_battlefield_unit(state, "P1", "1-0-032")
+    _green_base_card, green_base = _add_battlefield_unit(state, "P1", "1-0-040")
+    _rival_first_card, rival_first = _add_battlefield_unit(state, "P2", "1-0-048")
+    _rival_second_card, rival_second = _add_battlefield_unit(state, "P2", "1-0-048")
+    _rival_third_card, rival_third = _add_battlefield_unit(state, "P2", "1-0-048")
+    _add_hand_card(state, "P2", "1-0-001")
+    berial_card = _add_hand_card(state, "P1", "1-0-013")
+    hermes_card = _add_hand_card(state, "P1", "1-0-037")
+    siegfried_card = _add_hand_card(state, "P1", "1-0-052", level=3)
+    state.players["P1"].current_cp = 20
+    initial_state = snapshot_initial_state(state)
+
+    berial = drive_unit(state, "P1", berial_card.instance_id, evolve_target_unit_id=red_base.unit_id)
+    if any(unit.current_damage != 3000 for unit in (rival_first, rival_second, rival_third)):
+        raise AssertionError("v8 remaining evolve scenario expected Belial CIP all-unit damage")
+    attack_player(state, "P1", berial.unit_id)
+    if rival_first.unit_id in state.units:
+        raise AssertionError("v8 remaining evolve scenario expected Belial player attack success damage")
+
+    hermes = drive_unit(state, "P1", hermes_card.instance_id, evolve_target_unit_id=blue_base.unit_id)
+    if get_unit_base_bp(state, hermes) != catalog["1-0-037"].bp_by_level[0] * 1000 + 5000:
+        raise AssertionError("v8 remaining evolve scenario expected Hermes base BP bonus")
+    if state.players["P1"].life != 6:
+        raise AssertionError("v8 remaining evolve scenario expected Hermes owner life damage")
+    destroy_unit(state, hermes, len(state.event_store.events) + 1, reason="scenario")
+    if state.players["P2"].hand.cards:
+        raise AssertionError("v8 remaining evolve scenario expected Hermes PIG random discard")
+
+    drive_unit(state, "P1", siegfried_card.instance_id, evolve_target_unit_id=green_base.unit_id)
+    remaining_rivals = [unit for unit in (rival_second, rival_third) if unit.unit_id in state.units]
+    if not remaining_rivals or any(unit.base_bp_modifiers[-1]["amount"] != -3000 for unit in remaining_rivals):
+        raise AssertionError("v8 remaining evolve scenario expected Siegfried OC base BP reduction")
+    return state, initial_state
+
+
+def _scenario_v8_remaining_intercepts(catalog: dict[str, Any]) -> tuple[GameState, dict[str, Any]]:
+    from tojs_reborn.engine.state import create_game_state
+
+    state = create_game_state(catalog, seed=_scenario_seed(118))
+    state.turn_no = 3
+    state.turn_player_id = "P1"
+    _red_card, red_unit = _add_battlefield_unit(state, "P1", "1-0-001")
+    _yellow_card, _yellow_unit = _add_battlefield_unit(state, "P1", "1-0-014")
+    _green_card, green_unit = _add_battlefield_unit(state, "P1", "1-0-040")
+    _blocker_card, blocker = _add_battlefield_unit(state, "P2", "1-0-040")
+    _extra_card, extra_target = _add_battlefield_unit(state, "P2", "1-0-048")
+    entering = _add_hand_card(state, "P1", "1-0-001")
+    for card_no in ("1-0-076", "1-0-082", "1-0-073", "1-0-075"):
+        state.players["P1"].trigger_zone.add(_create_initial_deck_card(state, "P1", card_no).instance_id)
+    for card_no in ("1-0-005", "1-0-006"):
+        _add_deck_card(state, "P1", card_no)
+    state.players["P1"].current_cp = 10
+    initial_state = snapshot_initial_state(state)
+
+    speedy = drive_unit(state, "P1", entering.instance_id)
+    process_windows_for_events(state, 1, choose_intercept=_choose_first_intercept)
+    if "speedmove" not in speedy.keywords or "speedmove" not in red_unit.keywords:
+        raise AssertionError("v8 remaining intercept scenario expected Assault Signal speedmove")
+    attack_player(state, "P1", speedy.unit_id)
+
+    attack_event = declare_attack(state, "P1", red_unit.unit_id)
+    declare_block(
+        state,
+        "P2",
+        blocker.unit_id,
+        red_unit.unit_id,
+        attack_event.event_no,
+        battle_started_callback=lambda scenario_state, event_no: process_windows_for_events(
+            scenario_state, event_no, choose_intercept=_choose_first_intercept
+        ),
+    )
+    process_windows_for_events(state, 1, choose_intercept=_choose_first_intercept)
+    if extra_target.current_damage < 5000:
+        raise AssertionError("v8 remaining intercept scenario expected Earthquake and Sonic Spear damage")
+    if len(state.players["P1"].hand.cards) < 2:
+        raise AssertionError("v8 remaining intercept scenario expected King's Encouragement draw")
+
+    feather = _create_initial_deck_card(state, "P1", "1-0-086")
+    state.players["P1"].trigger_zone.add(feather.instance_id)
+    state.players["P1"].current_cp = 2
+    attack_player(state, "P1", green_unit.unit_id)
+    process_windows_for_events(state, 1, choose_intercept=_choose_first_intercept)
+    if extra_target.unit_id in state.units:
+        raise AssertionError("v8 remaining intercept scenario expected Angel Feather bounce")
+
+    tornado = _create_initial_deck_card(state, "P1", "1-0-100")
+    state.players["P1"].trigger_zone.add(tornado.instance_id)
+    green_unit.exhausted = True
+    _rival_attacker_card, rival_attacker = _add_battlefield_unit(state, "P2", "1-0-040")
+    state.turn_player_id = "P2"
+    state.players["P1"].current_cp = 1
+    declare_attack(state, "P2", rival_attacker.unit_id)
+    process_windows_for_events(state, 1, choose_intercept=_choose_first_intercept)
+    if green_unit.exhausted:
+        raise AssertionError("v8 remaining intercept scenario expected Tornado to recover owner units")
+
+    meikyo = _create_initial_deck_card(state, "P1", "1-0-064")
+    state.players["P1"].trigger_zone.add(meikyo.instance_id)
+    state.turn_player_id = "P1"
+    state.players["P1"].current_cp = 0
+    end_turn(state, "P1")
+    process_windows_for_events(state, 1, choose_intercept=_choose_first_intercept)
+    if state.players["P1"].current_cp != 3:
+        raise AssertionError("v8 remaining intercept scenario expected Meikyo Shisui CP gain")
     return state, initial_state
 
 

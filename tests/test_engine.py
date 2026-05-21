@@ -2235,6 +2235,86 @@ class EngineTest(unittest.TestCase):
         process_windows_for_events(state, 1, choose_intercept=lambda _p, actions: actions[0])
         self.assertEqual(get_unit_base_bp(state, unit), self.catalog["1-0-046"].bp_by_level[0] * 1000 + 2000)
 
+    def test_v8_remaining_batch_cards_resolve_basic_effects(self) -> None:
+        choose_first = lambda _p, actions: next((action for action in actions if action["type"] == "activate_intercept"), actions[-1])
+
+        state = create_game_state(self.catalog, seed=2140)
+        state.turn_no = 3
+        state.turn_player_id = "P1"
+        red_base_card = state.create_card_instance("1-0-001", "P1")
+        red_base = state.create_unit(red_base_card.instance_id)
+        state.players["P1"].battlefield.add(red_base.unit_id)
+        green_base_card = state.create_card_instance("1-0-040", "P1")
+        green_base = state.create_unit(green_base_card.instance_id)
+        state.players["P1"].battlefield.add(green_base.unit_id)
+        rival_first_card = state.create_card_instance("1-0-048", "P2")
+        rival_first = state.create_unit(rival_first_card.instance_id)
+        state.players["P2"].battlefield.add(rival_first.unit_id)
+        rival_second_card = state.create_card_instance("1-0-045", "P2")
+        rival_second = state.create_unit(rival_second_card.instance_id)
+        state.players["P2"].battlefield.add(rival_second.unit_id)
+        berial_card = state.create_card_instance("1-0-013", "P1")
+        siegfried_card = state.create_card_instance("1-0-052", "P1", level=3)
+        state.players["P1"].hand.add(berial_card.instance_id)
+        state.players["P1"].hand.add(siegfried_card.instance_id)
+        state.players["P1"].current_cp = 20
+
+        berial = drive_unit(state, "P1", berial_card.instance_id, evolve_target_unit_id=red_base.unit_id)
+        self.assertEqual(rival_first.current_damage, 3000)
+        self.assertEqual(rival_second.current_damage, 3000)
+        attack_player(state, "P1", berial.unit_id)
+        self.assertNotIn(rival_first.unit_id, state.units)
+        drive_unit(state, "P1", siegfried_card.instance_id, evolve_target_unit_id=green_base.unit_id)
+        self.assertEqual(rival_second.base_bp_modifiers[-1]["amount"], -3000)
+
+        state = create_game_state(self.catalog, seed=2141)
+        state.turn_no = 3
+        state.turn_player_id = "P1"
+        _red_card, red_unit = self._add_battlefield_unit(state, "P1", "1-0-001")
+        _yellow_card, _yellow_unit = self._add_battlefield_unit(state, "P1", "1-0-014")
+        _green_card, green_unit = self._add_battlefield_unit(state, "P1", "1-0-040")
+        _blocker_card, blocker = self._add_battlefield_unit(state, "P2", "1-0-040")
+        _extra_card, extra = self._add_battlefield_unit(state, "P2", "1-0-048")
+        for card_no in ("1-0-076", "1-0-082", "1-0-073", "1-0-075"):
+            card = state.create_card_instance(card_no, "P1")
+            state.players["P1"].trigger_zone.add(card.instance_id)
+        for card_no in ("1-0-005", "1-0-006"):
+            card = state.create_card_instance(card_no, "P1")
+            state.players["P1"].deck.cards.append(card.instance_id)
+        entering = state.create_card_instance("1-0-001", "P1")
+        state.players["P1"].hand.add(entering.instance_id)
+        state.players["P1"].current_cp = 10
+
+        speedy = drive_unit(state, "P1", entering.instance_id)
+        process_windows_for_events(state, 1, choose_intercept=choose_first)
+        self.assertIn("speedmove", speedy.keywords)
+        attack_event = declare_attack(state, "P1", red_unit.unit_id)
+        declare_block(
+            state,
+            "P2",
+            blocker.unit_id,
+            red_unit.unit_id,
+            attack_event.event_no,
+            battle_started_callback=lambda scenario_state, event_no: process_windows_for_events(
+                scenario_state,
+                event_no,
+                choose_intercept=choose_first,
+            ),
+        )
+        process_windows_for_events(state, 1, choose_intercept=choose_first)
+        self.assertGreaterEqual(extra.current_damage, 5000)
+        self.assertGreaterEqual(len(state.players["P1"].hand.cards), 2)
+
+        tornado = state.create_card_instance("1-0-100", "P1")
+        state.players["P1"].trigger_zone.add(tornado.instance_id)
+        green_unit.exhausted = True
+        _rival_attacker_card, rival_attacker = self._add_battlefield_unit(state, "P2", "1-0-040")
+        state.turn_player_id = "P2"
+        state.players["P1"].current_cp = 1
+        declare_attack(state, "P2", rival_attacker.unit_id)
+        process_windows_for_events(state, 1, choose_intercept=choose_first)
+        self.assertFalse(green_unit.exhausted)
+
     def test_exquisite_provocation_sets_rival_unit_level_three_without_oc_effect(self) -> None:
         state = create_game_state(self.catalog)
         state.turn_player_id = "P1"
