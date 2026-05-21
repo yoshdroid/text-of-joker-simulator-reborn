@@ -2074,6 +2074,14 @@ class EngineTest(unittest.TestCase):
         before_bp = get_unit_bp(state, bub)
         attack_unit(state, "P1", bub.unit_id, blocker.unit_id)
         self.assertTrue(any(event.type == "bp_modified" and event.payload.get("target_unit_id") == bub.unit_id for event in state.event_store.events))
+        pierce_life_event = next(
+            event
+            for event in state.event_store.events
+            if event.type == "life_changed" and event.payload.get("keyword") == "pierce"
+        )
+        battle_won_event = next(event for event in state.event_store.events if event.type == "battle_won")
+        self.assertEqual(pierce_life_event.cause_event_no, battle_won_event.event_no)
+        self.assertEqual(state.players["P2"].life, 6)
         self.assertGreaterEqual(before_bp + 1000, before_bp)
 
         state = create_game_state(self.catalog)

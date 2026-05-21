@@ -3,7 +3,7 @@ from __future__ import annotations
 from collections.abc import Callable
 
 from .effects import get_effect_handlers
-from .events import EventSource
+from .events import EventSource, FactEvent
 from .rules import get_unit_bp, opponent_id
 from .resolver import (
     AbilityCostChoice,
@@ -136,7 +136,9 @@ def resolve_blocked_battle(
     resolve_unit_battled(state, blocker, battle_event, get_effect_handlers(), optional_ability_choice, ability_cost_choice)
     _deal_battle_damage(state, attacker, blocker, battle_event.event_no)
     _deal_battle_damage(state, blocker, attacker, battle_event.event_no)
-    winner = _emit_battle_result(state, attacker, blocker, battle_event.event_no)
+    winner, battle_result_event = _emit_battle_result(state, attacker, blocker, battle_event.event_no)
+    if winner is not None and battle_result_event.type == "battle_won":
+        _resolve_pierce_keyword(state, winner, battle_result_event.event_no)
     if winner is not None:
         _reward_battle_winner(state, winner, battle_event.event_no, optional_ability_choice, ability_cost_choice)
     destroy_lethal_units(state, [attacker, blocker], battle_event.event_no)
@@ -332,7 +334,7 @@ def _emit_battle_result(
     attacker: UnitState,
     blocker: UnitState,
     cause_event_no: int,
-) -> UnitState | None:
+) -> tuple[UnitState | None, FactEvent]:
     attacker_lethal = attacker.current_damage >= get_unit_bp(state, attacker)
     blocker_lethal = blocker.current_damage >= get_unit_bp(state, blocker)
     winner: UnitState | None = None
@@ -346,7 +348,7 @@ def _emit_battle_result(
         winner = blocker
     else:
         result_type = "battle_unresolved"
-    state.event_store.append(
+    result_event = state.event_store.append(
         result_type,
         round_no=state.round_no,
         turn_no=state.turn_no,
@@ -362,7 +364,31 @@ def _emit_battle_result(
             "winner_player_id": winner.owner_player_id if winner is not None else None,
         },
     )
-    return winner
+    return winner, result_event
+
+
+def _resolve_pierce_keyword(state: GameState, winner: UnitState, cause_event_no: int) -> None:
+    if "pierce" not in winner.keywords:
+        return
+    opponent = state.players[opponent_id(winner.owner_player_id)]
+    before_life = opponent.life
+    opponent.life -= 1
+    state.event_store.append(
+        "life_changed",
+        round_no=state.round_no,
+        turn_no=state.turn_no,
+        actor_player_id=winner.owner_player_id,
+        cause_event_no=cause_event_no,
+        source=_unit_source(winner),
+        payload={
+            "player_id": opponent.player_id,
+            "before_life": before_life,
+            "after_life": opponent.life,
+            "amount": -1,
+            "reason": "keyword",
+            "keyword": "pierce",
+        },
+    )
 
 
 def _reward_battle_winner(

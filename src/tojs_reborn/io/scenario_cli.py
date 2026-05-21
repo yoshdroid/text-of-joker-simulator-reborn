@@ -414,6 +414,8 @@ def _scenario_v8_next_batch_units(catalog: dict[str, Any]) -> tuple[GameState, d
         raise AssertionError("v8 next batch units expected Rodeo Drive before battle_started")
     if not any(event.type == "bp_modified" and event.payload.get("target_unit_id") == bub.unit_id for event in state.event_store.events):
         raise AssertionError("v8 next batch units expected Bubless Wolfin battle BP bonus")
+    if state.players["P2"].life != 6:
+        raise AssertionError("v8 next batch units expected Pierce to deal 1 life damage on battle_won")
     return state, initial_state
 
 
