@@ -30,6 +30,7 @@ class CardDefinition:
     cp: int | None
     bp_by_level: tuple[int, ...]
     abilities: tuple[AbilityDefinition, ...]
+    race: str = ""
 
 
 @dataclass
@@ -84,6 +85,7 @@ class GameState:
     seed: int = 0
     rng: random.Random = field(default_factory=lambda: random.Random(0))
     pending_destroyed_units: dict[str, dict[str, Any]] = field(default_factory=dict)
+    suppressed_battle_event_nos: set[int] = field(default_factory=set)
 
     def create_card_instance(self, card_no: str, owner_player_id: str, level: int = 1) -> CardInstance:
         instance = CardInstance(
@@ -137,6 +139,7 @@ def load_card_catalog(path: str | Path) -> dict[str, CardDefinition]:
             cp=item.get("cp"),
             bp_by_level=tuple(item.get("bp_by_level", [])),
             abilities=abilities,
+            race=item.get("race", ""),
         )
     return cards
 

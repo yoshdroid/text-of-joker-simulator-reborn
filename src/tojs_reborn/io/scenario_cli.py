@@ -94,6 +94,10 @@ SCENARIOS: dict[str, ScenarioBuilder] = {
     "v8_intercept_unit_entered_yellow_blue": lambda catalog: _scenario_v8_intercept_unit_entered_yellow_blue(catalog),
     "v8_remaining_evolve_units": lambda catalog: _scenario_v8_remaining_evolve_units(catalog),
     "v8_remaining_intercepts": lambda catalog: _scenario_v8_remaining_intercepts(catalog),
+    "v8_final_battle_modifiers": lambda catalog: _scenario_v8_final_battle_modifiers(catalog),
+    "v8_final_dynamic_units": lambda catalog: _scenario_v8_final_dynamic_units(catalog),
+    "v8_final_tactics_end": lambda catalog: _scenario_v8_final_tactics_end(catalog),
+    "v8_final_turn_intercepts": lambda catalog: _scenario_v8_final_turn_intercepts(catalog),
     "viper_discard_unit_recover": lambda catalog: _scenario_viper_discard_unit_recover(catalog),
 }
 
@@ -687,6 +691,163 @@ def _scenario_v8_remaining_intercepts(catalog: dict[str, Any]) -> tuple[GameStat
     process_windows_for_events(state, 1, choose_intercept=_choose_first_intercept)
     if state.players["P1"].current_cp != 3:
         raise AssertionError("v8 remaining intercept scenario expected Meikyo Shisui CP gain")
+    return state, initial_state
+
+
+def _scenario_v8_final_dynamic_units(catalog: dict[str, Any]) -> tuple[GameState, dict[str, Any]]:
+    from tojs_reborn.engine.rules import get_unit_base_bp
+    from tojs_reborn.engine.state import create_game_state
+
+    state = create_game_state(catalog, seed=_scenario_seed(119))
+    state.turn_no = 3
+    state.turn_player_id = "P1"
+    _red_base_card, red_base = _add_battlefield_unit(state, "P1", "1-0-001")
+    _blue_base_card, blue_base = _add_battlefield_unit(state, "P1", "1-0-032")
+    _green_base_card, green_base = _add_battlefield_unit(state, "P1", "1-0-040")
+    _rival_card, rival = _add_battlefield_unit(state, "P2", "1-0-048")
+    for card_no in ("1-0-004", "1-0-005", "1-0-006", "1-0-007"):
+        state.players["P1"].discard_pile.add(_create_initial_deck_card(state, "P1", card_no).instance_id)
+    recover_card = _create_initial_deck_card(state, "P1", "1-0-010")
+    state.players["P1"].discard_pile.add(recover_card.instance_id)
+    _add_deck_card(state, "P1", "1-0-046")
+    behemoth_card = _add_hand_card(state, "P1", "1-0-011")
+    algenib_card = _add_hand_card(state, "P1", "1-0-035")
+    jeanne_card = _add_hand_card(state, "P1", "1-0-049")
+    state.players["P1"].life = 4
+    state.players["P1"].current_cp = 20
+    initial_state = snapshot_initial_state(state)
+
+    behemoth = drive_unit(state, "P1", behemoth_card.instance_id, evolve_target_unit_id=red_base.unit_id)
+    attack_player(state, "P1", behemoth.unit_id)
+    bp_event = [event for event in state.event_store.events if event.type == "bp_modified"][-1]
+    if bp_event.payload["amount"] != 3000:
+        raise AssertionError("v8 final dynamic scenario expected Behemoth discard-count BP bonus")
+
+    algenib = drive_unit(state, "P1", algenib_card.instance_id, evolve_target_unit_id=blue_base.unit_id)
+    if "silence" not in rival.keywords:
+        raise AssertionError("v8 final dynamic scenario expected Algenib random silence")
+    hand_count_before_revive = len(state.players["P1"].hand.cards)
+    attack_player(state, "P1", algenib.unit_id)
+    if len(state.players["P1"].hand.cards) <= hand_count_before_revive:
+        raise AssertionError("v8 final dynamic scenario expected Algenib revive")
+    destroy_unit(state, algenib, len(state.event_store.events) + 1, reason="scenario")
+    if not any(state.card_instances[card_id].card_no == "1-0-046" for card_id in state.players["P1"].hand.cards):
+        raise AssertionError("v8 final dynamic scenario expected Algenib beast draw")
+
+    jeanne = drive_unit(state, "P1", jeanne_card.instance_id, evolve_target_unit_id=green_base.unit_id)
+    if "indomitable" not in jeanne.keywords:
+        raise AssertionError("v8 final dynamic scenario expected Jeanne indomitable")
+    if get_unit_base_bp(state, jeanne) != catalog["1-0-049"].bp_by_level[0] * 1000 + 6000:
+        raise AssertionError("v8 final dynamic scenario expected Jeanne life-damage base BP bonus")
+    return state, initial_state
+
+
+def _scenario_v8_final_battle_modifiers(catalog: dict[str, Any]) -> tuple[GameState, dict[str, Any]]:
+    from tojs_reborn.engine.rules import get_unit_base_bp
+    from tojs_reborn.engine.state import create_game_state
+
+    state = create_game_state(catalog, seed=_scenario_seed(120))
+    state.turn_no = 3
+    state.turn_player_id = "P1"
+    state.players["P1"].life = 5
+    _green_card, attacker = _add_battlefield_unit(state, "P1", "1-0-046")
+    _blocker_card, blocker = _add_battlefield_unit(state, "P2", "1-0-048")
+    for card_no in ("1-0-001", "1-0-004"):
+        _add_hand_card(state, "P1", card_no)
+    for card_no in ("1-0-059", "1-0-070", "1-0-072", "1-0-095"):
+        state.players["P1"].trigger_zone.add(_create_initial_deck_card(state, "P1", card_no).instance_id)
+    state.players["P1"].current_cp = 5
+    initial_state = snapshot_initial_state(state)
+
+    attack_event = declare_attack(state, "P1", attacker.unit_id)
+    declare_block(
+        state,
+        "P2",
+        blocker.unit_id,
+        attacker.unit_id,
+        attack_event.event_no,
+        battle_started_callback=lambda scenario_state, event_no: process_windows_for_events(
+            scenario_state, event_no, choose_intercept=_choose_first_intercept
+        ),
+    )
+    if state.players["P1"].hand.cards:
+        raise AssertionError("v8 final battle modifier scenario expected Limiter Release discard all")
+    if "pierce" not in attacker.keywords:
+        raise AssertionError("v8 final battle modifier scenario expected Tackle pierce")
+    if get_unit_base_bp(state, attacker) != catalog["1-0-046"].bp_by_level[attacker.level - 1] * 1000 + 1000:
+        raise AssertionError("v8 final battle modifier scenario expected Tackle base BP bonus")
+    if not any(event.type == "random_resolved" and event.payload.get("kind") == "amount" for event in state.event_store.events):
+        raise AssertionError("v8 final battle modifier scenario expected Russian Roulette random BP")
+    return state, initial_state
+
+
+def _scenario_v8_final_tactics_end(catalog: dict[str, Any]) -> tuple[GameState, dict[str, Any]]:
+    from tojs_reborn.engine.state import create_game_state
+
+    state = create_game_state(catalog, seed=_scenario_seed(121))
+    state.turn_no = 3
+    state.turn_player_id = "P1"
+    _attacker_card, attacker = _add_battlefield_unit(state, "P1", "1-0-040")
+    _blocker_card, blocker = _add_battlefield_unit(state, "P2", "1-0-048")
+    for card_no in ("1-0-071", "1-0-070"):
+        state.players["P1"].trigger_zone.add(_create_initial_deck_card(state, "P1", card_no).instance_id)
+    state.players["P1"].life = 4
+    state.players["P1"].current_cp = 4
+    initial_state = snapshot_initial_state(state)
+
+    attack_event = declare_attack(state, "P1", attacker.unit_id)
+    declare_block(
+        state,
+        "P2",
+        blocker.unit_id,
+        attacker.unit_id,
+        attack_event.event_no,
+        battle_started_callback=lambda scenario_state, event_no: process_windows_for_events(
+            scenario_state, event_no, choose_intercept=_choose_first_intercept
+        ),
+    )
+    activated_cards = [event.source.card_no for event in state.event_store.events if event.type == "intercept_activated"]
+    if activated_cards != ["1-0-071"]:
+        raise AssertionError("v8 final tactics scenario expected Tactics End to suppress later effects")
+    if any(event.type == "bp_modified" for event in state.event_store.events):
+        raise AssertionError("v8 final tactics scenario expected no later BP modifier")
+    return state, initial_state
+
+
+def _scenario_v8_final_turn_intercepts(catalog: dict[str, Any]) -> tuple[GameState, dict[str, Any]]:
+    from tojs_reborn.engine.rules import get_unit_bp
+    from tojs_reborn.engine.state import create_game_state
+
+    state = create_game_state(catalog, seed=_scenario_seed(122))
+    state.turn_no = 3
+    state.turn_player_id = "P1"
+    _yellow_card, yellow = _add_battlefield_unit(state, "P1", "1-0-014")
+    _owner_card, owner_unit = _add_battlefield_unit(state, "P1", "1-0-040")
+    _lv1_card, lv1 = _add_battlefield_unit(state, "P2", "1-0-040", level=1)
+    _lv2_card, lv2 = _add_battlefield_unit(state, "P2", "1-0-048", level=2)
+    _lv3_card, lv3 = _add_battlefield_unit(state, "P2", "1-0-045", level=3)
+    for card_no, level in (("1-0-068", 1), ("1-0-087", 1), ("1-0-088", 3)):
+        state.players["P1"].trigger_zone.add(_create_initial_deck_card(state, "P1", card_no, level=level).instance_id)
+    initial_state = snapshot_initial_state(state)
+
+    start_turn(state, "P2", draw_count=0, cp=2)
+    state.players["P1"].current_cp = 0
+    process_windows_for_events(state, 1, choose_intercept=_choose_first_intercept)
+    if get_unit_bp(state, owner_unit) != catalog["1-0-040"].bp_by_level[0] * 1000 + 1000:
+        raise AssertionError("v8 final turn scenario expected Moving Fortress BP bonus")
+    end_turn(state, "P2")
+    start_turn(state, "P1", draw_count=0, cp=1)
+    process_windows_for_events(state, 1, choose_intercept=_choose_first_intercept)
+    if lv1.exhausted or not lv2.exhausted or not lv3.exhausted:
+        raise AssertionError("v8 final turn scenario expected Happy Cat to exhaust LV2+ rivals")
+    end_turn(state, "P1")
+    start_turn(state, "P2", draw_count=0, cp=2)
+    end_turn(state, "P2")
+    start_turn(state, "P1", draw_count=0, cp=6)
+    attack_player(state, "P1", yellow.unit_id)
+    process_windows_for_events(state, 1, choose_intercept=_choose_first_intercept)
+    if not all(unit.exhausted and "bind" in unit.keywords for unit in (lv1, lv2, lv3)):
+        raise AssertionError("v8 final turn scenario expected LV3 Judgment to exhaust and bind all rivals")
     return state, initial_state
 
 

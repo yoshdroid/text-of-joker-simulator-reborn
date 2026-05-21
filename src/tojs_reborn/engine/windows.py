@@ -360,6 +360,8 @@ def _resolve_card_ability(
         payload={"ability_name": ability.name, "timing": ability.timing},
     )
     for step in ability.effect_steps:
+        if int(step.get("min_source_level", 0)) > source.level:
+            continue
         handler = effect_handlers.get(str(step.get("effect")))
         if handler is not None:
             handler(state, source, ability, ability_event, step)
@@ -367,6 +369,8 @@ def _resolve_card_ability(
 
 def _list_intercept_actions(state: GameState, player_id: str, window: str, cause_event: FactEvent) -> list[dict[str, Any]]:
     actions: list[dict[str, Any]] = []
+    if cause_event.type == "battle_started" and cause_event.event_no in state.suppressed_battle_event_nos:
+        return [_pass_window_action(window)]
     for card_instance_id in state.players[player_id].trigger_zone.cards:
         card_no = state.card_instances[card_instance_id].card_no
         card = state.card_catalog[card_no]

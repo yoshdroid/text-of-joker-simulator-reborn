@@ -30,6 +30,26 @@ def resolve_unit_target_for_effect(
     candidates = [unit.unit_id for unit in unit_candidates_for_selector(state, player_id, selector)]
     if not candidates:
         return None
+    if selector.get("random"):
+        chosen_index = state.rng.randrange(len(candidates))
+        chosen_unit_id = candidates[chosen_index]
+        state.event_store.append(
+            "random_resolved",
+            round_no=state.round_no,
+            turn_no=state.turn_no,
+            actor_player_id=source_unit.owner_player_id,
+            cause_event_no=ability_event.event_no,
+            source=ability_event.source,
+            payload={
+                "kind": "unit",
+                "seed": state.seed,
+                "player_id": player_id,
+                "candidate_unit_ids": candidates,
+                "chosen_index": chosen_index,
+                "chosen_unit_id": chosen_unit_id,
+            },
+        )
+        return state.units[chosen_unit_id]
     request_event = state.event_store.append(
         "choice_requested",
         round_no=state.round_no,

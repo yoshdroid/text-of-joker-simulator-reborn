@@ -493,6 +493,39 @@ def _handle_draw_cards(
     )
 
 
+def _resolve_amount(state: GameState, unit: UnitState, ability_event: FactEvent, step: dict) -> int:
+    if "amount" in step:
+        return int(step.get("amount", 0))
+    amount_from = step.get("amount_from")
+    scale = int(step.get("scale", 1))
+    if amount_from == "owner_discard_count":
+        return len(state.players[unit.owner_player_id].discard_pile.cards) * scale
+    if amount_from == "owner_life_damage":
+        return max(0, 7 - state.players[unit.owner_player_id].life) * scale
+    if amount_from == "random_choice":
+        choices = [int(value) for value in step.get("choices", [])]
+        if not choices:
+            return 0
+        chosen_index = state.rng.randrange(len(choices))
+        state.event_store.append(
+            "random_resolved",
+            round_no=state.round_no,
+            turn_no=state.turn_no,
+            actor_player_id=unit.owner_player_id,
+            cause_event_no=ability_event.event_no,
+            source=ability_event.source,
+            payload={
+                "kind": "amount",
+                "seed": state.seed,
+                "choices": choices,
+                "chosen_index": chosen_index,
+                "chosen_amount": choices[chosen_index],
+            },
+        )
+        return choices[chosen_index]
+    return 0
+
+
 def _handle_discard_from_hand(
     state: GameState,
     unit: UnitState,
@@ -544,6 +577,39 @@ def _handle_discard_from_hand(
     )
 
 
+def _handle_discard_all_from_hand(
+    state: GameState,
+    unit: UnitState,
+    _ability: AbilityDefinition,
+    ability_event: FactEvent,
+    step: dict,
+) -> None:
+    player_id = resolve_player_id(unit.owner_player_id, step.get("player"))
+    player = state.players[player_id]
+    if not player.hand.cards:
+        _append_effect_fizzled(state, unit.owner_player_id, ability_event, step, "no_valid_target")
+        return
+    moved = list(player.hand.cards)
+    player.hand.cards = []
+    for card_instance_id in moved:
+        instance = state.card_instances[card_instance_id]
+        player.discard_pile.add(card_instance_id)
+        state.event_store.append(
+            "card_moved",
+            round_no=state.round_no,
+            turn_no=state.turn_no,
+            actor_player_id=player_id,
+            cause_event_no=ability_event.event_no,
+            source=EventSource(card_no=instance.card_no, card_instance_id=card_instance_id),
+            payload={
+                "from_zone": "hand",
+                "to_zone": "discard_pile",
+                "owner_player_id": player_id,
+                "reason": "effect",
+            },
+        )
+
+
 def _handle_deal_damage_to_unit(
     state: GameState,
     unit: UnitState,
@@ -559,7 +625,7 @@ def _handle_deal_damage_to_unit(
         state,
         unit,
         target,
-        int(step.get("amount", 0)),
+        _resolve_amount(state, unit, ability_event, step),
         cause_event_no=ability_event.event_no,
         source=ability_event.source,
     )
@@ -583,7 +649,7 @@ def _handle_deal_damage_to_units(
             state,
             unit,
             target,
-            int(step.get("amount", 0)),
+            _resolve_amount(state, unit, ability_event, step),
             cause_event_no=ability_event.event_no,
             source=ability_event.source,
         )
@@ -645,7 +711,7 @@ def _handle_modify_bp(
     if target is None:
         _append_effect_fizzled(state, unit.owner_player_id, ability_event, step, "no_valid_target")
         return
-    amount = bp_amount_to_game_bp(int(step.get("amount", 0)))
+    amount = bp_amount_to_game_bp(_resolve_amount(state, unit, ability_event, step))
     before_bp = get_unit_bp(state, target)
     target.bp_modifiers.append(
         {
@@ -744,7 +810,7 @@ def _handle_modify_base_bp(
     if target is None:
         _append_effect_fizzled(state, unit.owner_player_id, ability_event, step, "no_valid_target")
         return
-    amount = bp_amount_to_game_bp(int(step.get("amount", 0)))
+    amount = bp_amount_to_game_bp(_resolve_amount(state, unit, ability_event, step))
     before_bp = get_unit_base_bp(state, target)
     target.base_bp_modifiers.append(
         {
@@ -906,6 +972,36 @@ def _handle_consume_action(
         source=ability_event.source,
         payload={"unit_id": target.unit_id, "reason": "effect"},
     )
+
+
+def _handle_consume_action_units(
+    state: GameState,
+    unit: UnitState,
+    ability: AbilityDefinition,
+    ability_event: FactEvent,
+    step: dict,
+) -> None:
+    targets = resolve_unit_targets_for_effect(state, unit, ability, ability_event, step.get("target"))
+    if not targets:
+        _append_effect_fizzled(state, unit.owner_player_id, ability_event, step, "no_valid_target")
+        return
+    consumed_count = 0
+    for target in targets:
+        if target.unit_id not in state.units or target.exhausted:
+            continue
+        target.exhausted = True
+        consumed_count += 1
+        state.event_store.append(
+            "unit_action_consumed",
+            round_no=state.round_no,
+            turn_no=state.turn_no,
+            actor_player_id=unit.owner_player_id,
+            cause_event_no=ability_event.event_no,
+            source=ability_event.source,
+            payload={"unit_id": target.unit_id, "reason": "effect"},
+        )
+    if consumed_count == 0:
+        _append_effect_fizzled(state, unit.owner_player_id, ability_event, step, "target_already_exhausted")
 
 
 def _handle_move_random_discard_to_hand(
@@ -1281,3 +1377,93 @@ def _handle_draw_card_by_category(
         source=ability_event.source,
         payload={"count": len(drawn), "card_instance_ids": drawn, "category": category},
     )
+
+
+def _handle_draw_card_by_race(
+    state: GameState,
+    unit: UnitState,
+    _ability: AbilityDefinition,
+    ability_event: FactEvent,
+    step: dict,
+) -> None:
+    player = state.players[unit.owner_player_id]
+    race = step.get("race")
+    count = int(step.get("count", 1))
+    drawn: list[str] = []
+    for _index in range(count):
+        matched_index = None
+        for index, card_instance_id in enumerate(player.deck.cards):
+            card_no = state.card_instances[card_instance_id].card_no
+            if state.card_catalog[card_no].race == race:
+                matched_index = index
+                break
+        if matched_index is None:
+            break
+        card_instance_id = player.deck.cards.pop(matched_index)
+        player.hand.add(card_instance_id)
+        drawn.append(card_instance_id)
+        instance = state.card_instances[card_instance_id]
+        state.event_store.append(
+            "card_moved",
+            round_no=state.round_no,
+            turn_no=state.turn_no,
+            actor_player_id=unit.owner_player_id,
+            cause_event_no=ability_event.event_no,
+            source=EventSource(card_no=instance.card_no, card_instance_id=card_instance_id),
+            payload={
+                "from_zone": "deck",
+                "to_zone": "hand",
+                "owner_player_id": unit.owner_player_id,
+                "reason": "effect",
+                "race": race,
+            },
+        )
+    state.event_store.append(
+        "cards_drawn",
+        round_no=state.round_no,
+        turn_no=state.turn_no,
+        actor_player_id=unit.owner_player_id,
+        cause_event_no=ability_event.event_no,
+        source=ability_event.source,
+        payload={"count": len(drawn), "card_instance_ids": drawn, "race": race},
+    )
+
+
+def _handle_suppress_effects_for_battle(
+    state: GameState,
+    unit: UnitState,
+    _ability: AbilityDefinition,
+    ability_event: FactEvent,
+    _step: dict,
+) -> None:
+    battle_event_no = _battle_event_no_for_ability_event(state, ability_event)
+    if battle_event_no is None:
+        _append_effect_fizzled(state, unit.owner_player_id, ability_event, {"effect": "suppress_effects_for_battle"}, "no_valid_target")
+        return
+    state.suppressed_battle_event_nos.add(battle_event_no)
+    state.event_store.append(
+        "effects_suppressed",
+        round_no=state.round_no,
+        turn_no=state.turn_no,
+        actor_player_id=unit.owner_player_id,
+        cause_event_no=ability_event.event_no,
+        source=ability_event.source,
+        payload={"battle_event_no": battle_event_no, "duration": "battle"},
+    )
+
+
+def _battle_event_no_for_ability_event(state: GameState, ability_event: FactEvent) -> int | None:
+    activation_event = _event_by_no_or_none(state, ability_event.cause_event_no)
+    cause_event = _event_by_no_or_none(state, activation_event.cause_event_no if activation_event is not None else None)
+    if cause_event is not None and cause_event.type == "battle_started":
+        return cause_event.event_no
+    return None
+
+
+def _event_by_no_or_none(state: GameState, event_no: int | None) -> FactEvent | None:
+    if event_no is None:
+        return None
+    for event in state.event_store.events:
+        if event.event_no == event_no:
+            return event
+    return None

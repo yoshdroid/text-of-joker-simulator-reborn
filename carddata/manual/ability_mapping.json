@@ -2940,6 +2940,447 @@
         }
       ]
     },
+    "1-0-011": {
+      "card_name": "ベヒーモスドラゴン",
+      "abilities": [
+        {
+          "ability_key": "1-0-011:a1",
+          "ability_name": "巨躯の鳴動",
+          "source_text": "このユニットがアタックした時、ターン終了時までこのユニットのＢＰを＋［あなたの捨札の数×５００］する。",
+          "status": "supported",
+          "timing": "SELF_ATK",
+          "optional": false,
+          "priority": {
+            "band": "unit",
+            "order": "source_only"
+          },
+          "condition": null,
+          "cost_steps": [],
+          "selector": null,
+          "effect_steps": [
+            {
+              "effect": "modify_bp",
+              "target": "source",
+              "amount_from": "owner_discard_count",
+              "scale": 500,
+              "duration": "turn"
+            }
+          ]
+        }
+      ]
+    },
+    "1-0-035": {
+      "card_name": "堕天馬アルゲニブ",
+      "abilities": [
+        {
+          "ability_key": "1-0-035:a1",
+          "ability_name": "闇の顕現",
+          "source_text": "このユニットがフィールドに出た時、対戦相手のユニットからランダムで１体に【沈黙】を与える。",
+          "status": "supported",
+          "timing": "SELF_CIP",
+          "optional": false,
+          "priority": {
+            "band": "unit",
+            "order": "source_only"
+          },
+          "condition": null,
+          "cost_steps": [],
+          "selector": {
+            "id": "target",
+            "type": "unit",
+            "controller": "rival",
+            "count": 1,
+            "required": false,
+            "random": true
+          },
+          "effect_steps": [
+            {
+              "effect": "grant_keyword",
+              "target": "target",
+              "keyword": "silence",
+              "duration": "permanent"
+            }
+          ]
+        },
+        {
+          "ability_key": "1-0-035:a2",
+          "ability_name": "リバイブ",
+          "source_text": "このユニットがプレイヤーアタックに成功した時、あなたの捨札にあるカードを１枚選ぶ。それを手札に加える。",
+          "status": "supported",
+          "timing": "SELF_PLAYER_ATTACK_SUCCESS",
+          "optional": false,
+          "priority": {
+            "band": "unit",
+            "order": "source_only"
+          },
+          "condition": null,
+          "cost_steps": [],
+          "selector": {
+            "id": "target",
+            "type": "card",
+            "controller": "owner",
+            "zone": "discard_pile",
+            "count": 1,
+            "required": true
+          },
+          "effect_steps": [
+            {
+              "effect": "move_discard_to_hand",
+              "target": "target"
+            }
+          ]
+        },
+        {
+          "ability_key": "1-0-035:a3",
+          "ability_name": "復興の嘶き",
+          "source_text": "このユニットが破壊された時、あなたは【獣】ユニットを１枚引く。",
+          "status": "supported",
+          "timing": "SELF_PIG",
+          "optional": false,
+          "priority": {
+            "band": "unit",
+            "order": "source_only"
+          },
+          "condition": null,
+          "cost_steps": [],
+          "selector": null,
+          "effect_steps": [
+            {
+              "effect": "draw_card_by_race",
+              "race": "獣",
+              "count": 1
+            }
+          ]
+        }
+      ]
+    },
+    "1-0-049": {
+      "card_name": "ジャンヌダルク",
+      "abilities": [
+        {
+          "ability_key": "1-0-049:a1",
+          "ability_name": "不屈",
+          "source_text": "",
+          "status": "supported",
+          "timing": "PASSIVE",
+          "optional": false,
+          "priority": {
+            "band": "static",
+            "order": "source_only"
+          },
+          "condition": null,
+          "cost_steps": [],
+          "selector": null,
+          "effect_steps": [
+            {
+              "effect": "grant_keyword",
+              "target": "source",
+              "keyword": "indomitable",
+              "duration": "permanent"
+            }
+          ]
+        },
+        {
+          "ability_key": "1-0-049:a2",
+          "ability_name": "オルレアンの英雄",
+          "source_text": "このユニットがフィールドに出た時、このユニットの基本ＢＰを＋［あなたの受けているライフダメージ×２０００］する。",
+          "status": "supported",
+          "timing": "SELF_CIP",
+          "optional": false,
+          "priority": {
+            "band": "unit",
+            "order": "source_only"
+          },
+          "condition": null,
+          "cost_steps": [],
+          "selector": null,
+          "effect_steps": [
+            {
+              "effect": "modify_base_bp",
+              "target": "source",
+              "amount_from": "owner_life_damage",
+              "scale": 2000,
+              "duration": "permanent"
+            }
+          ]
+        }
+      ]
+    },
+    "1-0-059": {
+      "card_name": "疑惑のロシアンルーレット",
+      "abilities": [
+        {
+          "ability_key": "1-0-059:a1",
+          "ability_name": "疑惑のロシアンルーレット",
+          "source_text": "あなたのユニットがアタックした後、ターン終了時までそれのＢＰをランダムで＋［１０００／３０００／４０００］する。",
+          "status": "supported",
+          "timing": "TRIGGER_POST_BLOCK_CHOICE",
+          "optional": false,
+          "priority": {
+            "band": "trigger",
+            "order": "left_to_right"
+          },
+          "condition": {
+            "type": "event_actor_is_owner"
+          },
+          "cost_steps": [],
+          "selector": null,
+          "effect_steps": [
+            {
+              "effect": "modify_bp",
+              "target": "event_attacker",
+              "amount_from": "random_choice",
+              "choices": [
+                1000,
+                3000,
+                4000
+              ],
+              "duration": "turn"
+            }
+          ]
+        }
+      ]
+    },
+    "1-0-068": {
+      "card_name": "移動要塞",
+      "abilities": [
+        {
+          "ability_key": "1-0-068:a1",
+          "ability_name": "移動要塞",
+          "source_text": "対戦相手のターン開始時、ターン終了時まであなたの全てのユニットのＢＰを＋１０００する。",
+          "status": "supported",
+          "timing": "INTERCEPT_TURN_STARTED",
+          "optional": true,
+          "priority": {
+            "band": "intercept",
+            "order": "left_to_right"
+          },
+          "condition": {
+            "type": "event_actor_is_rival"
+          },
+          "cost_steps": [],
+          "selector": {
+            "id": "targets",
+            "type": "unit",
+            "controller": "owner",
+            "count": "all",
+            "required": false
+          },
+          "effect_steps": [
+            {
+              "effect": "modify_bp_units",
+              "target": "targets",
+              "amount": 1000,
+              "duration": "turn"
+            }
+          ]
+        }
+      ]
+    },
+    "1-0-070": {
+      "card_name": "戦友との約束",
+      "abilities": [
+        {
+          "ability_key": "1-0-070:a1",
+          "ability_name": "戦友との約束",
+          "source_text": "あなたのユニットが戦闘した時、ターン終了時までそれのＢＰを＋［あなたの受けているライフダメージ×１０００］する。",
+          "status": "supported",
+          "timing": "INTERCEPT_BATTLE",
+          "optional": true,
+          "priority": {
+            "band": "intercept",
+            "order": "left_to_right"
+          },
+          "condition": {
+            "type": "battle_unit_controller_is_owner"
+          },
+          "cost_steps": [],
+          "selector": null,
+          "effect_steps": [
+            {
+              "effect": "modify_bp",
+              "target": "owner_battle_unit",
+              "amount_from": "owner_life_damage",
+              "scale": 1000,
+              "duration": "turn"
+            }
+          ]
+        }
+      ]
+    },
+    "1-0-071": {
+      "card_name": "タクティクスエンド",
+      "abilities": [
+        {
+          "ability_key": "1-0-071:a1",
+          "ability_name": "タクティクスエンド",
+          "source_text": "あなたのユニットが戦闘した時、戦闘終了時までお互いのプレイヤーは全ての効果を発動できない。",
+          "status": "supported",
+          "timing": "INTERCEPT_BATTLE",
+          "optional": true,
+          "priority": {
+            "band": "intercept",
+            "order": "left_to_right"
+          },
+          "condition": {
+            "type": "battle_unit_controller_is_owner"
+          },
+          "cost_steps": [],
+          "selector": null,
+          "effect_steps": [
+            {
+              "effect": "suppress_effects_for_battle"
+            }
+          ]
+        }
+      ]
+    },
+    "1-0-072": {
+      "card_name": "リミッター解放",
+      "abilities": [
+        {
+          "ability_key": "1-0-072:a1",
+          "ability_name": "リミッター解放",
+          "source_text": "あなたのユニットが戦闘した時、あなたは手札を全て捨てる。そうした場合、ターン終了時までそれのＢＰを＋５０００する。",
+          "status": "supported",
+          "timing": "INTERCEPT_BATTLE",
+          "optional": true,
+          "priority": {
+            "band": "intercept",
+            "order": "left_to_right"
+          },
+          "condition": {
+            "type": "battle_unit_controller_is_owner"
+          },
+          "cost_steps": [],
+          "selector": null,
+          "effect_steps": [
+            {
+              "effect": "discard_all_from_hand",
+              "player": "owner"
+            },
+            {
+              "effect": "modify_bp",
+              "target": "owner_battle_unit",
+              "amount": 5000,
+              "duration": "turn"
+            }
+          ]
+        }
+      ]
+    },
+    "1-0-087": {
+      "card_name": "ハッピーキャット",
+      "abilities": [
+        {
+          "ability_key": "1-0-087:a1",
+          "ability_name": "ハッピーキャット",
+          "source_text": "あなたのターン開始時、対戦相手の全てのレベル２以上のユニットの行動権を消費する。",
+          "status": "supported",
+          "timing": "INTERCEPT_TURN_STARTED",
+          "optional": true,
+          "priority": {
+            "band": "intercept",
+            "order": "left_to_right"
+          },
+          "condition": {
+            "type": "event_actor_is_owner"
+          },
+          "cost_steps": [],
+          "selector": {
+            "id": "targets",
+            "type": "unit",
+            "controller": "rival",
+            "count": "all",
+            "min_level": 2,
+            "required": false
+          },
+          "effect_steps": [
+            {
+              "effect": "consume_action_units",
+              "target": "targets"
+            }
+          ]
+        }
+      ]
+    },
+    "1-0-088": {
+      "card_name": "ジャッジメント",
+      "abilities": [
+        {
+          "ability_key": "1-0-088:a1",
+          "ability_name": "ジャッジメント",
+          "source_text": "あなたのユニットがアタックした時、このカードのレベルによって以下の効果が発動する。【レベル１～２】対戦相手の全てのユニットの行動権を消費する。【レベル３】対戦相手の全てのユニットの行動権を消費し、【呪縛】を与える。",
+          "status": "supported",
+          "timing": "INTERCEPT_ATTACK",
+          "optional": true,
+          "priority": {
+            "band": "intercept",
+            "order": "left_to_right"
+          },
+          "condition": {
+            "type": "event_actor_is_owner"
+          },
+          "cost_steps": [],
+          "selector": {
+            "id": "targets",
+            "type": "unit",
+            "controller": "rival",
+            "count": "all",
+            "required": false
+          },
+          "effect_steps": [
+            {
+              "effect": "consume_action_units",
+              "target": "targets"
+            },
+            {
+              "effect": "grant_keyword_units",
+              "target": "targets",
+              "keyword": "bind",
+              "duration": "permanent",
+              "min_source_level": 3
+            }
+          ]
+        }
+      ]
+    },
+    "1-0-095": {
+      "card_name": "タックル",
+      "abilities": [
+        {
+          "ability_key": "1-0-095:a1",
+          "ability_name": "タックル",
+          "source_text": "あなたのユニットが戦闘した時、それがアタック中だった場合、それの基本ＢＰを＋１０００し、戦闘終了時まで【貫通】を与える。",
+          "status": "supported",
+          "timing": "INTERCEPT_BATTLE",
+          "optional": true,
+          "priority": {
+            "band": "intercept",
+            "order": "left_to_right"
+          },
+          "condition": {
+            "type": "battle_attacker_is_owner"
+          },
+          "cost_steps": [],
+          "selector": null,
+          "effect_steps": [
+            {
+              "effect": "modify_base_bp",
+              "target": "event_attacker",
+              "amount": 1000,
+              "duration": "permanent"
+            },
+            {
+              "effect": "grant_keyword",
+              "target": "event_attacker",
+              "keyword": "pierce",
+              "duration": "battle"
+            }
+          ]
+        }
+      ]
+    },
     "1-0-099": {
       "card_name": "ハウリング",
       "abilities": [

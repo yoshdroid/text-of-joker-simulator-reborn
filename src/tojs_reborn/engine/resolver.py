@@ -150,6 +150,8 @@ def resolve_unit_battled(
     optional_ability_choice: OptionalAbilityChoice | None = None,
     ability_cost_choice: AbilityCostChoice | None = None,
 ) -> None:
+    if cause_event.event_no in state.suppressed_battle_event_nos:
+        return
     _resolve_supported_abilities(
         state,
         battling_unit,
@@ -250,6 +252,8 @@ def _resolve_supported_abilities(
             },
         )
         for step in ability.effect_steps:
+            if int(step.get("min_source_level", 0)) > ability_source_unit.level:
+                continue
             handler = effect_handlers.get(str(step.get("effect")))
             if handler is not None:
                 handler(state, ability_source_unit, ability, ability_event, step)
