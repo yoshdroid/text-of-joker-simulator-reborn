@@ -485,6 +485,9 @@ def _scenario_v8_intercept_unit_entered_red_green(catalog: dict[str, Any]) -> tu
         raise AssertionError("v8 red/green unit-entered intercept scenario expected Imperial Sword speedmove")
     if get_unit_base_bp(state, unit) != catalog["1-0-001"].bp_by_level[0] * 1000 + 2000:
         raise AssertionError("v8 red/green unit-entered intercept scenario expected Natural Fruits base BP bonus")
+    attack_player(state, "P1", unit.unit_id)
+    if state.players["P2"].life != 6:
+        raise AssertionError("v8 red/green unit-entered intercept scenario expected speedmove unit to attack")
     return state, initial_state
 
 
