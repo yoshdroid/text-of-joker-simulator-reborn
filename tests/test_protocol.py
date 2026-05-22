@@ -1133,7 +1133,7 @@ class ProtocolTest(unittest.TestCase):
         self.assertIn("inactive=[", lines[0])
         self.assertIn("c0001", lines[0])
         self.assertIn(self.catalog["1-0-099"].name, lines[0])
-        self.assertIn("insufficient_cp+missing_same_color_unit", lines[0])
+        self.assertIn("CP不足+同色ユニット不在", lines[0])
 
     def test_replay_viewer_applies_mulligan_and_filters_output(self) -> None:
         replay_record = {

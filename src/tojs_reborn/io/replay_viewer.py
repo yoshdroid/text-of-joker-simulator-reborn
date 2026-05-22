@@ -10,6 +10,12 @@ from typing import Any, Sequence
 from tojs_reborn.engine.state import CardDefinition, load_card_catalog
 
 
+ACTIVATION_REASON_LABELS = {
+    "insufficient_cp": "CP不足",
+    "missing_same_color_unit": "同色ユニット不在",
+}
+
+
 def run_replay_viewer_cli(argv: Sequence[str] | None = None) -> int:
     parser = argparse.ArgumentParser(description="Print replay events as one-line logs.")
     parser.add_argument("--replay", required=True)
@@ -500,11 +506,16 @@ def _format_compact_payload_summary(
                 label = card_instance_id if isinstance(card_instance_id, str) else "?"
                 if isinstance(card_no, str):
                     label = f"{label}:{_format_card(card_no, card_catalog)}"
-                reason_text = "+".join(str(reason) for reason in reasons)
+                reason_text = "+".join(_format_activation_reason(reason) for reason in reasons)
                 parts.append(f"{player_id}:{label}({reason_text})")
         if parts:
             return f"inactive=[{'; '.join(parts)}]"
     return ""
+
+
+def _format_activation_reason(reason: Any) -> str:
+    reason_code = str(reason)
+    return ACTIVATION_REASON_LABELS.get(reason_code, reason_code)
 
 
 def _format_action_summary(
