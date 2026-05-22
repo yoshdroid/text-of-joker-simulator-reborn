@@ -72,6 +72,16 @@ v9 は新カード追加と細かい未実装ゲーム仕様の追加に入る�
 - まずは debug / report 用とし、既存の発動処理を壊さない。
 - 将来的には replay GUI の window open 行で「発動候補」「発動できない理由」を表示できるようにする。
 
+V9-3 first implementation:
+- `engine.activation_requirements.explain_card_activation()` returns `ActivationCheck(can_activate, reasons, details)`.
+- Existing `card_can_activate()` remains as the boolean compatibility API.
+- Current reason codes:
+  - `insufficient_cp`
+  - `missing_same_color_unit`
+- Current scope is card-level activation requirements, especially intercept CP and same-color unit requirements.
+- Future GUI/log work can display these reason codes for cards that are visible but not activatable.
+- Future expansion candidates: window mismatch, condition mismatch, target missing.
+
 ### V9-4 scenario catalog の整理
 
 - `io/scenario_cli.py` は価値のある一覧性を保ちつつ肥大化している。

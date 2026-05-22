@@ -1,5 +1,8 @@
 from __future__ import annotations
 
+from dataclasses import dataclass, field
+from typing import Any
+
 from .events import FactEvent
 from .state import AbilityDefinition, GameState
 
@@ -7,17 +10,47 @@ from .state import AbilityDefinition, GameState
 COLORED_INTERCEPT_COLORS = {"赤", "黄", "青", "緑"}
 
 
+@dataclass(frozen=True)
+class ActivationCheck:
+    can_activate: bool
+    reasons: tuple[str, ...] = ()
+    details: dict[str, Any] = field(default_factory=dict)
+
+
 def card_can_activate(state: GameState, player_id: str, card_instance_id: str) -> bool:
+    return explain_card_activation(state, player_id, card_instance_id).can_activate
+
+
+def explain_card_activation(state: GameState, player_id: str, card_instance_id: str) -> ActivationCheck:
     instance = state.card_instances[card_instance_id]
     card = state.card_catalog[instance.card_no]
+    details: dict[str, Any] = {
+        "card_instance_id": card_instance_id,
+        "card_no": instance.card_no,
+        "category": card.category,
+        "color": card.color,
+    }
     if card.category != "intercept":
-        return True
-    if state.players[player_id].current_cp < (card.cp or 0):
-        return False
+        return ActivationCheck(True, details=details)
+    required_cp = card.cp or 0
+    current_cp = state.players[player_id].current_cp
+    reasons: list[str] = []
+    details.update({"current_cp": current_cp, "required_cp": required_cp})
+    if current_cp < required_cp:
+        reasons.append("insufficient_cp")
     if card.color not in COLORED_INTERCEPT_COLORS:
-        return True
+        return ActivationCheck(not reasons, tuple(reasons), details)
+
+    has_same_color_unit = _has_own_same_color_unit(state, player_id, card.color)
+    details.update({"required_unit_color": card.color, "has_same_color_unit": has_same_color_unit})
+    if not has_same_color_unit:
+        reasons.append("missing_same_color_unit")
+    return ActivationCheck(not reasons, tuple(reasons), details)
+
+
+def _has_own_same_color_unit(state: GameState, player_id: str, color: str) -> bool:
     return any(
-        state.card_catalog[state.units[unit_id].card_no].color == card.color
+        state.card_catalog[state.units[unit_id].card_no].color == color
         for unit_id in state.players[player_id].battlefield.units
         if unit_id in state.units
     )

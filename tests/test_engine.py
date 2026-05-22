@@ -9,6 +9,7 @@ if SRC_PATH.exists():
     sys.path.insert(0, str(SRC_PATH))
 
 from tojs_reborn.cardpool.normalizer import normalize_cardpool
+from tojs_reborn.engine.activation_requirements import explain_card_activation
 from tojs_reborn.engine.actions import EFFECT_FIZZLED_REASONS, draw_cards, drive_unit, overclock_unit, override_card, set_trigger
 from tojs_reborn.engine.combat import attack_bypasses_block, attack_player, attack_unit, declare_attack, declare_block, destroy_lethal_units, destroy_unit, resolve_unblocked_attack
 from tojs_reborn.engine.events import EventSource, EventStore
@@ -2640,6 +2641,46 @@ class EngineTest(unittest.TestCase):
 
         self.assertEqual(state.players["P1"].trigger_zone.cards, [howling.instance_id])
         self.assertNotIn("intercept_activated", [event.type for event in state.event_store.events])
+
+    def test_explain_intercept_activation_reports_insufficient_cp(self) -> None:
+        state = create_game_state(self.catalog)
+        green_unit = state.create_card_instance("1-0-040", "P1")
+        howling = state.create_card_instance("1-0-099", "P1")
+        unit = state.create_unit(green_unit.instance_id)
+        state.players["P1"].battlefield.add(unit.unit_id)
+        state.players["P1"].current_cp = 1
+
+        check = explain_card_activation(state, "P1", howling.instance_id)
+
+        self.assertFalse(check.can_activate)
+        self.assertEqual(check.reasons, ("insufficient_cp",))
+        self.assertEqual(check.details["current_cp"], 1)
+        self.assertEqual(check.details["required_cp"], 2)
+
+    def test_explain_intercept_activation_reports_missing_same_color_unit(self) -> None:
+        state = create_game_state(self.catalog)
+        red_unit = state.create_card_instance("1-0-001", "P1")
+        howling = state.create_card_instance("1-0-099", "P1")
+        unit = state.create_unit(red_unit.instance_id)
+        state.players["P1"].battlefield.add(unit.unit_id)
+        state.players["P1"].current_cp = 3
+
+        check = explain_card_activation(state, "P1", howling.instance_id)
+
+        self.assertFalse(check.can_activate)
+        self.assertEqual(check.reasons, ("missing_same_color_unit",))
+        self.assertFalse(check.details["has_same_color_unit"])
+
+    def test_explain_colorless_intercept_activation_requires_only_cp(self) -> None:
+        state = create_game_state(self.catalog)
+        colorless_intercept = state.create_card_instance("1-0-065", "P1")
+        state.players["P1"].current_cp = 1
+
+        check = explain_card_activation(state, "P1", colorless_intercept.instance_id)
+
+        self.assertTrue(check.can_activate)
+        self.assertEqual(check.reasons, ())
+        self.assertNotIn("has_same_color_unit", check.details)
 
     def test_intercept_window_activates_selected_card_then_closes_after_two_passes(self) -> None:
         catalog = dict(self.catalog)
