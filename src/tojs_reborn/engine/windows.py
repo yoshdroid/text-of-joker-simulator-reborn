@@ -3,7 +3,7 @@ from __future__ import annotations
 from collections.abc import Callable
 from typing import Any
 
-from .activation_requirements import ability_matches_window, card_can_activate
+from .activation_requirements import ability_matches_window, card_can_activate, explain_card_activation
 from .events import EventSource, FactEvent
 from .resolver import EffectHandler
 from .rules import opponent_id
@@ -39,10 +39,14 @@ def list_trigger_intercept_window(
     cause_event_no: int,
 ) -> dict[str, Any]:
     candidates = []
+    inactive_candidates = []
     for card_instance_id in state.players[player_id].trigger_zone.cards:
         card_no = state.card_instances[card_instance_id].card_no
         card = state.card_catalog[card_no]
-        if card.category in {"trigger", "intercept"} and card_can_activate(state, player_id, card_instance_id):
+        if card.category not in {"trigger", "intercept"}:
+            continue
+        activation_check = explain_card_activation(state, player_id, card_instance_id)
+        if activation_check.can_activate:
             candidates.append(
                 {
                     "card_instance_id": card_instance_id,
@@ -51,11 +55,23 @@ def list_trigger_intercept_window(
                     "color": card.color,
                 }
             )
+        else:
+            inactive_candidates.append(
+                {
+                    "card_instance_id": card_instance_id,
+                    "card_no": card_no,
+                    "category": card.category,
+                    "color": card.color,
+                    "reasons": list(activation_check.reasons),
+                    "details": dict(activation_check.details),
+                }
+            )
     return {
         "window": window,
         "player_id": player_id,
         "cause_event_no": cause_event_no,
         "candidates": candidates,
+        "inactive_candidates": inactive_candidates,
         "pass_action": _pass_window_action(window),
     }
 

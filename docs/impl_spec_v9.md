@@ -79,6 +79,7 @@ V9-3 first implementation:
   - `insufficient_cp`
   - `missing_same_color_unit`
 - Current scope is card-level activation requirements, especially intercept CP and same-color unit requirements.
+- `engine.windows.list_trigger_intercept_window()` includes `inactive_candidates` with `reasons` and `details`, while keeping existing `candidates` unchanged.
 - Future GUI/log work can display these reason codes for cards that are visible but not activatable.
 - Future expansion candidates: window mismatch, condition mismatch, target missing.
 

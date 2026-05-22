@@ -1723,10 +1723,29 @@ class EngineTest(unittest.TestCase):
         state.players["P1"].current_cp = 0
         window = list_trigger_intercept_window(state, "P1", window="attack", cause_event_no=1)
         self.assertEqual(window["candidates"], [])
+        self.assertEqual(window["inactive_candidates"][0]["card_instance_id"], colorless_intercept.instance_id)
+        self.assertEqual(window["inactive_candidates"][0]["reasons"], ["insufficient_cp"])
 
         state.players["P1"].current_cp = 1
         window = list_trigger_intercept_window(state, "P1", window="attack", cause_event_no=1)
         self.assertEqual(window["candidates"][0]["card_instance_id"], colorless_intercept.instance_id)
+        self.assertEqual(window["inactive_candidates"], [])
+
+    def test_trigger_intercept_window_lists_inactive_candidate_reasons(self) -> None:
+        state = create_game_state(self.catalog)
+        howling = state.create_card_instance("1-0-099", "P1")
+        state.players["P1"].trigger_zone.add(howling.instance_id)
+        state.players["P1"].current_cp = 1
+
+        window = list_trigger_intercept_window(state, "P1", window="unit_entered", cause_event_no=1)
+
+        self.assertEqual(window["candidates"], [])
+        self.assertEqual(window["inactive_candidates"][0]["card_instance_id"], howling.instance_id)
+        self.assertEqual(
+            window["inactive_candidates"][0]["reasons"],
+            ["insufficient_cp", "missing_same_color_unit"],
+        )
+        self.assertEqual(window["inactive_candidates"][0]["details"]["required_cp"], 2)
 
     def test_moon_savior_attack_window_opens_for_owner_attack_and_pass_is_logged(self) -> None:
         state = create_game_state(self.catalog)
