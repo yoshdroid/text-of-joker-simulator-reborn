@@ -2912,6 +2912,53 @@ class EngineTest(unittest.TestCase):
         self.assertEqual(mammoth.keywords, ["indomitable", "silence"])
         self.assertNotIn("unit_action_recovered", [event.type for event in state.event_store.events])
 
+    def test_bind_suppresses_turn_start_action_recovery(self) -> None:
+        state = create_game_state(self.catalog)
+        state.turn_player_id = "P1"
+        unit_card = state.create_card_instance("1-0-040", "P1")
+        unit = state.create_unit(unit_card.instance_id)
+        unit.keywords.append("bind")
+        unit.exhausted = True
+        state.players["P1"].battlefield.add(unit.unit_id)
+
+        start_turn(state, "P1", draw_count=0, cp=2)
+
+        self.assertTrue(unit.exhausted)
+        self.assertNotIn("unit_action_recovered", [event.type for event in state.event_store.events])
+
+    def test_silence_suppresses_bind_turn_start_restriction(self) -> None:
+        state = create_game_state(self.catalog)
+        state.turn_player_id = "P1"
+        unit_card = state.create_card_instance("1-0-040", "P1")
+        unit = state.create_unit(unit_card.instance_id)
+        unit.keywords.extend(["bind", "silence"])
+        unit.exhausted = True
+        state.players["P1"].battlefield.add(unit.unit_id)
+
+        start_turn(state, "P1", draw_count=0, cp=2)
+
+        self.assertFalse(unit.exhausted)
+        recover_events = [event for event in state.event_store.events if event.type == "unit_action_recovered"]
+        self.assertEqual(recover_events[-1].payload["reason"], "turn_start")
+
+    def test_judgment_activates_on_unit_attack_window(self) -> None:
+        state = create_game_state(self.catalog)
+        state.turn_player_id = "P1"
+        _attacker_card, attacker = self._add_battlefield_unit(state, "P1", "1-0-014")
+        _rival_card, rival = self._add_battlefield_unit(state, "P2", "1-0-040")
+        judgment = state.create_card_instance("1-0-088", "P1", level=3)
+        state.players["P1"].trigger_zone.add(judgment.instance_id)
+        state.players["P1"].current_cp = 6
+
+        attack_event = declare_attack(state, "P1", attacker.unit_id)
+        process_windows_for_events(state, attack_event.event_no, choose_intercept=lambda _player_id, actions: actions[0])
+
+        unit_attacked = next(event for event in state.event_store.events if event.type == "unit_attacked")
+        judgment_event = next(event for event in state.event_store.events if event.type == "intercept_activated")
+        self.assertEqual(judgment_event.cause_event_no, unit_attacked.event_no)
+        self.assertTrue(rival.exhausted)
+        self.assertIn("bind", rival.keywords)
+
     def test_legal_actions_include_drive_attack_set_trigger_and_override(self) -> None:
         state = create_game_state(self.catalog)
         state.turn_no = 3

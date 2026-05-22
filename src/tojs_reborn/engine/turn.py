@@ -4,7 +4,7 @@ from .actions import draw_cards
 from .effects import get_effect_handlers
 from .events import EventSource
 from .resolver import AbilityCostChoice, OptionalAbilityChoice, resolve_turn_ended
-from .rules import get_unit_bp, opponent_id
+from .rules import get_unit_bp, opponent_id, unit_is_silenced
 from .state import GameState
 
 
@@ -21,6 +21,8 @@ def start_turn(state: GameState, player_id: str, *, draw_count: int = 1, cp: int
     for unit_id in player.battlefield.units:
         unit = state.units[unit_id]
         if not unit.exhausted:
+            continue
+        if "bind" in unit.keywords and not unit_is_silenced(unit):
             continue
         unit.exhausted = False
         state.event_store.append(

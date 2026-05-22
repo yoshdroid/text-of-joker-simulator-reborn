@@ -889,10 +889,33 @@ def _scenario_v8_final_turn_intercepts(catalog: dict[str, Any]) -> tuple[GameSta
     start_turn(state, "P2", draw_count=0, cp=2)
     end_turn(state, "P2")
     start_turn(state, "P1", draw_count=0, cp=6)
-    attack_player(state, "P1", yellow.unit_id)
-    process_windows_for_events(state, 1, choose_intercept=_choose_first_intercept)
+    attack_event = declare_attack(state, "P1", yellow.unit_id)
+    process_windows_for_events(state, attack_event.event_no, choose_intercept=_choose_first_intercept)
     if not all(unit.exhausted and "bind" in unit.keywords for unit in (lv1, lv2, lv3)):
         raise AssertionError("v8 final turn scenario expected LV3 Judgment to exhaust and bind all rivals")
+    unit_attacked_event = next(
+        event
+        for event in state.event_store.events
+        if event.type == "unit_attacked" and event.payload.get("attacker_unit_id") == yellow.unit_id
+    )
+    judgment_event = next(event for event in state.event_store.events if event.type == "intercept_activated" and event.source.card_no == "1-0-088")
+    if judgment_event.cause_event_no != unit_attacked_event.event_no:
+        raise AssertionError("v8 final turn scenario expected Judgment to activate on the unit attack window")
+    damage_first_event_no = len(state.event_store.events) + 1
+    resolve_unblocked_attack(state, attack_event.event_no)
+    process_windows_for_events(state, damage_first_event_no, choose_intercept=_choose_first_intercept)
+    end_turn(state, "P1")
+    p2_start_first_event_no = len(state.event_store.events) + 1
+    start_turn(state, "P2", draw_count=0, cp=2)
+    if not all(unit.exhausted for unit in (lv1, lv2, lv3)):
+        raise AssertionError("v8 final turn scenario expected bind to suppress turn-start action recovery")
+    if any(
+        event.type == "unit_action_recovered"
+        and event.event_no >= p2_start_first_event_no
+        and event.payload.get("unit_id") in {lv1.unit_id, lv2.unit_id, lv3.unit_id}
+        for event in state.event_store.events
+    ):
+        raise AssertionError("v8 final turn scenario expected no bind unit action recovery event")
     return state, initial_state
 
 
