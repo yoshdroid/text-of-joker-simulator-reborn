@@ -102,6 +102,11 @@ class ReplayTkGui:
             wrap=tk.NONE,
         )
         self.log.tag_configure("action", font=("Consolas", 9, "bold"), foreground="#ffffff")
+        self.log.tag_configure("ability_red", font=("Consolas", 9, "bold"), foreground="#ff6b6b")
+        self.log.tag_configure("ability_blue", font=("Consolas", 9, "bold"), foreground="#74c0fc")
+        self.log.tag_configure("ability_green", font=("Consolas", 9, "bold"), foreground="#8ce99a")
+        self.log.tag_configure("ability_yellow", font=("Consolas", 9, "bold"), foreground="#ffd43b")
+        self.log.tag_configure("ability_white", font=("Consolas", 9, "bold"), foreground="#f8f9fa")
         self.main.add(self.board_canvas, minsize=360, stretch="always")
         self.main.add(self.log, minsize=360, stretch="always")
 

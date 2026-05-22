@@ -1488,7 +1488,7 @@ class ProtocolTest(unittest.TestCase):
 
         model = build_replay_gui_model(replay_record, card_catalog=self.catalog)
 
-        self.assertEqual(model["event_line_tags"], [None, "action", None])
+        self.assertEqual(model["event_line_tags"], [None, "ability_green", None])
         self.assertIn("ability_resolved", model["event_lines"][1])
         self.assertIn("intercept_passed", model["event_lines"][2])
 

@@ -21,6 +21,15 @@ EVENT_LINE_TAGS_BY_TYPE = {
     "ability_resolved": "action",
 }
 
+ABILITY_EVENT_TAG_BY_CARD_COLOR = {
+    "赤": "ability_red",
+    "青": "ability_blue",
+    "緑": "ability_green",
+    "黄": "ability_yellow",
+    "白": "ability_white",
+    "無": "ability_white",
+}
+
 
 def build_replay_gui_model(
     replay_record: dict[str, Any],
@@ -44,7 +53,7 @@ def build_replay_gui_model(
         )
         for event in events
     ]
-    event_line_tags = [_event_line_tag(event) for event in events]
+    event_line_tags = [_event_line_tag(event, catalog, instance_card_nos) for event in events]
     action_lines = format_replay_actions(replay_record, card_catalog=catalog, instance_card_nos=instance_card_nos)
     action_lines_by_event_index = _action_lines_by_event_index(
         replay_record,
@@ -353,8 +362,32 @@ def _event_description(event: dict[str, Any]) -> str:
     return f"#{event_no} {event_type} actor={actor}"
 
 
-def _event_line_tag(event: dict[str, Any]) -> str | None:
+def _event_line_tag(
+    event: dict[str, Any],
+    card_catalog: dict[str, CardDefinition],
+    instance_card_nos: dict[str, str],
+) -> str | None:
+    if event.get("type") == "ability_resolved":
+        return _ability_event_line_tag(event, card_catalog, instance_card_nos)
     return EVENT_LINE_TAGS_BY_TYPE.get(str(event.get("type")))
+
+
+def _ability_event_line_tag(
+    event: dict[str, Any],
+    card_catalog: dict[str, CardDefinition],
+    instance_card_nos: dict[str, str],
+) -> str:
+    source = event.get("source") or {}
+    card_no = source.get("card_no")
+    if not isinstance(card_no, str):
+        card_instance_id = source.get("card_instance_id")
+        if isinstance(card_instance_id, str):
+            card_no = instance_card_nos.get(card_instance_id)
+    if isinstance(card_no, str):
+        card = card_catalog.get(card_no)
+        if card is not None:
+            return ABILITY_EVENT_TAG_BY_CARD_COLOR.get(card.color, "action")
+    return "action"
 
 
 def _current_number(replay_record: dict[str, Any], current_event: dict[str, Any] | None, key: str) -> int | None:
