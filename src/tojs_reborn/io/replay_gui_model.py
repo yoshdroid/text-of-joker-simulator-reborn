@@ -17,6 +17,11 @@ from .replay_viewer import (
 )
 
 
+EVENT_LINE_TAGS_BY_TYPE = {
+    "ability_resolved": "action",
+}
+
+
 def build_replay_gui_model(
     replay_record: dict[str, Any],
     *,
@@ -349,9 +354,7 @@ def _event_description(event: dict[str, Any]) -> str:
 
 
 def _event_line_tag(event: dict[str, Any]) -> str | None:
-    if event.get("type") in {"ability_resolved"}:  # v9 remove "intercept_passed"
-        return "action"
-    return None
+    return EVENT_LINE_TAGS_BY_TYPE.get(str(event.get("type")))
 
 
 def _current_number(replay_record: dict[str, Any], current_event: dict[str, Any] | None, key: str) -> int | None:
