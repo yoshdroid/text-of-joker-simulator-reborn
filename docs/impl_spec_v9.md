@@ -84,6 +84,13 @@ V9-3 first implementation:
 - Future GUI/log work can display these reason codes for cards that are visible but not activatable.
 - Future expansion candidates: window mismatch, condition mismatch, target missing.
 
+V9-3 window action recording rule:
+- If an intercept window is open but the current player has no `activate_intercept` candidate, the engine performs an automatic pass.
+- Automatic passes still produce `intercept_passed` events because the window closing rule depends on consecutive passes.
+- Automatic passes do not call the player program and are not recorded as `action selected=pass_window` choices in replay intents.
+- If the current player has at least one `activate_intercept` candidate, the player is asked to choose from `activate_intercept` and `pass_window`.
+- In that case, selecting `pass_window` is a player choice and is recorded in replay intents.
+
 ### V9-4 scenario catalog の整理
 
 - `io/scenario_cli.py` は価値のある一覧性を保ちつつ肥大化している。
