@@ -75,8 +75,11 @@ v9 は新カード追加と細かい未実装ゲーム仕様の追加に入る�
 ### V9-4 scenario catalog の整理
 
 - `io/scenario_cli.py` は価値のある一覧性を保ちつつ肥大化している。
-- v9 ではいきなり大分割せず、まず scenario 名、対象カード、確認状態を機械的に出せる catalog を検討する。
-- `docs/scenario_cli_v7.md` は v7/v8 名のまま育っているため、将来的に `docs/scenario_catalog.md` へ移す。
+- v9 ではいきなり大分割せず、まず scenario 名、対象カード、event count、replay path を機械的に出せる catalog を作る。
+- `python -m tojs_reborn.io.scenario_cli --scenario all --catalog-markdown docs/scenario_catalog.md` で生成する。
+- 生成元は実際の scenario replay とし、初期状態 / 最終状態の card instances から登場カードを集約する。
+- 目視確認状態は当面 `docs/scenario_cli_v7.md` に残す。
+- 将来的には `docs/scenario_cli_v7.md` の確認表を `docs/scenario_catalog.md` または別の machine readable catalog へ統合する。
 
 ### V9-5 新カード追加サイクル
 

@@ -15,6 +15,7 @@ from tojs_reborn.engine.turn import end_turn, start_turn
 from tojs_reborn.engine.windows import process_windows_for_events
 
 from .replay_gui import run_replay_gui_cli
+from .scenario_catalog import build_scenario_catalog_markdown, scenario_catalog_entry
 
 
 ScenarioBuilder = Callable[[dict[str, Any]], tuple[GameState, dict[str, Any]]]
@@ -114,6 +115,7 @@ def run_scenario_cli(argv: Sequence[str] | None = None) -> int:
     parser.add_argument("--open-gui", action="store_true")
     parser.add_argument("--fullscreen", action="store_true", help="Pass --fullscreen to replay_gui when using --open-gui.")
     parser.add_argument("--start-event-no", type=int)
+    parser.add_argument("--catalog-markdown", help="Write a generated scenario catalog markdown file.")
     args = parser.parse_args(argv)
 
     if args.open_gui and args.scenario == "all":
@@ -137,9 +139,24 @@ def run_scenario_cli(argv: Sequence[str] | None = None) -> int:
                 replay_path = _scenario_replay_path(args, scenario_name)
                 replay_path.parent.mkdir(parents=True, exist_ok=True)
                 replay_path.write_text(json.dumps(replay_record, ensure_ascii=False, indent=2), encoding="utf-8")
-                outputs.append({"scenario": scenario_name, "replay": str(replay_path), "event_count": len(state.event_store.events)})
+                output = {"scenario": scenario_name, "replay": str(replay_path), "event_count": len(state.event_store.events)}
+                if args.catalog_markdown:
+                    output["catalog_entry"] = scenario_catalog_entry(
+                        scenario_name,
+                        replay_record,
+                        replay_path=str(replay_path),
+                        card_catalog=catalog,
+                    )
+                outputs.append(output)
         finally:
             _SEED_OVERRIDE = previous_seed_override
+        if args.catalog_markdown:
+            catalog_path = Path(args.catalog_markdown)
+            catalog_path.parent.mkdir(parents=True, exist_ok=True)
+            entries = [output["catalog_entry"] for output in outputs if "catalog_entry" in output]
+            catalog_path.write_text(build_scenario_catalog_markdown(entries), encoding="utf-8", newline="\n")
+            for output in outputs:
+                output.pop("catalog_entry", None)
         print(json.dumps({"outputs": outputs}, ensure_ascii=False, separators=(",", ":")))
         if args.open_gui:
             gui_args = [

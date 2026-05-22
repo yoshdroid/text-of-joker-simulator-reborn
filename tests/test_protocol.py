@@ -2497,6 +2497,31 @@ class ProtocolTest(unittest.TestCase):
         random_event = next(event for event in replay["events"] if event["type"] == "random_resolved")
         self.assertEqual(random_event["payload"].get("seed"), 17)
 
+    def test_scenario_cli_can_generate_catalog_markdown(self) -> None:
+        output_dir = ROOT / "test_output" / "scenario_cli_catalog"
+        catalog_path = output_dir / "scenario_catalog.md"
+
+        with redirect_stdout(StringIO()):
+            exit_code = run_scenario_cli(
+                [
+                    "--cards",
+                    "carddata/generated/cards.normalized.json",
+                    "--scenario",
+                    "happaloid_cip_draw",
+                    "--output-dir",
+                    str(output_dir),
+                    "--catalog-markdown",
+                    str(catalog_path),
+                    "--verify",
+                ]
+            )
+
+        self.assertEqual(exit_code, 0)
+        catalog_text = catalog_path.read_text(encoding="utf-8")
+        self.assertIn("# Scenario Catalog", catalog_text)
+        self.assertIn("`happaloid_cip_draw`", catalog_text)
+        self.assertIn("1-0-040", catalog_text)
+
     def test_replay_gui_render_ignores_scale_set_callback_reentry(self) -> None:
         class FakeCanvas:
             def delete(self, _tag: str) -> None:
