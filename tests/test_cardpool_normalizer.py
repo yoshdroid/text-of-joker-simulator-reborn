@@ -11,6 +11,7 @@ if SRC_PATH.exists():
 
 from tojs_reborn.cardpool.excel_loader import load_cardpool_from_xlsx
 from tojs_reborn.cardpool.normalizer import normalize_cardpool, write_normalized_outputs
+from tojs_reborn.cardpool.status_report import build_card_status_markdown, build_card_status_rows
 
 
 EXCEL_PATH = ROOT / "carddata" / "text-of-joker.cardpool.xlsx"
@@ -73,6 +74,7 @@ class CardpoolNormalizerTest(unittest.TestCase):
         lina = card_by_no["1-0-031"]["abilities"][0]
         self.assertEqual(lina["timing"], "SELF_OC")
         self.assertEqual(lina["selector"]["type"], "discard_pile_card")
+
         self.assertEqual(lina["effect_steps"], [{"effect": "move_discard_to_hand", "target": "target"}])
         lilim_abilities = card_by_no["1-0-012"]["abilities"]
         self.assertEqual([ability["timing"] for ability in lilim_abilities], ["SELF_CIP", "SELF_ATK"])
@@ -108,6 +110,17 @@ class CardpoolNormalizerTest(unittest.TestCase):
         self.assertEqual(ectoplasm["timing"], "INTERCEPT_UNIT_DESTROYED")
         self.assertEqual(ectoplasm["condition"], {"type": "event_actor_is_owner"})
         self.assertEqual(ectoplasm["effect_steps"], [{"effect": "destroy_unit", "target": "target"}])
+
+    def test_card_status_report_summarizes_per_card_implementation(self) -> None:
+        normalized, report = normalize_cardpool(EXCEL_PATH, MAPPING_PATH)
+
+        rows = build_card_status_rows(normalized["cards"])
+        markdown = build_card_status_markdown(normalized, report)
+
+        self.assertEqual(len(rows), report["card_count"])
+        self.assertIn("# Card Implementation Status", markdown)
+        self.assertIn("| card_no | card_name | category | abilities | status | timings | effects |", markdown)
+        self.assertTrue(any(row["implementation_status"] == "supported" for row in rows))
 
     def test_normalize_cardpool_accepts_window_timing_prefixes(self) -> None:
         card = excel_card("1-0-040")
