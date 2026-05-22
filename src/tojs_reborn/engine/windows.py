@@ -156,11 +156,14 @@ def process_intercept_window(
     )
     while consecutive_passes < 2:
         actions = _list_intercept_actions(state, current_player_id, window, cause_event)
-        selected = (
-            choose_intercept(current_player_id, actions)
-            if choose_intercept is not None
-            else actions[-1]
-        )
+        if any(action.get("type") == "activate_intercept" for action in actions):
+            selected = (
+                choose_intercept(current_player_id, actions)
+                if choose_intercept is not None
+                else actions[-1]
+            )
+        else:
+            selected = actions[-1]
         if selected not in actions:
             fallback = actions[-1]
             state.event_store.append(

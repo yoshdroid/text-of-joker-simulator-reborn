@@ -538,7 +538,7 @@ class ProtocolTest(unittest.TestCase):
         self.assertEqual(record["intents"][0]["type"], "match_turn_action")
         self.assertEqual(
             [choice["role"] for choice in record["intents"][0]["choices"]],
-            ["turn_action", "window_action", "window_action", "window_action"],
+            ["turn_action", "window_action"],
         )
 
     def test_match_runner_replay_preserves_invalid_response_fallback(self) -> None:
@@ -1440,7 +1440,7 @@ class ProtocolTest(unittest.TestCase):
         self.assertIn("event=3", action_lines[2][0])
         self.assertIn("c0003", action_lines[2][0])
 
-    def test_replay_gui_model_marks_ability_and_intercept_pass_event_lines_bold(self) -> None:
+    def test_replay_gui_model_marks_ability_event_lines_bold(self) -> None:
         replay_record = {
             "initial_state": {
                 "round_no": 1,
@@ -1488,7 +1488,7 @@ class ProtocolTest(unittest.TestCase):
 
         model = build_replay_gui_model(replay_record, card_catalog=self.catalog)
 
-        self.assertEqual(model["event_line_tags"], [None, "action", "action"])
+        self.assertEqual(model["event_line_tags"], [None, "action", None])
         self.assertIn("ability_resolved", model["event_lines"][1])
         self.assertIn("intercept_passed", model["event_lines"][2])
 

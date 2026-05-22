@@ -349,7 +349,7 @@ def _event_description(event: dict[str, Any]) -> str:
 
 
 def _event_line_tag(event: dict[str, Any]) -> str | None:
-    if event.get("type") in {"ability_resolved", "intercept_passed"}:
+    if event.get("type") in {"ability_resolved"}:  # v9 remove "intercept_passed"
         return "action"
     return None
 
