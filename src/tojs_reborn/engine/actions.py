@@ -812,6 +812,7 @@ def _handle_modify_base_bp(
         _append_effect_fizzled(state, unit.owner_player_id, ability_event, step, "no_valid_target")
         return
     amount = bp_amount_to_game_bp(_resolve_amount(state, unit, ability_event, step))
+    before_total_bp = get_unit_bp(state, target)
     before_bp = get_unit_base_bp(state, target)
     target.base_bp_modifiers.append(
         {
@@ -831,6 +832,8 @@ def _handle_modify_base_bp(
             "target_unit_id": target.unit_id,
             "before_base_bp": before_bp,
             "after_base_bp": get_unit_base_bp(state, target),
+            "before_bp": before_total_bp,
+            "after_bp": get_unit_bp(state, target),
             "amount": amount,
             "duration": step.get("duration", "permanent"),
         },

@@ -1573,6 +1573,7 @@ class ProtocolTest(unittest.TestCase):
 
         model = build_replay_gui_model(replay_record, card_catalog=self.catalog)
 
+        self.assertIn("amount=1000", model["event_lines"][0])
         damage_frame = model["frames"][1]
         self.assertEqual(set(damage_frame["highlights"]["unit_ids"]), {"u0001", "u0002"})
         self.assertTrue(damage_frame["players"][0]["battlefield"][0]["highlight"])
@@ -1580,6 +1581,65 @@ class ProtocolTest(unittest.TestCase):
         choice_frame = model["frames"][2]
         self.assertEqual(choice_frame["highlights"]["card_instance_ids"], ["c0003"])
         self.assertTrue(choice_frame["players"][0]["hand"][0]["highlight"])
+
+    def test_replay_gui_model_keeps_total_bp_after_legacy_base_bp_event(self) -> None:
+        replay_record = {
+            "initial_state": {
+                "round_no": 1,
+                "turn_no": 1,
+                "turn_player_id": "P1",
+                "card_instances": {
+                    "c0001": {"card_no": "1-0-046", "owner_player_id": "P1", "level": 1},
+                },
+                "players": {
+                    "P1": {
+                        "life": 7,
+                        "current_cp": 7,
+                        "deck": [],
+                        "hand": [],
+                        "battlefield": ["u0001"],
+                        "trigger_zone": [],
+                        "discard_pile": [],
+                    }
+                },
+                "units": {
+                    "u0001": {
+                        "card_no": "1-0-046",
+                        "card_instance_id": "c0001",
+                        "owner_player_id": "P1",
+                        "level": 1,
+                        "exhausted": False,
+                        "current_damage": 0,
+                    }
+                },
+            },
+            "events": [
+                {
+                    "event_no": 1,
+                    "type": "bp_modified",
+                    "round_no": 1,
+                    "turn_no": 1,
+                    "actor_player_id": "P1",
+                    "cause_event_no": None,
+                    "source": {"card_no": "1-0-070", "card_instance_id": "c0002", "unit_id": None, "ability_id": "1-0-070:a1"},
+                    "payload": {"target_unit_id": "u0001", "before_bp": 5000, "after_bp": 17000, "amount": 12000},
+                },
+                {
+                    "event_no": 2,
+                    "type": "base_bp_modified",
+                    "round_no": 1,
+                    "turn_no": 1,
+                    "actor_player_id": "P1",
+                    "cause_event_no": None,
+                    "source": {"card_no": "1-0-095", "card_instance_id": "c0003", "unit_id": None, "ability_id": "1-0-095:a1"},
+                    "payload": {"target_unit_id": "u0001", "before_base_bp": 5000, "after_base_bp": 6000, "amount": 1000},
+                },
+            ],
+        }
+
+        model = build_replay_gui_model(replay_record, card_catalog=self.catalog)
+
+        self.assertEqual(model["frames"][2]["players"][0]["battlefield"][0]["current_bp"], 18000)
 
     def test_replay_gui_model_updates_hand_card_level_by_event_timing(self) -> None:
         replay_record = {

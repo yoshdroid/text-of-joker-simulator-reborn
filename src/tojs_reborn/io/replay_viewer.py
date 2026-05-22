@@ -120,6 +120,10 @@ def format_event_line(
         payload = event.get("payload") or {}
         if payload:
             parts.append(f"payload={_format_payload(payload, card_catalog, instance_card_nos)}")
+    else:
+        summary = _format_compact_payload_summary(event)
+        if summary:
+            parts.append(summary)
     return " ".join(parts)
 
 
@@ -265,9 +269,16 @@ class ReplayViewerState:
         elif event_type in {"bp_modified", "base_bp_modified", "modifier_expired"}:
             unit_id = payload.get("target_unit_id", payload.get("unit_id"))
             if isinstance(unit_id, str):
-                after_bp = payload.get("after_bp", payload.get("after_base_bp"))
+                after_bp = payload.get("after_bp")
                 if after_bp is not None:
                     self.unit_bp[unit_id] = int(after_bp)
+                elif event_type == "base_bp_modified":
+                    amount = payload.get("amount")
+                    after_base_bp = payload.get("after_base_bp")
+                    if amount is not None and unit_id in self.unit_bp:
+                        self.unit_bp[unit_id] = self.unit_bp[unit_id] + int(amount)
+                    elif after_base_bp is not None:
+                        self.unit_bp[unit_id] = int(after_base_bp)
         elif event_type == "mulligan_performed" and isinstance(actor, str):
             player = self._player(actor)
             player.hand = list(payload.get("hand_card_instance_ids") or [])
@@ -452,6 +463,18 @@ def _format_payload(
 ) -> str:
     visible_payload = _replace_card_instance_ids(payload, card_catalog, instance_card_nos)
     return json.dumps(visible_payload, ensure_ascii=False, separators=(",", ":"))
+
+
+def _format_compact_payload_summary(event: dict[str, Any]) -> str:
+    payload = event.get("payload") or {}
+    if event.get("type") == "damage_dealt":
+        parts = []
+        for key in ("amount", "before_damage", "after_damage"):
+            value = payload.get(key)
+            if value is not None:
+                parts.append(f"{key}={value}")
+        return " ".join(parts)
+    return ""
 
 
 def _format_action_summary(
