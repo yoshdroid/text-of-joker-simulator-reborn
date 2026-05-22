@@ -109,13 +109,42 @@ ENGINE_SUPPORTED_EFFECTS = {
 
 
 def load_ability_mapping(path: str | Path) -> dict[str, Any]:
-    with Path(path).open("r", encoding="utf-8") as handle:
+    mapping_path = Path(path)
+    if mapping_path.is_dir():
+        return _load_split_ability_mapping(mapping_path)
+    return _load_single_ability_mapping(mapping_path)
+
+
+def _load_single_ability_mapping(path: Path) -> dict[str, Any]:
+    with path.open("r", encoding="utf-8") as handle:
         data = json.load(handle)
     if not isinstance(data, dict):
         raise ValueError("ability mapping root must be an object")
     if not isinstance(data.get("cards"), dict):
         raise ValueError("ability mapping must contain a cards object")
     return data
+
+
+def _load_split_ability_mapping(path: Path) -> dict[str, Any]:
+    mapping_files = sorted(path.glob("*/ability_mapping.json"), key=lambda item: (item.parent.name, item.name))
+    if not mapping_files:
+        raise ValueError(f"split ability mapping directory has no */ability_mapping.json files: {path}")
+    schema_version: Any = None
+    merged_cards: dict[str, Any] = {}
+    for mapping_file in mapping_files:
+        data = _load_single_ability_mapping(mapping_file)
+        current_schema_version = data.get("schema_version")
+        if schema_version is None:
+            schema_version = current_schema_version
+        elif current_schema_version != schema_version:
+            raise ValueError(
+                f"split ability mapping schema_version mismatch: {mapping_file} has {current_schema_version}, expected {schema_version}"
+            )
+        for card_no in sorted(data["cards"]):
+            if card_no in merged_cards:
+                raise ValueError(f"duplicate card in split ability mapping: {card_no}")
+            merged_cards[card_no] = data["cards"][card_no]
+    return {"schema_version": schema_version, "cards": merged_cards}
 
 
 def normalize_cardpool(

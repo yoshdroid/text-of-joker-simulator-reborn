@@ -10,7 +10,7 @@ if SRC_PATH.exists():
     sys.path.insert(0, str(SRC_PATH))
 
 from tojs_reborn.cardpool.excel_loader import load_cardpool_from_xlsx
-from tojs_reborn.cardpool.normalizer import normalize_cardpool, write_normalized_outputs
+from tojs_reborn.cardpool.normalizer import load_ability_mapping, normalize_cardpool, write_normalized_outputs
 from tojs_reborn.cardpool.status_report import build_card_status_markdown, build_card_status_rows
 
 
@@ -153,6 +153,39 @@ class CardpoolNormalizerTest(unittest.TestCase):
 
         self.assertEqual(report["errors"], [])
         self.assertEqual(report["supported_ability_count"], 1)
+
+    def test_load_ability_mapping_merges_sheet_style_split_directory(self) -> None:
+        root = ROOT / "test_output" / "normalizer_split_mapping_tests"
+        first = root / "1-0"
+        second = root / "1-0-EX"
+        first.mkdir(parents=True, exist_ok=True)
+        second.mkdir(parents=True, exist_ok=True)
+        (first / "ability_mapping.json").write_text(
+            json.dumps({"schema_version": 1, "cards": {"1-0-001": {"card_name": "A", "abilities": []}}}, ensure_ascii=False),
+            encoding="utf-8",
+        )
+        (second / "ability_mapping.json").write_text(
+            json.dumps({"schema_version": 1, "cards": {"1-0-002": {"card_name": "B", "abilities": []}}}, ensure_ascii=False),
+            encoding="utf-8",
+        )
+
+        mapping = load_ability_mapping(root)
+
+        self.assertEqual(mapping["schema_version"], 1)
+        self.assertEqual(list(mapping["cards"]), ["1-0-001", "1-0-002"])
+
+    def test_load_ability_mapping_rejects_duplicate_split_cards(self) -> None:
+        root = ROOT / "test_output" / "normalizer_duplicate_split_mapping_tests"
+        first = root / "1-0"
+        second = root / "1-0-EX"
+        first.mkdir(parents=True, exist_ok=True)
+        second.mkdir(parents=True, exist_ok=True)
+        payload = {"schema_version": 1, "cards": {"1-0-001": {"card_name": "A", "abilities": []}}}
+        (first / "ability_mapping.json").write_text(json.dumps(payload, ensure_ascii=False), encoding="utf-8")
+        (second / "ability_mapping.json").write_text(json.dumps(payload, ensure_ascii=False), encoding="utf-8")
+
+        with self.assertRaisesRegex(ValueError, "duplicate card"):
+            load_ability_mapping(root)
 
     def test_normalize_cardpool_warns_when_supported_ability_has_no_source_reference(self) -> None:
         card = excel_card("1-0-040")

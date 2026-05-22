@@ -38,11 +38,27 @@ v9 は新カード追加と細かい未実装ゲーム仕様の追加に入る�
 ### V9-2 ability_mapping の分割方針を決める
 
 - すぐに分割移行せず、まず分割後の形を決める。
-- 候補:
-  - `carddata/manual/abilities/1-0-001.json` のようなカード別ファイル
-  - `carddata/manual/abilities/1-0/red.json` のようなセット・色別ファイル
+- Excel 側は今後セット単位または追加パック単位でシートを分ける想定とする。
+- JSON 側も Excel シート単位に合わせ、次のようなディレクトリ構成を第一候補にする。
+  - `carddata/manual/abilities/1-0/ability_mapping.json`
+  - `carddata/manual/abilities/1-0-EX/ability_mapping.json`
+  - `carddata/manual/abilities/1-1/ability_mapping.json`
 - 統合後の生成物は現在の `ability_mapping.json` と互換にする。
 - 移行する場合は、既存 normalizer / tests / cardpool report が変わらないことを最優先にする。
+- 実装視点では、カード別ファイルよりもシート単位ファイルの方が当面扱いやすい。
+  - Excel 追加範囲と JSON 追加範囲が一致するため、レビューしやすい。
+  - セット単位で cardpool report / status report の差分を追いやすい。
+  - `1-0-EX` のような例外的な追加枠も自然に扱える。
+  - ファイル数が増えすぎず、現行の `ability_mapping.json` に近い一覧性を保てる。
+- 一方で、1ファイルが大きくなりすぎたセットは、将来的に `red.json` / `green.json` など色別へ再分割できる余地を残す。
+- normalizer は最終的に以下のどちらも読めるようにする。
+  - 現行互換: `carddata/manual/ability_mapping.json`
+  - 分割形式: `carddata/manual/abilities/*/ability_mapping.json` をマージしたもの
+- マージ時のルール:
+  - `schema_version` は全ファイルで一致していること。
+  - `cards` の key が重複した場合はエラーにする。
+  - 出力順はディレクトリ名、card_no の昇順で安定化する。
+  - 生成後の統合 mapping は現行形式と同じ `{ "schema_version": 1, "cards": {...} }` にする。
 
 ### V9-3 発動不能理由の構造化
 
