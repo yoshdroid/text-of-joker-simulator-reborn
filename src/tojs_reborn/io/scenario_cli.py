@@ -819,6 +819,10 @@ def _scenario_v8_final_battle_modifiers(catalog: dict[str, Any]) -> tuple[GameSt
         raise AssertionError("v8 final battle modifier scenario expected Tackle base BP bonus")
     if not any(event.type == "random_resolved" and event.payload.get("kind") == "amount" for event in state.event_store.events):
         raise AssertionError("v8 final battle modifier scenario expected Russian Roulette random BP")
+    wild_release = next(event for event in state.event_store.events if event.type == "ability_resolved" and event.source.ability_id == "1-0-046:a2")
+    promise = next(event for event in state.event_store.events if event.type == "intercept_activated" and event.source.card_no == "1-0-070")
+    if wild_release.event_no >= promise.event_no:
+        raise AssertionError("v8 final battle modifier scenario expected unit battle effect before battle intercept")
     return state, initial_state
 
 

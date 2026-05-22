@@ -130,13 +130,13 @@ def resolve_blocked_battle(
         source=_unit_source(attacker),
         payload={"attacker_unit_id": attacker.unit_id, "blocker_unit_id": blocker.unit_id},
     )
-    if battle_started_callback is not None:
-        battle_started_callback(state, battle_event.event_no)
+    resolve_unit_battled(state, attacker, battle_event, get_effect_handlers(), optional_ability_choice, ability_cost_choice)
+    resolve_unit_battled(state, blocker, battle_event, get_effect_handlers(), optional_ability_choice, ability_cost_choice)
     if not _battle_units_still_present(state, attacker, blocker):
         _emit_battle_cancelled(state, attacker, blocker, battle_event.event_no, reason="unit_left_before_battle_damage")
         return
-    resolve_unit_battled(state, attacker, battle_event, get_effect_handlers(), optional_ability_choice, ability_cost_choice)
-    resolve_unit_battled(state, blocker, battle_event, get_effect_handlers(), optional_ability_choice, ability_cost_choice)
+    if battle_started_callback is not None:
+        battle_started_callback(state, battle_event.event_no)
     if not _battle_units_still_present(state, attacker, blocker):
         _emit_battle_cancelled(state, attacker, blocker, battle_event.event_no, reason="unit_left_before_battle_damage")
         return

@@ -1958,6 +1958,42 @@ class EngineTest(unittest.TestCase):
         self.assertEqual(get_unit_bp(state, attacker), 4000)
         self.assertIn("modifier_expired", [event.type for event in state.event_store.events])
 
+    def test_unit_battle_ability_resolves_before_battle_intercept(self) -> None:
+        state = create_game_state(self.catalog)
+        state.turn_player_id = "P1"
+        _attacker_card, attacker = self._add_battlefield_unit(state, "P1", "1-0-046")
+        _blocker_card, blocker = self._add_battlefield_unit(state, "P2", "1-0-040")
+        promise = state.create_card_instance("1-0-070", "P1")
+        state.players["P1"].trigger_zone.add(promise.instance_id)
+        state.players["P1"].current_cp = 2
+        state.players["P1"].life = 5
+
+        attack_event = declare_attack(state, "P1", attacker.unit_id)
+        declare_block(
+            state,
+            "P2",
+            blocker.unit_id,
+            attacker.unit_id,
+            attack_event.event_no,
+            battle_started_callback=lambda scenario_state, event_no: process_windows_for_events(
+                scenario_state,
+                event_no,
+                choose_intercept=lambda _player_id, actions: actions[0],
+            ),
+        )
+
+        wild_release = next(
+            event
+            for event in state.event_store.events
+            if event.type == "ability_resolved" and event.source.ability_id == "1-0-046:a2"
+        )
+        promise_activated = next(
+            event
+            for event in state.event_store.events
+            if event.type == "intercept_activated" and event.source.card_no == "1-0-070"
+        )
+        self.assertLess(wild_release.event_no, promise_activated.event_no)
+
     def test_next_candidate_cards_resolve_basic_effects(self) -> None:
         # Valkyrie Clara is already engine-supported through the printed unblockable keyword.
         state = create_game_state(self.catalog)
