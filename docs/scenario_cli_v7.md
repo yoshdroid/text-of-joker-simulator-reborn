@@ -96,5 +96,5 @@ python -m tojs_reborn.io.replay_gui --cards carddata/generated/cards.normalized.
 | `v8_final_dynamic_units` | v8最終 動的ユニット | ベヒーモスドラゴン、堕天馬アルゲニブ、ジャンヌダルクの動的BP、ランダム沈黙、捨札回収、獣サーチ、沈黙による不屈抑止を確認する。 |  | ✓ | v8追加 |
 | `v8_final_battle_modifiers` | v8最終 戦闘修正 | 疑惑のロシアンルーレット、戦友との約束、リミッター解放、タックルを同一戦闘で確認する。 |  | ✓ | v8追加 |
 | `v8_final_tactics_end` | v8最終 タクティクスエンド | タクティクスエンド発動後、同一 battle window の後続効果が発動しないことを確認する。 |  | ✓ | v8追加 |
-| `v8_final_turn_intercepts` | v8最終 ターン系インターセプト | 移動要塞、ハッピーキャット、ジャッジメントLV3をターン開始・YOUR_ATK発動・呪縛によるターン開始行動権回復抑止の流れで確認する。 |  |  | v8追加 |
+| `v8_final_turn_intercepts` | v8最終 ターン系インターセプト | 移動要塞、ハッピーキャット、ジャッジメントLV3をターン開始・YOUR_ATK発動・呪縛によるターン開始行動権回復抑止・不屈によるターン終了回復の流れで確認する。 |  |  | v8追加 |
 - カテゴリサーチはデッキリフレッシュのきっかけにならない。デッキが空ならサーチは不発になり、`cards_drawn.count` は0になる。

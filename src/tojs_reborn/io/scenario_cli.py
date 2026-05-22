@@ -916,6 +916,17 @@ def _scenario_v8_final_turn_intercepts(catalog: dict[str, Any]) -> tuple[GameSta
         for event in state.event_store.events
     ):
         raise AssertionError("v8 final turn scenario expected no bind unit action recovery event")
+    p2_end_first_event_no = len(state.event_store.events) + 1
+    end_turn(state, "P2")
+    if not lv1.exhausted or lv2.exhausted or not lv3.exhausted:
+        raise AssertionError("v8 final turn scenario expected only bound Gigamamuto to recover by indomitable")
+    recover_events = [
+        event
+        for event in state.event_store.events
+        if event.type == "unit_action_recovered" and event.event_no >= p2_end_first_event_no
+    ]
+    if [event.payload.get("unit_id") for event in recover_events] != [lv2.unit_id]:
+        raise AssertionError("v8 final turn scenario expected only Gigamamuto recovery event at P2 turn end")
     return state, initial_state
 
 
