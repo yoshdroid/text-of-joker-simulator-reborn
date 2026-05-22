@@ -25,6 +25,7 @@ from tojs_reborn.io.match_runner import FirstLegalPlayer, MatchRunner, replay_ma
 from tojs_reborn.io.match_cli import run_match_cli
 from tojs_reborn.io.match_batch_cli import parse_seed_spec, run_match_batch_cli
 from tojs_reborn.io.match_setup import MatchSetupConfig, setup_match_state
+from tojs_reborn.io.player_codex import CodexYellowPlayer
 from tojs_reborn.io.player_runner import (
     JsonLinePlayer,
     TextIOJsonLineTransport,
@@ -315,6 +316,25 @@ class ProtocolTest(unittest.TestCase):
         self.assertEqual(choose_sample_action(window_actions, "intercept_all")["card_instance_id"], "c0001")
         self.assertEqual(choose_sample_action(window_actions, "intercept-all")["card_instance_id"], "c0001")
         self.assertEqual(choose_sample_action(normal_actions, "intercept_all")["type"], "attack")
+
+    def test_codex_yellow_player_prioritizes_trigger_setup(self) -> None:
+        player = CodexYellowPlayer()
+        message = {
+            "type": "request_action",
+            "player_id": "P1",
+            "request_context": {"kind": "turn_action"},
+            "public_state": {"players": {"P1": {"battlefield": []}}},
+            "legal_actions": [
+                {"type": "pass"},
+                {"type": "drive_unit", "card_instance_id": "c0001", "card": {"card_no": "1-0-020"}},
+                {"type": "set_trigger", "card_instance_id": "c0002", "card": {"card_no": "1-0-061"}},
+            ],
+        }
+
+        selected = player.choose_action(message)
+
+        self.assertEqual(selected["type"], "set_trigger")
+        self.assertEqual(selected["card_instance_id"], "c0002")
 
     def test_state_update_and_mulligan_messages_round_trip(self) -> None:
         state = create_game_state(self.catalog)

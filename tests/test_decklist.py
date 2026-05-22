@@ -110,6 +110,14 @@ class DecklistTest(unittest.TestCase):
         self.assertIn("1-0-007", deck2.expanded_card_nos())
         self.assertIn("1-0-010", deck2.expanded_card_nos())
 
+    def test_codex_yellow_deck_uses_yellow_and_colorless_cards(self) -> None:
+        deck = load_decklist(ROOT / "decklists" / "codex_yellow_v1_0.json", self.catalog, strict_deck_rule=True)
+
+        card_nos = deck.expanded_card_nos()
+        self.assertEqual(deck.deck_name, "codex_yellow_v1_0")
+        self.assertEqual(len(card_nos), 40)
+        self.assertTrue(all(self.catalog[card_no].color in {"黄", "無"} for card_no in card_nos))
+
     def test_setup_match_state_registers_decks_and_initial_hands(self) -> None:
         deck1 = parse_decklist(
             {

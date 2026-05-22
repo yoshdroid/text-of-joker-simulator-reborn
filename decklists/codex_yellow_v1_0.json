@@ -1,0 +1,21 @@
+{
+  "deck_name": "codex_yellow_v1_0",
+  "cards": [
+    { "card_name": "金色の狛犬", "count": 3 },
+    { "card_name": "湖畔のアリエ", "count": 3 },
+    { "card_name": "サイボーグ僧兵", "count": 3 },
+    { "card_name": "ルインガーディアン", "count": 3 },
+    { "card_name": "護符剣士ライマル", "count": 3 },
+    { "card_name": "カイム", "count": 3 },
+    { "card_name": "ジャンプー", "count": 2 },
+    { "card_name": "ラグエル", "count": 2 },
+    { "card_name": "雷龍", "count": 2 },
+    { "card_name": "戦神・毘沙門", "count": 1 },
+    { "card_name": "新品の鎧", "count": 3 },
+    { "card_name": "何でも屋の陳列台", "count": 3 },
+    { "card_name": "ロデオドライヴ", "count": 3 },
+    { "card_name": "パワーショーテージ", "count": 2 },
+    { "card_name": "フォトン", "count": 2 },
+    { "card_name": "タイタンの鉄鎖", "count": 2 }
+  ]
+}
