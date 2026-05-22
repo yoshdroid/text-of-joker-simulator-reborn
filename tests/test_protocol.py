@@ -1084,6 +1084,57 @@ class ProtocolTest(unittest.TestCase):
         self.assertIn("P1 life=7 cp=0 hand=0 deck=0 discard=0", lines[4])
         self.assertIn("u0001:", lines[4])
 
+    def test_replay_viewer_compact_log_summarizes_inactive_window_candidates(self) -> None:
+        replay_record = {
+            "initial_state": {
+                "card_instances": {
+                    "c0001": {"card_no": "1-0-099", "owner_player_id": "P1", "level": 1}
+                },
+                "players": {
+                    "P1": {
+                        "life": 7,
+                        "current_cp": 1,
+                        "deck": [],
+                        "hand": [],
+                        "battlefield": [],
+                        "trigger_zone": ["c0001"],
+                        "discard_pile": [],
+                    }
+                },
+                "units": {},
+            },
+            "events": [
+                {
+                    "event_no": 1,
+                    "type": "intercept_window_opened",
+                    "round_no": 1,
+                    "turn_no": 1,
+                    "actor_player_id": "P1",
+                    "cause_event_no": 0,
+                    "source": {},
+                    "payload": {
+                        "window": "attack",
+                        "inactive_candidates_by_player": {
+                            "P1": [
+                                {
+                                    "card_instance_id": "c0001",
+                                    "card_no": "1-0-099",
+                                    "reasons": ["insufficient_cp", "missing_same_color_unit"],
+                                }
+                            ]
+                        },
+                    },
+                }
+            ],
+        }
+
+        lines = format_replay_events(replay_record, card_catalog=self.catalog, include_payload=False)
+
+        self.assertIn("inactive=[", lines[0])
+        self.assertIn("c0001", lines[0])
+        self.assertIn(self.catalog["1-0-099"].name, lines[0])
+        self.assertIn("insufficient_cp+missing_same_color_unit", lines[0])
+
     def test_replay_viewer_applies_mulligan_and_filters_output(self) -> None:
         replay_record = {
             "initial_state": {

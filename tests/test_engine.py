@@ -2731,6 +2731,25 @@ class EngineTest(unittest.TestCase):
             ["intercept_window_opened", "intercept_activated", "intercept_passed", "intercept_passed"],
         )
 
+    def test_intercept_window_opened_logs_inactive_candidate_reasons(self) -> None:
+        catalog = dict(self.catalog)
+        catalog["T-INT-001"] = draw_window_card("T-INT-001", "intercept", "INTERCEPT_ATTACK")
+        state = create_game_state(catalog)
+        state.turn_player_id = "P1"
+        active_intercept = state.create_card_instance("T-INT-001", "P1")
+        inactive_intercept = state.create_card_instance("1-0-099", "P1")
+        state.players["P1"].trigger_zone.add(active_intercept.instance_id)
+        state.players["P1"].trigger_zone.add(inactive_intercept.instance_id)
+        state.players["P1"].current_cp = 1
+        cause_event = state.event_store.append("unit_attacked", round_no=1, turn_no=1, actor_player_id="P1")
+
+        process_intercept_window(state, "attack", cause_event.event_no)
+
+        opened = [event for event in state.event_store.events if event.type == "intercept_window_opened"][-1]
+        inactive = opened.payload["inactive_candidates_by_player"]["P1"]
+        self.assertEqual(inactive[0]["card_instance_id"], inactive_intercept.instance_id)
+        self.assertEqual(inactive[0]["reasons"], ["insufficient_cp", "missing_same_color_unit"])
+
     def test_block_declared_resolves_block_bp_modifier_and_expires_at_turn_end(self) -> None:
         state = create_game_state(self.catalog)
         state.turn_player_id = "P1"

@@ -145,7 +145,14 @@ def process_intercept_window(
         turn_no=state.turn_no,
         actor_player_id=current_player_id,
         cause_event_no=cause_event_no,
-        payload={"window": window, "start_player_id": current_player_id},
+        payload={
+            "window": window,
+            "start_player_id": current_player_id,
+            "inactive_candidates_by_player": {
+                player_id: _inactive_window_candidates(state, player_id)
+                for player_id in sorted(state.players)
+            },
+        },
     )
     while consecutive_passes < 2:
         actions = _list_intercept_actions(state, current_player_id, window, cause_event)
@@ -408,6 +415,29 @@ def _list_intercept_actions(state: GameState, player_id: str, window: str, cause
         )
     actions.append(_pass_window_action(window))
     return actions
+
+
+def _inactive_window_candidates(state: GameState, player_id: str) -> list[dict[str, Any]]:
+    candidates: list[dict[str, Any]] = []
+    for card_instance_id in state.players[player_id].trigger_zone.cards:
+        card_no = state.card_instances[card_instance_id].card_no
+        card = state.card_catalog[card_no]
+        if card.category not in {"trigger", "intercept"}:
+            continue
+        activation_check = explain_card_activation(state, player_id, card_instance_id)
+        if activation_check.can_activate:
+            continue
+        candidates.append(
+            {
+                "card_instance_id": card_instance_id,
+                "card_no": card_no,
+                "category": card.category,
+                "color": card.color,
+                "reasons": list(activation_check.reasons),
+                "details": dict(activation_check.details),
+            }
+        )
+    return candidates
 
 
 def _pass_window_action(window: str) -> dict[str, Any]:

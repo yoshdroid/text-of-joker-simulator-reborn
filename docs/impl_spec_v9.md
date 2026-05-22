@@ -80,6 +80,7 @@ V9-3 first implementation:
   - `missing_same_color_unit`
 - Current scope is card-level activation requirements, especially intercept CP and same-color unit requirements.
 - `engine.windows.list_trigger_intercept_window()` includes `inactive_candidates` with `reasons` and `details`, while keeping existing `candidates` unchanged.
+- `intercept_window_opened` event payload includes `inactive_candidates_by_player`; replay GUI compact event log can summarize it.
 - Future GUI/log work can display these reason codes for cards that are visible but not activatable.
 - Future expansion candidates: window mismatch, condition mismatch, target missing.
 

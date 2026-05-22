@@ -121,7 +121,7 @@ def format_event_line(
         if payload:
             parts.append(f"payload={_format_payload(payload, card_catalog, instance_card_nos)}")
     else:
-        summary = _format_compact_payload_summary(event)
+        summary = _format_compact_payload_summary(event, card_catalog, instance_card_nos)
         if summary:
             parts.append(summary)
     return " ".join(parts)
@@ -465,7 +465,11 @@ def _format_payload(
     return json.dumps(visible_payload, ensure_ascii=False, separators=(",", ":"))
 
 
-def _format_compact_payload_summary(event: dict[str, Any]) -> str:
+def _format_compact_payload_summary(
+    event: dict[str, Any],
+    card_catalog: dict[str, CardDefinition],
+    instance_card_nos: dict[str, str],
+) -> str:
     payload = event.get("payload") or {}
     if event.get("type") == "damage_dealt":
         parts = []
@@ -474,6 +478,32 @@ def _format_compact_payload_summary(event: dict[str, Any]) -> str:
             if value is not None:
                 parts.append(f"{key}={value}")
         return " ".join(parts)
+    if event.get("type") == "intercept_window_opened":
+        inactive = payload.get("inactive_candidates_by_player")
+        if not isinstance(inactive, dict):
+            return ""
+        parts = []
+        for player_id in sorted(inactive):
+            candidates = inactive.get(player_id)
+            if not isinstance(candidates, list):
+                continue
+            for candidate in candidates:
+                if not isinstance(candidate, dict):
+                    continue
+                reasons = candidate.get("reasons")
+                if not isinstance(reasons, list) or not reasons:
+                    continue
+                card_instance_id = candidate.get("card_instance_id")
+                card_no = candidate.get("card_no")
+                if not isinstance(card_no, str) and isinstance(card_instance_id, str):
+                    card_no = instance_card_nos.get(card_instance_id)
+                label = card_instance_id if isinstance(card_instance_id, str) else "?"
+                if isinstance(card_no, str):
+                    label = f"{label}:{_format_card(card_no, card_catalog)}"
+                reason_text = "+".join(str(reason) for reason in reasons)
+                parts.append(f"{player_id}:{label}({reason_text})")
+        if parts:
+            return f"inactive=[{'; '.join(parts)}]"
     return ""
 
 
