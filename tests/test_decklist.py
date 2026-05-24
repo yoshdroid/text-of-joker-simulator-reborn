@@ -8,15 +8,16 @@ SRC_PATH = ROOT / "src"
 if SRC_PATH.exists():
     sys.path.insert(0, str(SRC_PATH))
 
-from tests.test_engine import build_catalog
 from tojs_reborn.engine.state import CardDefinition
+from tojs_reborn.engine.state import load_card_catalog
+from tojs_reborn.io.deck_builder import card_detail_text, decklist_json, filtered_card_nos, regulation_status, run_deck_builder_cli
 from tojs_reborn.io.decklist import DecklistError, load_decklist, parse_decklist
 from tojs_reborn.io.match_setup import MatchSetupConfig, setup_match_state
 
 
 class DecklistTest(unittest.TestCase):
     def setUp(self) -> None:
-        self.catalog = build_catalog()
+        self.catalog = load_card_catalog(ROOT / "carddata" / "generated" / "cards.normalized.json")
 
     def test_parse_decklist_expands_entries(self) -> None:
         decklist = parse_decklist(
@@ -117,6 +118,45 @@ class DecklistTest(unittest.TestCase):
         self.assertEqual(deck.deck_name, "codex_yellow_v1_0")
         self.assertEqual(len(card_nos), 40)
         self.assertTrue(all(self.catalog[card_no].color in {"黄", "無"} for card_no in card_nos))
+
+    def test_deck_builder_regulation_status_reports_pass_and_violate(self) -> None:
+        valid = ["1-0-040"] * 3 + ["1-0-001"] * 3 + ["1-0-004"] * 3 + ["1-0-005"] * 3
+        valid += ["1-0-006"] * 3 + ["1-0-007"] * 3 + ["1-0-010"] * 3 + ["1-0-016"] * 3
+        valid += ["1-0-017"] * 3 + ["1-0-018"] * 3 + ["1-0-019"] * 3 + ["1-0-020"] * 3
+        valid += ["1-0-021"] * 3 + ["1-0-023"]
+
+        self.assertTrue(regulation_status(valid).passed)
+        invalid = ["1-0-040"] * 4
+        status = regulation_status(invalid)
+        self.assertFalse(status.passed)
+        self.assertEqual(status.total_cards, 4)
+        self.assertEqual(status.over_limit, {"1-0-040": 4})
+
+    def test_deck_builder_outputs_card_name_decklist_json(self) -> None:
+        data = decklist_json("builder_sample", ["1-0-040", "1-0-040", "1-0-001"], self.catalog)
+
+        self.assertEqual(data["deck_name"], "builder_sample")
+        self.assertEqual({tuple(sorted(item)) for item in data["cards"]}, {("card_name", "count")})
+        parsed = parse_decklist(data, self.catalog)
+        self.assertEqual(sorted(parsed.expanded_card_nos()), ["1-0-001", "1-0-040", "1-0-040"])
+
+    def test_deck_builder_filters_and_formats_card_details(self) -> None:
+        filtered = filtered_card_nos(
+            self.catalog,
+            search=self.catalog["1-0-040"].name,
+            color=self.catalog["1-0-040"].color,
+            category="unit",
+        )
+        detail = card_detail_text("1-0-040", self.catalog["1-0-040"])
+
+        self.assertIn("1-0-040", filtered)
+        self.assertIn(self.catalog["1-0-040"].name, detail)
+        self.assertIn("category=unit", detail)
+
+    def test_deck_builder_cli_no_window_loads_cards(self) -> None:
+        exit_code = run_deck_builder_cli(["--cards", "carddata/generated/cards.normalized.json", "--no-window"])
+
+        self.assertEqual(exit_code, 0)
 
     def test_setup_match_state_registers_decks_and_initial_hands(self) -> None:
         deck1 = parse_decklist(

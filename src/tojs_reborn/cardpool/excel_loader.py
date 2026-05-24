@@ -16,8 +16,7 @@ def load_cardpool_from_xlsx(path: str | Path) -> list[ExcelCard]:
     workbook_path = Path(path)
     with zipfile.ZipFile(workbook_path) as archive:
         shared_strings = _load_shared_strings(archive)
-        worksheet = _load_first_worksheet(archive)
-        rows = _read_rows(worksheet, shared_strings)
+        rows = _load_cardpool_rows(archive, shared_strings)
 
     if not rows:
         return []
@@ -30,6 +29,15 @@ def load_cardpool_from_xlsx(path: str | Path) -> list[ExcelCard]:
     ]
 
 
+def _load_cardpool_rows(archive: zipfile.ZipFile, shared_strings: list[str]) -> list[list[str]]:
+    required_headers = {"no", "category", "rarity", "color", "name", "cp", "bp", "abilities"}
+    for worksheet in _load_worksheets(archive):
+        rows = _read_rows(worksheet, shared_strings)
+        if rows and required_headers.issubset(set(rows[0])):
+            return rows
+    return []
+
+
 def _load_shared_strings(archive: zipfile.ZipFile) -> list[str]:
     if "xl/sharedStrings.xml" not in archive.namelist():
         return []
@@ -40,16 +48,18 @@ def _load_shared_strings(archive: zipfile.ZipFile) -> list[str]:
     ]
 
 
-def _load_first_worksheet(archive: zipfile.ZipFile) -> ET.Element:
+def _load_worksheets(archive: zipfile.ZipFile) -> list[ET.Element]:
     workbook = ET.fromstring(archive.read("xl/workbook.xml"))
     relationships = ET.fromstring(archive.read("xl/_rels/workbook.xml.rels"))
     relation_map = {node.attrib["Id"]: node.attrib["Target"] for node in relationships}
-    first_sheet = workbook.find("a:sheets", SPREADSHEET_NS)[0]
-    relationship_id = first_sheet.attrib[f"{{{WORKBOOK_REL_NS}}}id"]
-    target = relation_map[relationship_id]
-    if not target.startswith("xl/"):
-        target = f"xl/{target}"
-    return ET.fromstring(archive.read(target))
+    worksheets = []
+    for sheet in workbook.find("a:sheets", SPREADSHEET_NS):
+        relationship_id = sheet.attrib[f"{{{WORKBOOK_REL_NS}}}id"]
+        target = relation_map[relationship_id]
+        if not target.startswith("xl/"):
+            target = f"xl/{target}"
+        worksheets.append(ET.fromstring(archive.read(target)))
+    return worksheets
 
 
 def _read_rows(worksheet: ET.Element, shared_strings: list[str]) -> list[list[str]]:
@@ -111,4 +121,3 @@ def _column_letters_to_index(column_letters: str) -> int:
     for letter in column_letters:
         index = index * 26 + (ord(letter.upper()) - ord("A") + 1)
     return index - 1
-
