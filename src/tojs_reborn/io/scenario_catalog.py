@@ -67,6 +67,8 @@ def _collect_card_nos(replay_record: dict[str, Any]) -> list[str]:
 
 
 def _scenario_version(scenario_name: str) -> str:
+    if scenario_name.startswith("v9_"):
+        return "v9"
     if scenario_name.startswith("v8_"):
         return "v8"
     return "v7"

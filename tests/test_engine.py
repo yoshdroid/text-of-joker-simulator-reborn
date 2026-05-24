@@ -959,6 +959,85 @@ class EngineTest(unittest.TestCase):
         with self.assertRaises(ValueError):
             drive_unit(state, "P1", happaloid.instance_id)
 
+    def test_unit_card_can_be_set_and_reduces_same_color_unit_drive_cost(self) -> None:
+        state = create_game_state(self.catalog)
+        reducer = state.create_card_instance("1-0-041", "P1", level=2)
+        happaloid = state.create_card_instance("1-0-040", "P1")
+        state.players["P1"].hand.add(reducer.instance_id)
+        state.players["P1"].hand.add(happaloid.instance_id)
+        state.players["P1"].deck.cards.append(state.create_card_instance("1-0-001", "P1").instance_id)
+        state.players["P1"].current_cp = 0
+
+        set_trigger(state, "P1", reducer.instance_id)
+        drive_actions = [
+            action
+            for action in list_legal_actions(state, "P1")
+            if action["type"] == "drive_unit" and action["card_instance_id"] == happaloid.instance_id
+        ]
+        self.assertEqual(drive_actions[0]["cp_cost"], 0)
+        self.assertEqual(drive_actions[0]["cost_reduction"], 1)
+        self.assertEqual(drive_actions[0]["cost_reduction_card_instance_id"], reducer.instance_id)
+
+        unit = drive_unit(state, "P1", happaloid.instance_id)
+
+        self.assertEqual(state.players["P1"].current_cp, 0)
+        self.assertEqual(state.players["P1"].trigger_zone.cards, [])
+        self.assertEqual(state.players["P1"].discard_pile.cards[0], reducer.instance_id)
+        self.assertEqual(state.card_instances[reducer.instance_id].level, 1)
+        self.assertEqual(state.players["P1"].battlefield.units, [unit.unit_id])
+        reduction_move = [
+            event
+            for event in state.event_store.events
+            if event.type == "card_moved" and event.payload.get("reason") == "unit_drive_cost_reduction"
+        ][0]
+        self.assertEqual(reduction_move.payload["before_level"], 2)
+        self.assertEqual(reduction_move.payload["after_level"], 1)
+        self.assertEqual(reduction_move.payload["reduced_card_instance_id"], happaloid.instance_id)
+
+    def test_unit_drive_cost_reduction_consumes_exactly_one_matching_unit(self) -> None:
+        state = create_game_state(self.catalog)
+        first_reducer = state.create_card_instance("1-0-041", "P1")
+        second_reducer = state.create_card_instance("1-0-040", "P1")
+        happaloid = state.create_card_instance("1-0-040", "P1")
+        state.players["P1"].trigger_zone.cards.extend([first_reducer.instance_id, second_reducer.instance_id])
+        state.players["P1"].hand.add(happaloid.instance_id)
+        state.players["P1"].deck.cards.append(state.create_card_instance("1-0-001", "P1").instance_id)
+        state.players["P1"].current_cp = 0
+
+        drive_unit(state, "P1", happaloid.instance_id)
+
+        self.assertEqual(state.players["P1"].trigger_zone.cards, [second_reducer.instance_id])
+        self.assertEqual(state.players["P1"].discard_pile.cards, [first_reducer.instance_id])
+
+    def test_unit_drive_cost_reduction_is_color_matched_and_mandatory(self) -> None:
+        state = create_game_state(self.catalog)
+        red_reducer = state.create_card_instance("1-0-001", "P1")
+        green_reducer = state.create_card_instance("1-0-041", "P1")
+        first_happaloid = state.create_card_instance("1-0-040", "P1")
+        second_happaloid = state.create_card_instance("1-0-040", "P1")
+        state.players["P1"].trigger_zone.add(red_reducer.instance_id)
+        state.players["P1"].hand.add(first_happaloid.instance_id)
+        state.players["P1"].deck.cards.append(state.create_card_instance("1-0-001", "P1").instance_id)
+        state.players["P1"].current_cp = 0
+
+        self.assertFalse(
+            [
+                action
+                for action in list_legal_actions(state, "P1")
+                if action["type"] == "drive_unit" and action["card_instance_id"] == first_happaloid.instance_id
+            ]
+        )
+        with self.assertRaises(ValueError):
+            drive_unit(state, "P1", first_happaloid.instance_id)
+
+        state.players["P1"].trigger_zone.add(green_reducer.instance_id)
+        state.players["P1"].hand.add(second_happaloid.instance_id)
+        state.players["P1"].deck.cards.append(state.create_card_instance("1-0-001", "P1").instance_id)
+        drive_unit(state, "P1", second_happaloid.instance_id)
+
+        self.assertEqual(state.players["P1"].trigger_zone.cards, [red_reducer.instance_id])
+        self.assertEqual(state.players["P1"].discard_pile.cards[0], green_reducer.instance_id)
+
     def test_shiranui_attack_cost_discards_selected_hand_card_and_modifies_bp(self) -> None:
         state = create_game_state(self.catalog)
         attacker_card = state.create_card_instance("1-0-010", "P1")

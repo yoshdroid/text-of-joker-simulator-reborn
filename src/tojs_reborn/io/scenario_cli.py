@@ -99,6 +99,7 @@ SCENARIOS: dict[str, ScenarioBuilder] = {
     "v8_final_dynamic_units": lambda catalog: _scenario_v8_final_dynamic_units(catalog),
     "v8_final_tactics_end": lambda catalog: _scenario_v8_final_tactics_end(catalog),
     "v8_final_turn_intercepts": lambda catalog: _scenario_v8_final_turn_intercepts(catalog),
+    "v9_unit_trigger_cost_reduction": lambda catalog: _scenario_v9_unit_trigger_cost_reduction(catalog),
     "viper_discard_unit_recover": lambda catalog: _scenario_viper_discard_unit_recover(catalog),
 }
 
@@ -289,6 +290,25 @@ def _scenario_happaloid_cip_draw(catalog: dict[str, Any]) -> tuple[GameState, di
     state.players["P1"].current_cp = 1
     initial_state = snapshot_initial_state(state)
 
+    drive_unit(state, "P1", happaloid.instance_id)
+    return state, initial_state
+
+
+def _scenario_v9_unit_trigger_cost_reduction(catalog: dict[str, Any]) -> tuple[GameState, dict[str, Any]]:
+    from tojs_reborn.engine.state import create_game_state
+
+    state = create_game_state(catalog, seed=_scenario_seed(90))
+    state.turn_player_id = "P1"
+    reducer = _create_initial_deck_card(state, "P1", "1-0-041", level=2)
+    happaloid = _create_initial_deck_card(state, "P1", "1-0-040")
+    draw_target = _create_initial_deck_card(state, "P1", "1-0-001")
+    state.players["P1"].hand.add(reducer.instance_id)
+    state.players["P1"].hand.add(happaloid.instance_id)
+    state.players["P1"].deck.cards.append(draw_target.instance_id)
+    state.players["P1"].current_cp = 0
+    initial_state = snapshot_initial_state(state)
+
+    set_trigger(state, "P1", reducer.instance_id)
     drive_unit(state, "P1", happaloid.instance_id)
     return state, initial_state
 

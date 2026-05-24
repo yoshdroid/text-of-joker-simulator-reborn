@@ -164,21 +164,29 @@ class ProtocolTest(unittest.TestCase):
         state = create_game_state(self.catalog)
         opponent_card = state.create_card_instance("1-0-001", "P2")
         trigger_card = state.create_card_instance("1-0-065", "P2")
+        trigger_unit = state.create_card_instance("1-0-040", "P2")
         state.players["P2"].hand.add(opponent_card.instance_id)
         state.players["P2"].trigger_zone.add(trigger_card.instance_id)
+        state.players["P2"].trigger_zone.add(trigger_unit.instance_id)
 
         message = public_state_message(state, "P1", request_id="s1")
 
         self.assertEqual(message["public_state"]["players"]["P2"]["hand_count"], 1)
         self.assertEqual(message["public_state"]["players"]["P2"]["deck_count"], 0)
         self.assertNotIn("hand", message["public_state"]["players"]["P2"])
-        self.assertEqual(message["public_state"]["players"]["P2"]["trigger_zone"]["count"], 1)
+        self.assertEqual(message["public_state"]["players"]["P2"]["trigger_zone"]["count"], 2)
         self.assertEqual(
             message["public_state"]["players"]["P2"]["trigger_zone"]["items"][0]["color"],
             self.catalog["1-0-065"].color,
         )
         self.assertIsNone(message["public_state"]["players"]["P2"]["trigger_zone"]["items"][0]["revealed_card_no"])
         self.assertNotIn("category", message["public_state"]["players"]["P2"]["trigger_zone"]["items"][0])
+        self.assertEqual(
+            message["public_state"]["players"]["P2"]["trigger_zone"]["items"][1]["color"],
+            self.catalog["1-0-040"].color,
+        )
+        self.assertIsNone(message["public_state"]["players"]["P2"]["trigger_zone"]["items"][1]["revealed_card_no"])
+        self.assertNotIn("category", message["public_state"]["players"]["P2"]["trigger_zone"]["items"][1])
 
     def test_views_include_own_private_hand_and_trigger_zone(self) -> None:
         state = create_game_state(self.catalog)
@@ -2238,6 +2246,7 @@ class ProtocolTest(unittest.TestCase):
                 "v8_final_dynamic_units",
                 "v8_final_tactics_end",
                 "v8_final_turn_intercepts",
+                "v9_unit_trigger_cost_reduction",
                 "v8_next_10_cards",
                 "v8_next_batch_triggers",
                 "v8_next_batch_units",

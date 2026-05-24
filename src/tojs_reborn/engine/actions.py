@@ -17,6 +17,7 @@ from .effects.fizzle import EFFECT_FIZZLED_REASONS
 from .resolver import AbilityCostChoice, OptionalAbilityChoice, resolve_unit_entered, resolve_unit_overclocked
 from .state import AbilityDefinition, GameState, UnitState
 from .targets import resolve_player_id, resolve_unit_target_for_effect, resolve_unit_targets_for_effect, unit_candidates_for_selector
+from .unit_drive_cost import unit_drive_cost
 
 
 def draw_cards(
@@ -150,9 +151,9 @@ def drive_unit(
         raise ValueError(f"not turn player: {player_id}")
     if card.category == "unit" and len(player.battlefield.units) >= MAX_BATTLEFIELD_UNITS:
         raise ValueError(f"battlefield unit limit reached: max={MAX_BATTLEFIELD_UNITS}")
-    cost = card.cp or 0
-    if player.current_cp < cost:
-        raise ValueError(f"not enough CP: required={cost} current={player.current_cp}")
+    cost_info = unit_drive_cost(state, player_id, card_instance_id)
+    if player.current_cp < cost_info.effective_cost:
+        raise ValueError(f"not enough CP: required={cost_info.effective_cost} current={player.current_cp}")
     inherited_exhausted = False
     evolve_target_index: int | None = None
     if card.category == "evolve":
@@ -177,11 +178,23 @@ def drive_unit(
             "action": "drive_unit",
             "card_instance_id": card_instance_id,
             "evolve_target_unit_id": evolve_target_unit_id,
+            "base_cp_cost": cost_info.base_cost,
+            "cp_cost": cost_info.effective_cost,
+            "cost_reduction": cost_info.reduction,
+            "cost_reduction_card_instance_id": cost_info.reducer_card_instance_id,
         },
     )
-    if cost > 0:
+    if cost_info.reducer_card_instance_id is not None:
+        _consume_unit_drive_cost_reducer(
+            state,
+            player_id,
+            cost_info.reducer_card_instance_id,
+            reduced_card_instance_id=card_instance_id,
+            cause_event_no=action_event.event_no,
+        )
+    if cost_info.effective_cost > 0:
         before_cp = player.current_cp
-        player.current_cp -= cost
+        player.current_cp -= cost_info.effective_cost
         state.event_store.append(
             "cp_changed",
             round_no=state.round_no,
@@ -192,8 +205,10 @@ def drive_unit(
             payload={
                 "before_cp": before_cp,
                 "after_cp": player.current_cp,
-                "amount": -cost,
+                "amount": -cost_info.effective_cost,
                 "reason": "drive_unit",
+                "base_cp_cost": cost_info.base_cost,
+                "cost_reduction": cost_info.reduction,
             },
         )
     player.hand.remove(card_instance_id)
@@ -346,6 +361,9 @@ def override_card(
 def set_trigger(state: GameState, player_id: str, card_instance_id: str) -> None:
     player = state.players[player_id]
     instance = state.card_instances[card_instance_id]
+    card = state.card_catalog[instance.card_no]
+    if card.category not in {"trigger", "intercept", "unit"}:
+        raise ValueError(f"cannot set card to trigger zone: {instance.card_no}")
     if len(player.trigger_zone.cards) >= MAX_TRIGGER_ZONE_CARDS:
         raise ValueError(f"trigger zone limit reached: max={MAX_TRIGGER_ZONE_CARDS}")
     action_event = state.event_store.append(
@@ -370,6 +388,40 @@ def set_trigger(state: GameState, player_id: str, card_instance_id: str) -> None
             "to_zone": "trigger_zone",
             "owner_player_id": player_id,
             "public_color": state.card_catalog[instance.card_no].color,
+        },
+    )
+
+
+def _consume_unit_drive_cost_reducer(
+    state: GameState,
+    player_id: str,
+    card_instance_id: str,
+    *,
+    reduced_card_instance_id: str,
+    cause_event_no: int,
+) -> None:
+    player = state.players[player_id]
+    instance = state.card_instances[card_instance_id]
+    before_level = instance.level
+    player.trigger_zone.remove(card_instance_id)
+    instance.level = 1
+    player.discard_pile.add(card_instance_id)
+    state.event_store.append(
+        "card_moved",
+        round_no=state.round_no,
+        turn_no=state.turn_no,
+        actor_player_id=player_id,
+        cause_event_no=cause_event_no,
+        source=EventSource(card_no=instance.card_no, card_instance_id=card_instance_id),
+        payload={
+            "from_zone": "trigger_zone",
+            "to_zone": "discard_pile",
+            "owner_player_id": player_id,
+            "reason": "unit_drive_cost_reduction",
+            "reduced_card_instance_id": reduced_card_instance_id,
+            "before_level": before_level,
+            "after_level": instance.level,
+            "amount": 1,
         },
     )
 

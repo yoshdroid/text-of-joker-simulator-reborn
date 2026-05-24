@@ -4,6 +4,7 @@ from typing import Any
 
 from .rules import MAX_BATTLEFIELD_UNITS, MAX_TRIGGER_ZONE_CARDS, opponent_id
 from .state import GameState
+from .unit_drive_cost import unit_drive_cost
 from tojs_reborn.io.views import card_instance_public_view, unit_public_view
 
 
@@ -56,22 +57,29 @@ def _drive_actions(state: GameState, player_id: str) -> list[dict[str, Any]]:
     for card_instance_id in player.hand.cards:
         card_no = state.card_instances[card_instance_id].card_no
         card = state.card_catalog[card_no]
+        cost_info = unit_drive_cost(state, player_id, card_instance_id)
         if (
             card.category == "unit"
-            and player.current_cp >= (card.cp or 0)
+            and player.current_cp >= cost_info.effective_cost
             and len(player.battlefield.units) < MAX_BATTLEFIELD_UNITS
         ):
             actions.append(
                 {
                     "type": "drive_unit",
                     "card_instance_id": card_instance_id,
+                    "base_cp_cost": cost_info.base_cost,
+                    "cp_cost": cost_info.effective_cost,
+                    "cost_reduction": cost_info.reduction,
+                    "cost_reduction_card_instance_id": cost_info.reducer_card_instance_id,
                     "card": card_instance_public_view(state, card_instance_id),
                     "display": {
                         "label": f"{card.name}をフィールドに出す",
                         "card_no": card_no,
                         "card_name": card.name,
                         "category": card.category,
-                        "cp": card.cp,
+                        "cp": cost_info.effective_cost,
+                        "base_cp": cost_info.base_cost,
+                        "cost_reduction": cost_info.reduction,
                     },
                 }
             )
@@ -111,7 +119,7 @@ def _set_trigger_actions(state: GameState, player_id: str) -> list[dict[str, Any
     for card_instance_id in player.hand.cards:
         card_no = state.card_instances[card_instance_id].card_no
         card = state.card_catalog[card_no]
-        if card.category in {"trigger", "intercept"}:
+        if card.category in {"trigger", "intercept", "unit"}:
             actions.append(
                 {
                     "type": "set_trigger",
