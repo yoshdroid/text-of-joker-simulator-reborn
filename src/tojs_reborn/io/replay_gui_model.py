@@ -151,6 +151,7 @@ def _player_model(
 ) -> dict[str, Any]:
     player = viewer_state.players[player_id]
     instance_levels = viewer_state.card_instance_levels
+    unit_trigger_colors = _unit_trigger_colors(player.trigger_zone, card_catalog, instance_card_nos)
     return {
         "player_id": player_id,
         "status": {
@@ -174,13 +175,14 @@ def _player_model(
             for unit_id in player.battlefield
         ],
         "hand": [
-            _card_tile(
+            _hand_card_tile(
                 card_instance_id,
                 card_catalog=card_catalog,
                 instance_card_nos=instance_card_nos,
                 instance_levels=instance_levels,
                 image_root=image_root,
                 highlights=highlights,
+                unit_trigger_colors=unit_trigger_colors,
             )
             for card_instance_id in player.hand
         ],
@@ -220,6 +222,19 @@ def _player_model(
     }
 
 
+def _unit_trigger_colors(
+    trigger_zone_card_instance_ids: list[str],
+    card_catalog: dict[str, CardDefinition],
+    instance_card_nos: dict[str, str],
+) -> set[str]:
+    colors: set[str] = set()
+    for card_instance_id in trigger_zone_card_instance_ids:
+        card = card_catalog.get(instance_card_nos.get(card_instance_id, ""))
+        if card is not None and card.category == "unit":
+            colors.add(card.color)
+    return colors
+
+
 def _unit_tile(
     unit_id: str,
     viewer_state: ReplayViewerState,
@@ -256,6 +271,31 @@ def _unit_tile(
             "current_bp": max(0, full_bp - damage) if full_bp is not None else None,
         }
     )
+    return tile
+
+
+def _hand_card_tile(
+    card_instance_id: str,
+    *,
+    card_catalog: dict[str, CardDefinition],
+    instance_card_nos: dict[str, str],
+    instance_levels: dict[str, int],
+    image_root: Path | None,
+    highlights: dict[str, set[str]],
+    unit_trigger_colors: set[str],
+) -> dict[str, Any]:
+    tile = _card_tile(
+        card_instance_id,
+        card_catalog=card_catalog,
+        instance_card_nos=instance_card_nos,
+        instance_levels=instance_levels,
+        image_root=image_root,
+        highlights=highlights,
+    )
+    cp = tile.get("cp")
+    if tile.get("category") == "unit" and tile.get("color") in unit_trigger_colors and isinstance(cp, int):
+        tile["display_cp"] = max(0, cp - 1)
+        tile["cp_reduced"] = True
     return tile
 
 

@@ -1956,6 +1956,29 @@ class ProtocolTest(unittest.TestCase):
         self.assertTrue(after_attack_p1["battlefield"][0]["exhausted"])
         self.assertEqual(model["frames"][1]["current_event"]["description"], "#1 card_moved actor=P1")
 
+    def test_replay_gui_model_marks_same_color_hand_unit_cp_reduction(self) -> None:
+        from tojs_reborn.engine.actions import set_trigger
+        from tojs_reborn.engine.replay import build_replay_record, snapshot_initial_state
+
+        state = create_game_state(self.catalog)
+        reducer = state.create_card_instance("1-0-041", "P1")
+        same_color = state.create_card_instance("1-0-040", "P1")
+        different_color = state.create_card_instance("1-0-001", "P1")
+        state.players["P1"].hand.cards.extend([reducer.instance_id, same_color.instance_id, different_color.instance_id])
+        initial_state = snapshot_initial_state(state)
+
+        set_trigger(state, "P1", reducer.instance_id)
+        model = build_replay_gui_model(build_replay_record(state, initial_state=initial_state), card_catalog=self.catalog)
+        hand = model["frames"][-1]["players"][0]["hand"]
+
+        same_color_tile = next(tile for tile in hand if tile["card_instance_id"] == same_color.instance_id)
+        different_color_tile = next(tile for tile in hand if tile["card_instance_id"] == different_color.instance_id)
+        self.assertEqual(same_color_tile["cp"], 1)
+        self.assertEqual(same_color_tile["display_cp"], 0)
+        self.assertTrue(same_color_tile["cp_reduced"])
+        self.assertNotIn("display_cp", different_color_tile)
+        self.assertNotIn("cp_reduced", different_color_tile)
+
     def test_replay_gui_model_inserts_evolve_unit_at_recorded_battlefield_index(self) -> None:
         replay_record = {
             "initial_state": {
@@ -2670,6 +2693,7 @@ class ProtocolTest(unittest.TestCase):
             ),
         )
         self.assertEqual(gui._card_status_text({"level": 2, "cp": 3}), "LV2 CP3")
+        self.assertEqual(gui._card_status_text({"level": 2, "cp": 3, "display_cp": 2, "cp_reduced": True}), "LV2 CP2")
         self.assertEqual(gui._card_status_text({"level": 1, "cp": None}), "LV1 CP-")
 
     def test_replay_gui_card_scale_adjusts_base_dimensions(self) -> None:

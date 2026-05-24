@@ -292,12 +292,23 @@ class ReplayTkGui:
         else:
             return
         self.board_canvas.create_rectangle(x + 1, y + height - 15, x + width - 1, y + height - 1, fill="#101419", outline="")
-        self.board_canvas.create_text(x + 3, y + height - 13, anchor="nw", fill="#f2f5f8", font=("TkDefaultFont", 7), text=text)
+        if zone == "hand" and tile.get("cp_reduced"):
+            self._render_reduced_card_status(x, y, height, tile)
+        else:
+            self.board_canvas.create_text(x + 3, y + height - 13, anchor="nw", fill="#f2f5f8", font=("TkDefaultFont", 7), text=text)
 
     def _card_status_text(self, tile: dict[str, Any]) -> str:
-        cp = tile.get("cp")
+        cp = tile.get("display_cp", tile.get("cp"))
         cp_text = cp if cp is not None else "-"
         return f"LV{tile.get('level', 1)} CP{cp_text}"
+
+    def _render_reduced_card_status(self, x: int, y: int, height: int, tile: dict[str, Any]) -> None:
+        level_text = f"LV{tile.get('level', 1)} "
+        cp = tile.get("display_cp", tile.get("cp"))
+        cp_text = cp if cp is not None else "-"
+        font = ("TkDefaultFont", 7)
+        self.board_canvas.create_text(x + 3, y + height - 13, anchor="nw", fill="#f2f5f8", font=font, text=level_text)
+        self.board_canvas.create_text(x + 27, y + height - 13, anchor="nw", fill="#ffd43b", font=font, text=f"CP{cp_text}")
 
     def _render_tile_highlight(self, x: int, y: int, width: int, height: int) -> None:
         self.board_canvas.create_rectangle(
