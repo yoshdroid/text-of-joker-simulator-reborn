@@ -308,7 +308,7 @@ class ReplayTkGui:
         cp_text = cp if cp is not None else "-"
         font = ("TkDefaultFont", 7)
         self.board_canvas.create_text(x + 3, y + height - 13, anchor="nw", fill="#f2f5f8", font=font, text=level_text)
-        self.board_canvas.create_text(x + 27, y + height - 13, anchor="nw", fill="#ffd43b", font=font, text=f"CP{cp_text}")
+        self.board_canvas.create_text(x + 22, y + height - 13, anchor="nw", fill="#ffd43b", font=font, text=f"CP{cp_text}")
 
     def _render_tile_highlight(self, x: int, y: int, width: int, height: int) -> None:
         self.board_canvas.create_rectangle(
