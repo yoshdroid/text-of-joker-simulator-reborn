@@ -1038,6 +1038,47 @@ class EngineTest(unittest.TestCase):
         self.assertEqual(state.players["P1"].trigger_zone.cards, [red_reducer.instance_id])
         self.assertEqual(state.players["P1"].discard_pile.cards[0], green_reducer.instance_id)
 
+    def test_evolve_card_can_be_set_and_reduces_same_color_evolve_drive_cost(self) -> None:
+        state = create_game_state(self.catalog)
+        reducer = state.create_card_instance("1-0-025", "P1", level=2)
+        base_card = state.create_card_instance("1-0-021", "P1")
+        evolve_card = state.create_card_instance("1-0-024", "P1")
+        rival_card = state.create_card_instance("1-0-040", "P2")
+        base_unit = state.create_unit(base_card.instance_id)
+        rival_unit = state.create_unit(rival_card.instance_id)
+        rival_unit.exhausted = True
+        state.players["P1"].hand.add(reducer.instance_id)
+        state.players["P1"].hand.add(evolve_card.instance_id)
+        state.players["P1"].battlefield.add(base_unit.unit_id)
+        state.players["P2"].battlefield.add(rival_unit.unit_id)
+        state.players["P1"].current_cp = 2
+
+        set_trigger(state, "P1", reducer.instance_id)
+        evolve_actions = [
+            action
+            for action in list_legal_actions(state, "P1")
+            if action["type"] == "drive_unit" and action["card_instance_id"] == evolve_card.instance_id
+        ]
+        self.assertEqual(evolve_actions[0]["cp_cost"], 2)
+        self.assertEqual(evolve_actions[0]["base_cp_cost"], 3)
+        self.assertEqual(evolve_actions[0]["cost_reduction_card_instance_id"], reducer.instance_id)
+
+        evolved = drive_unit(state, "P1", evolve_card.instance_id, evolve_target_unit_id=base_unit.unit_id)
+
+        self.assertEqual(state.players["P1"].current_cp, 0)
+        self.assertEqual(state.players["P1"].trigger_zone.cards, [])
+        self.assertIn(reducer.instance_id, state.players["P1"].discard_pile.cards)
+        self.assertEqual(state.card_instances[reducer.instance_id].level, 1)
+        self.assertEqual(state.players["P1"].battlefield.units, [evolved.unit_id])
+        reduction_move = [
+            event
+            for event in state.event_store.events
+            if event.type == "card_moved" and event.payload.get("reason") == "unit_drive_cost_reduction"
+        ][0]
+        self.assertEqual(reduction_move.payload["before_level"], 2)
+        self.assertEqual(reduction_move.payload["after_level"], 1)
+        self.assertEqual(reduction_move.payload["reduced_card_instance_id"], evolve_card.instance_id)
+
     def test_shiranui_attack_cost_discards_selected_hand_card_and_modifies_bp(self) -> None:
         state = create_game_state(self.catalog)
         attacker_card = state.create_card_instance("1-0-010", "P1")

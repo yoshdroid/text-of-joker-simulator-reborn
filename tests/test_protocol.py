@@ -1961,10 +1961,13 @@ class ProtocolTest(unittest.TestCase):
         from tojs_reborn.engine.replay import build_replay_record, snapshot_initial_state
 
         state = create_game_state(self.catalog)
-        reducer = state.create_card_instance("1-0-041", "P1")
-        same_color = state.create_card_instance("1-0-040", "P1")
+        reducer = state.create_card_instance("1-0-025", "P1")
+        same_color = state.create_card_instance("1-0-021", "P1")
+        same_color_evolve = state.create_card_instance("1-0-024", "P1")
         different_color = state.create_card_instance("1-0-001", "P1")
-        state.players["P1"].hand.cards.extend([reducer.instance_id, same_color.instance_id, different_color.instance_id])
+        state.players["P1"].hand.cards.extend(
+            [reducer.instance_id, same_color.instance_id, same_color_evolve.instance_id, different_color.instance_id]
+        )
         initial_state = snapshot_initial_state(state)
 
         set_trigger(state, "P1", reducer.instance_id)
@@ -1972,10 +1975,14 @@ class ProtocolTest(unittest.TestCase):
         hand = model["frames"][-1]["players"][0]["hand"]
 
         same_color_tile = next(tile for tile in hand if tile["card_instance_id"] == same_color.instance_id)
+        same_color_evolve_tile = next(tile for tile in hand if tile["card_instance_id"] == same_color_evolve.instance_id)
         different_color_tile = next(tile for tile in hand if tile["card_instance_id"] == different_color.instance_id)
-        self.assertEqual(same_color_tile["cp"], 1)
-        self.assertEqual(same_color_tile["display_cp"], 0)
+        self.assertEqual(same_color_tile["cp"], 3)
+        self.assertEqual(same_color_tile["display_cp"], 2)
         self.assertTrue(same_color_tile["cp_reduced"])
+        self.assertEqual(same_color_evolve_tile["cp"], 3)
+        self.assertEqual(same_color_evolve_tile["display_cp"], 2)
+        self.assertTrue(same_color_evolve_tile["cp_reduced"])
         self.assertNotIn("display_cp", different_color_tile)
         self.assertNotIn("cp_reduced", different_color_tile)
 
@@ -2269,6 +2276,7 @@ class ProtocolTest(unittest.TestCase):
                 "v8_final_dynamic_units",
                 "v8_final_tactics_end",
                 "v8_final_turn_intercepts",
+                "v9_evolve_trigger_cost_reduction",
                 "v9_unit_trigger_cost_reduction",
                 "v8_next_10_cards",
                 "v8_next_batch_triggers",

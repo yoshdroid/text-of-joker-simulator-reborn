@@ -14,14 +14,14 @@ class UnitDriveCost:
 
 
 def unit_drive_cost(state: GameState, player_id: str, card_instance_id: str) -> UnitDriveCost:
-    """Return the CP cost for a normal unit drive after trigger-zone unit reduction."""
+    """Return the CP cost after trigger-zone unit/evolve reduction."""
 
     instance = state.card_instances[card_instance_id]
     card = state.card_catalog[instance.card_no]
     base_cost = card.cp or 0
     reduction = 0
     reducer_card_instance_id: str | None = None
-    if card.category == "unit":
+    if card.category in {"unit", "evolve"}:
         reducer_card_instance_id = first_unit_drive_cost_reducer(state, player_id, card.color)
         if reducer_card_instance_id is not None:
             reduction = 1
@@ -38,6 +38,6 @@ def first_unit_drive_cost_reducer(state: GameState, player_id: str, color: str) 
     for card_instance_id in player.trigger_zone.cards:
         instance = state.card_instances[card_instance_id]
         card = state.card_catalog[instance.card_no]
-        if card.category == "unit" and card.color == color:
+        if card.category in {"unit", "evolve"} and card.color == color:
             return card_instance_id
     return None

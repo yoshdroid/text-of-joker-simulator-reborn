@@ -151,7 +151,7 @@ def _player_model(
 ) -> dict[str, Any]:
     player = viewer_state.players[player_id]
     instance_levels = viewer_state.card_instance_levels
-    unit_trigger_colors = _unit_trigger_colors(player.trigger_zone, card_catalog, instance_card_nos)
+    drive_reducer_colors = _drive_reducer_colors(player.trigger_zone, card_catalog, instance_card_nos)
     return {
         "player_id": player_id,
         "status": {
@@ -182,7 +182,7 @@ def _player_model(
                 instance_levels=instance_levels,
                 image_root=image_root,
                 highlights=highlights,
-                unit_trigger_colors=unit_trigger_colors,
+                drive_reducer_colors=drive_reducer_colors,
             )
             for card_instance_id in player.hand
         ],
@@ -222,7 +222,7 @@ def _player_model(
     }
 
 
-def _unit_trigger_colors(
+def _drive_reducer_colors(
     trigger_zone_card_instance_ids: list[str],
     card_catalog: dict[str, CardDefinition],
     instance_card_nos: dict[str, str],
@@ -230,7 +230,7 @@ def _unit_trigger_colors(
     colors: set[str] = set()
     for card_instance_id in trigger_zone_card_instance_ids:
         card = card_catalog.get(instance_card_nos.get(card_instance_id, ""))
-        if card is not None and card.category == "unit":
+        if card is not None and card.category in {"unit", "evolve"}:
             colors.add(card.color)
     return colors
 
@@ -282,7 +282,7 @@ def _hand_card_tile(
     instance_levels: dict[str, int],
     image_root: Path | None,
     highlights: dict[str, set[str]],
-    unit_trigger_colors: set[str],
+    drive_reducer_colors: set[str],
 ) -> dict[str, Any]:
     tile = _card_tile(
         card_instance_id,
@@ -293,7 +293,7 @@ def _hand_card_tile(
         highlights=highlights,
     )
     cp = tile.get("cp")
-    if tile.get("category") == "unit" and tile.get("color") in unit_trigger_colors and isinstance(cp, int):
+    if tile.get("category") in {"unit", "evolve"} and tile.get("color") in drive_reducer_colors and isinstance(cp, int):
         tile["display_cp"] = max(0, cp - 1)
         tile["cp_reduced"] = True
     return tile

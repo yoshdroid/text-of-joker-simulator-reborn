@@ -362,7 +362,7 @@ def set_trigger(state: GameState, player_id: str, card_instance_id: str) -> None
     player = state.players[player_id]
     instance = state.card_instances[card_instance_id]
     card = state.card_catalog[instance.card_no]
-    if card.category not in {"trigger", "intercept", "unit"}:
+    if card.category not in {"trigger", "intercept", "unit", "evolve"}:
         raise ValueError(f"cannot set card to trigger zone: {instance.card_no}")
     if len(player.trigger_zone.cards) >= MAX_TRIGGER_ZONE_CARDS:
         raise ValueError(f"trigger zone limit reached: max={MAX_TRIGGER_ZONE_CARDS}")

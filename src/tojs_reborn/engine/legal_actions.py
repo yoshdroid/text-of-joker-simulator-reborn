@@ -83,7 +83,7 @@ def _drive_actions(state: GameState, player_id: str) -> list[dict[str, Any]]:
                     },
                 }
             )
-        elif card.category == "evolve" and player.current_cp >= (card.cp or 0):
+        elif card.category == "evolve" and player.current_cp >= cost_info.effective_cost:
             for unit_id in player.battlefield.units:
                 unit = state.units.get(unit_id)
                 if unit is None:
@@ -96,6 +96,10 @@ def _drive_actions(state: GameState, player_id: str) -> list[dict[str, Any]]:
                         "type": "drive_unit",
                         "card_instance_id": card_instance_id,
                         "evolve_target_unit_id": unit_id,
+                        "base_cp_cost": cost_info.base_cost,
+                        "cp_cost": cost_info.effective_cost,
+                        "cost_reduction": cost_info.reduction,
+                        "cost_reduction_card_instance_id": cost_info.reducer_card_instance_id,
                         "card": card_instance_public_view(state, card_instance_id),
                         "target_unit": unit_public_view(state, unit_id),
                         "display": {
@@ -103,7 +107,9 @@ def _drive_actions(state: GameState, player_id: str) -> list[dict[str, Any]]:
                             "card_no": card_no,
                             "card_name": card.name,
                             "category": card.category,
-                            "cp": card.cp,
+                            "cp": cost_info.effective_cost,
+                            "base_cp": cost_info.base_cost,
+                            "cost_reduction": cost_info.reduction,
                             "target_unit_id": unit_id,
                         },
                     }
@@ -119,7 +125,7 @@ def _set_trigger_actions(state: GameState, player_id: str) -> list[dict[str, Any
     for card_instance_id in player.hand.cards:
         card_no = state.card_instances[card_instance_id].card_no
         card = state.card_catalog[card_no]
-        if card.category in {"trigger", "intercept", "unit"}:
+        if card.category in {"trigger", "intercept", "unit", "evolve"}:
             actions.append(
                 {
                     "type": "set_trigger",
