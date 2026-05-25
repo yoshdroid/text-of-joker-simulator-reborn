@@ -13,7 +13,7 @@ def choose_action(legal_actions: list[dict], mode: str) -> dict:
 
 def main() -> None:
     parser = argparse.ArgumentParser(description="Sample JSON Lines player.")
-    parser.add_argument("--mode", choices=["first", "pass", "random", "aggressive"], default="first")
+    parser.add_argument("--mode", choices=["first", "pass", "random", "aggressive", "mulligan_max", "mulligan-max"], default="first")
     parser.add_argument("--seed", type=int, default=0)
     args = parser.parse_args()
     player = SampleStrategyPlayer(mode=args.mode, seed=args.seed)
@@ -27,7 +27,7 @@ def main() -> None:
             response = mulligan_selected_message(
                 request_id=message["request_id"],
                 player_id=message["player_id"],
-                do_mulligan=False,
+                do_mulligan=player.choose_mulligan(message["player_id"]),
             )
         elif message.get("type") != "request_action":
             if message.get("type") != "choice_request":

@@ -308,6 +308,8 @@ class ProtocolTest(unittest.TestCase):
             "u0001",
         )
         self.assertEqual(choose_sample_action(legal_actions, "pass")["type"], "pass")
+        self.assertTrue(SampleStrategyPlayer(mode="mulligan_max").choose_mulligan("P1"))
+        self.assertTrue(SampleStrategyPlayer(mode="mulligan-max").choose_mulligan("P1"))
 
     def test_sample_intercept_all_prioritizes_available_intercepts(self) -> None:
         window_actions = [
@@ -950,6 +952,43 @@ class ProtocolTest(unittest.TestCase):
             if choice.get("role") == "turn_action"
         ]
         self.assertTrue(any("legal_actions" in choice for choice in action_choices))
+
+    def test_match_cli_sample_mulligan_max_repeats_to_limit(self) -> None:
+        output_dir = ROOT / "test_output" / "match_cli_mulligan_max"
+        output_dir.mkdir(parents=True, exist_ok=True)
+        replay_path = output_dir / "replay.json"
+        with redirect_stdout(StringIO()):
+            exit_code = run_match_cli(
+                [
+                    "--cards",
+                    "carddata/generated/cards.normalized.json",
+                    "--deck1",
+                    "decklists/sample_p1.json",
+                    "--deck2",
+                    "decklists/sample_p2.json",
+                    "--p1",
+                    "sample:mulligan_max",
+                    "--p2",
+                    "sample:pass",
+                    "--seed",
+                    "33",
+                    "--max-turns",
+                    "1",
+                    "--max-actions-per-turn",
+                    "1",
+                    "--replay",
+                    str(replay_path),
+                    "--verify-replay",
+                ]
+            )
+
+        self.assertEqual(exit_code, 0)
+        replay = json.loads(replay_path.read_text(encoding="utf-8"))
+        mulligan_intents = [
+            intent for intent in replay["intents"] if intent.get("type") == "mulligan" and intent.get("player_id") == "P1"
+        ]
+        self.assertEqual([intent["attempt"] for intent in mulligan_intents], [1, 2, 3, 4, 5])
+        self.assertTrue(all(intent["do_mulligan"] for intent in mulligan_intents))
 
     def test_match_batch_cli_runs_multiple_seeds_with_replay_verification(self) -> None:
         self.assertEqual(parse_seed_spec("1,3-5"), [1, 3, 4, 5])
@@ -3037,6 +3076,30 @@ class ProtocolTest(unittest.TestCase):
                     process.stdout.close()
                 if process.stderr is not None:
                     process.stderr.close()
+
+    def test_sample_child_program_can_mulligan_max(self) -> None:
+        env = dict(os.environ)
+        env["PYTHONPATH"] = str(SRC_PATH)
+        process = subprocess.Popen(
+            [sys.executable, "-m", "tojs_reborn.io.sample_player", "--mode", "mulligan_max"],
+            stdin=subprocess.PIPE,
+            stdout=subprocess.PIPE,
+            stderr=subprocess.PIPE,
+            text=True,
+            env=env,
+        )
+        try:
+            player = JsonLinePlayer(TextIOJsonLineTransport(process.stdout, process.stdin))
+            self.assertTrue(player.choose_mulligan("P1"))
+        finally:
+            process.kill()
+            process.wait(timeout=5)
+            if process.stdin is not None:
+                process.stdin.close()
+            if process.stdout is not None:
+                process.stdout.close()
+            if process.stderr is not None:
+                process.stderr.close()
 
     def test_process_player_starts_sample_player_command(self) -> None:
         legal_actions = [{"type": "pass"}, {"type": "drive_unit", "card_instance_id": "c0001"}]

@@ -90,7 +90,7 @@ class SampleStrategyPlayer:
         return choose_sample_choice(legal_choices, self.mode, self._rng(player_id))
 
     def choose_mulligan(self, player_id: str) -> bool:
-        return False
+        return self.mode in {"mulligan_max", "mulligan-max"}
 
     def _rng(self, player_id: str) -> random.Random:
         if player_id not in self.rng_by_player:
