@@ -141,6 +141,8 @@ def drive_unit(
 ) -> UnitState:
     player = state.players[player_id]
     instance = state.card_instances[card_instance_id]
+    if instance.card_no in state.joker_catalog:
+        raise ValueError(f"cannot drive joker card: {instance.card_no}")
     card = state.card_catalog[instance.card_no]
     if card.category not in {"unit", "evolve"}:
         raise ValueError(f"cannot drive non-unit card: {instance.card_no}")
@@ -362,6 +364,8 @@ def override_card(
 def set_trigger(state: GameState, player_id: str, card_instance_id: str) -> None:
     player = state.players[player_id]
     instance = state.card_instances[card_instance_id]
+    if instance.card_no in state.joker_catalog:
+        raise ValueError(f"cannot set joker to trigger zone: {instance.card_no}")
     card = state.card_catalog[instance.card_no]
     if card.category not in {"trigger", "intercept", "unit", "evolve"}:
         raise ValueError(f"cannot set card to trigger zone: {instance.card_no}")

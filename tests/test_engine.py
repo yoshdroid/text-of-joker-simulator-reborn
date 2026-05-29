@@ -199,6 +199,24 @@ class EngineTest(unittest.TestCase):
         state.players["P1"].current_cp = 5
         self.assertTrue(any(action["type"] == "play_joker" for action in list_legal_actions(state, "P1")))
 
+    def test_joker_cannot_be_set_to_trigger_zone(self) -> None:
+        state = create_game_state(self.catalog)
+        joker = state.create_card_instance("JK-01", "P1")
+        state.players["P1"].hand.add(joker.instance_id)
+
+        with self.assertRaisesRegex(ValueError, "cannot set joker"):
+            set_trigger(state, "P1", joker.instance_id)
+
+    def test_joker_gauge_stops_after_card_is_granted(self) -> None:
+        state = create_game_state(self.catalog)
+        state.turn_player_id = "P1"
+        state.players["P1"].joker_gauge = 100
+        self.assertTrue(try_grant_joker(state, "P1"))
+
+        end_turn(state, "P1")
+
+        self.assertEqual(state.players["P1"].joker_gauge, 0)
+
     def test_draw_cards_moves_deck_top_to_hand_and_records_events(self) -> None:
         state = create_game_state(self.catalog)
         card = state.create_card_instance("1-0-001", "P1")

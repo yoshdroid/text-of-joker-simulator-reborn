@@ -6,7 +6,7 @@ import sys
 from pathlib import Path
 from typing import Any, Sequence
 
-from tojs_reborn.engine.state import CardDefinition, load_card_catalog
+from tojs_reborn.engine.state import CardDefinition, load_card_catalog, load_joker_catalog
 
 from .replay_gui_model import build_replay_gui_model
 
@@ -406,7 +406,18 @@ def _load_optional_card_catalog(path: str) -> dict[str, CardDefinition]:
     card_path = Path(path)
     if not card_path.exists():
         return {}
-    return load_card_catalog(card_path)
+    catalog = load_card_catalog(card_path)
+    for joker_no, joker in load_joker_catalog(card_path).items():
+        catalog[joker_no] = CardDefinition(
+            card_no=joker_no,
+            category="joker",
+            color="joker",
+            name=joker.name,
+            cp=joker.cp,
+            bp_by_level=(),
+            abilities=(),
+        )
+    return catalog
 
 
 def _scaled_card_size(card_width: int, card_scale: float) -> tuple[int, int]:
