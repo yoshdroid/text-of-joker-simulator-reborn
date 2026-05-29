@@ -5,7 +5,7 @@ from typing import Any
 from .actions import drive_unit, override_card, set_trigger
 from .combat import attack_player, attack_unit
 from .rules import ruleset_to_dict
-from .state import CardDefinition, GameState, create_game_state
+from .state import CardDefinition, GameState, JokerDefinition, create_game_state
 from .turn import end_turn, start_turn
 
 
@@ -87,6 +87,15 @@ def snapshot_initial_state(state: GameState) -> dict[str, Any]:
         "next_card_instance_no": state.next_card_instance_no,
         "next_unit_no": state.next_unit_no,
         "rng_state": _rng_state_to_json(state.rng.getstate()),
+        "joker_catalog": {
+            joker_no: {
+                "name": joker.name,
+                "cp": joker.cp,
+                "speed": joker.speed,
+                "ability_text": joker.ability_text,
+            }
+            for joker_no, joker in sorted(state.joker_catalog.items())
+        },
         "card_instances": {
             instance_id: {
                 "card_no": instance.card_no,
@@ -99,6 +108,7 @@ def snapshot_initial_state(state: GameState) -> dict[str, Any]:
             player_id: {
                 "life": player.life,
                 "current_cp": player.current_cp,
+                "joker_no": player.joker_no,
                 "initial_deck_card_nos": list(player.initial_deck_card_nos),
                 "deck": list(player.deck.cards),
                 "hand": list(player.hand.cards),
@@ -133,7 +143,17 @@ def state_from_snapshot(
     *,
     seed: int = 0,
 ) -> GameState:
-    state = create_game_state(card_catalog, seed=seed)
+    joker_catalog = {
+        joker_no: JokerDefinition(
+            joker_no=joker_no,
+            name=item["name"],
+            cp=int(item["cp"]),
+            speed=int(item["speed"]),
+            ability_text=item.get("ability_text", ""),
+        )
+        for joker_no, item in snapshot.get("joker_catalog", {}).items()
+    }
+    state = create_game_state(card_catalog, joker_catalog=joker_catalog, seed=seed)
     if "rng_state" in snapshot:
         state.rng.setstate(_rng_state_from_json(snapshot["rng_state"]))
     state.round_no = int(snapshot["round_no"])
@@ -155,6 +175,7 @@ def state_from_snapshot(
         player = state.players[player_id]
         player.life = int(item["life"])
         player.current_cp = int(item["current_cp"])
+        player.joker_no = item.get("joker_no", "JK-01")
         player.initial_deck_card_nos = list(item.get("initial_deck_card_nos", []))
         player.deck.cards = list(item["deck"])
         player.hand.cards = list(item["hand"])
@@ -196,6 +217,7 @@ def state_digest(state: GameState) -> dict[str, Any]:
         players[player_id] = {
             "life": player.life,
             "current_cp": player.current_cp,
+            "joker_no": player.joker_no,
             "initial_deck_card_nos": list(player.initial_deck_card_nos),
             "deck": list(player.deck.cards),
             "hand": list(player.hand.cards),
@@ -231,6 +253,15 @@ def state_digest(state: GameState) -> dict[str, Any]:
                 "cp": card.cp,
             }
             for card_no, card in sorted(state.card_catalog.items())
+        },
+        "joker_catalog": {
+            joker_no: {
+                "name": joker.name,
+                "cp": joker.cp,
+                "speed": joker.speed,
+                "ability_text": joker.ability_text,
+            }
+            for joker_no, joker in sorted(state.joker_catalog.items())
         },
         "card_instances": {
             instance_id: {

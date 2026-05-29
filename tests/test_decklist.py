@@ -9,7 +9,7 @@ if SRC_PATH.exists():
     sys.path.insert(0, str(SRC_PATH))
 
 from tojs_reborn.engine.state import CardDefinition
-from tojs_reborn.engine.state import load_card_catalog
+from tojs_reborn.engine.state import load_card_catalog, load_joker_catalog
 from tojs_reborn.io.deck_builder import card_detail_text, decklist_json, filtered_card_nos, regulation_status, run_deck_builder_cli
 from tojs_reborn.io.decklist import DecklistError, load_decklist, parse_decklist
 from tojs_reborn.io.match_setup import MatchSetupConfig, setup_match_state
@@ -18,11 +18,13 @@ from tojs_reborn.io.match_setup import MatchSetupConfig, setup_match_state
 class DecklistTest(unittest.TestCase):
     def setUp(self) -> None:
         self.catalog = load_card_catalog(ROOT / "carddata" / "generated" / "cards.normalized.json")
+        self.joker_catalog = load_joker_catalog(ROOT / "carddata" / "generated" / "cards.normalized.json")
 
     def test_parse_decklist_expands_entries(self) -> None:
         decklist = parse_decklist(
             {
                 "deck_name": "sample",
+                "joker": "JK-01",
                 "cards": [
                     {"card_name": self.catalog["1-0-040"].name, "count": 2},
                     {"card_name": self.catalog["1-0-004"].name, "count": 1},
@@ -32,7 +34,13 @@ class DecklistTest(unittest.TestCase):
         )
 
         self.assertEqual(decklist.deck_name, "sample")
+        self.assertEqual(decklist.joker_no, "JK-01")
         self.assertEqual(decklist.expanded_card_nos(), ["1-0-040", "1-0-040", "1-0-004"])
+
+    def test_parse_decklist_defaults_to_crimson_break(self) -> None:
+        decklist = parse_decklist({"cards": [{"card_no": "1-0-040", "count": 1}]}, self.catalog)
+
+        self.assertEqual(decklist.joker_no, "JK-01")
 
     def test_parse_decklist_keeps_card_no_compatibility(self) -> None:
         decklist = parse_decklist({"cards": [{"card_no": "1-0-040", "count": 1}]}, self.catalog)
@@ -66,6 +74,10 @@ class DecklistTest(unittest.TestCase):
     def test_parse_decklist_rejects_non_positive_count(self) -> None:
         with self.assertRaisesRegex(DecklistError, "count"):
             parse_decklist({"cards": [{"card_name": self.catalog["1-0-040"].name, "count": 0}]}, self.catalog)
+
+    def test_parse_decklist_rejects_invalid_joker_field(self) -> None:
+        with self.assertRaisesRegex(DecklistError, "joker"):
+            parse_decklist({"joker": "", "cards": [{"card_no": "1-0-040", "count": 1}]}, self.catalog)
 
     def test_parse_decklist_allows_small_test_deck_by_default(self) -> None:
         decklist = parse_decklist({"cards": [{"card_name": self.catalog["1-0-040"].name, "count": 1}]}, self.catalog)
@@ -182,11 +194,13 @@ class DecklistTest(unittest.TestCase):
         state = setup_match_state(
             self.catalog,
             {"P1": deck1, "P2": deck2},
+            joker_catalog=self.joker_catalog,
             config=MatchSetupConfig(seed=9, initial_hand_size=4),
         )
 
         self.assertEqual(state.seed, 9)
         self.assertEqual(state.turn_player_id, "P1")
+        self.assertEqual(state.players["P1"].joker_no, "JK-01")
         self.assertEqual(state.players["P1"].life, 7)
         self.assertEqual(state.players["P1"].initial_deck_card_nos, ["1-0-040", "1-0-040", "1-0-004", "1-0-004", "1-0-004"])
         self.assertEqual(len(state.players["P1"].hand.cards), 4)

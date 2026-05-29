@@ -3,7 +3,14 @@ from __future__ import annotations
 from dataclasses import dataclass
 from pathlib import Path
 
-from tojs_reborn.engine.state import CardDefinition, GameState, create_game_state, load_card_catalog
+from tojs_reborn.engine.state import (
+    CardDefinition,
+    GameState,
+    JokerDefinition,
+    create_game_state,
+    load_card_catalog,
+    load_joker_catalog,
+)
 
 from .decklist import Decklist, load_decklist
 
@@ -21,10 +28,11 @@ def setup_match_state(
     card_catalog: dict[str, CardDefinition],
     decklists: dict[str, Decklist],
     *,
+    joker_catalog: dict[str, JokerDefinition] | None = None,
     config: MatchSetupConfig | None = None,
 ) -> GameState:
     config = config or MatchSetupConfig()
-    state = create_game_state(card_catalog, seed=config.seed)
+    state = create_game_state(card_catalog, joker_catalog=joker_catalog, seed=config.seed)
     state.turn_player_id = config.first_player_id
     for player_id, decklist in decklists.items():
         if player_id not in state.players:
@@ -42,9 +50,10 @@ def setup_match_state_from_files(
     strict_deck_rule: bool = False,
 ) -> GameState:
     card_catalog = load_card_catalog(cards_path)
+    joker_catalog = load_joker_catalog(cards_path)
     deck1 = load_decklist(deck1_path, card_catalog, strict_deck_rule=strict_deck_rule)
     deck2 = load_decklist(deck2_path, card_catalog, strict_deck_rule=strict_deck_rule)
-    return setup_match_state(card_catalog, {"P1": deck1, "P2": deck2}, config=config)
+    return setup_match_state(card_catalog, {"P1": deck1, "P2": deck2}, joker_catalog=joker_catalog, config=config)
 
 
 def _register_decklist(
@@ -57,6 +66,9 @@ def _register_decklist(
     expanded_card_nos = decklist.expanded_card_nos()
     player.life = config.initial_life
     player.current_cp = 0
+    if decklist.joker_no not in state.joker_catalog:
+        raise ValueError(f"unknown joker_no: {decklist.joker_no}")
+    player.joker_no = decklist.joker_no
     player.initial_deck_card_nos = list(expanded_card_nos)
 
     deck_card_nos = list(expanded_card_nos)

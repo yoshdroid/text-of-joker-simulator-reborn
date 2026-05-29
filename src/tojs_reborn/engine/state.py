@@ -33,6 +33,18 @@ class CardDefinition:
     race: str = ""
 
 
+@dataclass(frozen=True)
+class JokerDefinition:
+    joker_no: str
+    name: str
+    cp: int
+    speed: int
+    ability_text: str
+
+
+DEFAULT_JOKER_NO = "JK-01"
+
+
 @dataclass
 class CardInstance:
     instance_id: str
@@ -62,6 +74,7 @@ class AgentInfo:
     player_id: str
     life: int = 7
     current_cp: int = 0
+    joker_no: str = DEFAULT_JOKER_NO
     initial_deck_card_nos: list[str] = field(default_factory=list)
     deck: Deck = field(default_factory=Deck)
     hand: Hand = field(default_factory=Hand)
@@ -73,6 +86,7 @@ class AgentInfo:
 @dataclass
 class GameState:
     card_catalog: dict[str, CardDefinition]
+    joker_catalog: dict[str, JokerDefinition]
     players: dict[str, AgentInfo]
     event_store: EventStore = field(default_factory=EventStore)
     card_instances: dict[str, CardInstance] = field(default_factory=dict)
@@ -144,9 +158,45 @@ def load_card_catalog(path: str | Path) -> dict[str, CardDefinition]:
     return cards
 
 
-def create_game_state(card_catalog: dict[str, CardDefinition], *, seed: int = 0) -> GameState:
+def load_joker_catalog(path: str | Path) -> dict[str, JokerDefinition]:
+    with Path(path).open("r", encoding="utf-8") as handle:
+        data = json.load(handle)
+    jokers: dict[str, JokerDefinition] = {}
+    for item in data.get("jokers", []):
+        jokers[item["joker_no"]] = JokerDefinition(
+            joker_no=item["joker_no"],
+            name=item["name"],
+            cp=int(item["cp"]),
+            speed=int(item["speed"]),
+            ability_text=item.get("ability_text", ""),
+        )
+    if DEFAULT_JOKER_NO not in jokers:
+        jokers[DEFAULT_JOKER_NO] = default_joker_definition()
+    return jokers
+
+
+def default_joker_definition() -> JokerDefinition:
+    return JokerDefinition(
+        joker_no=DEFAULT_JOKER_NO,
+        name="\u30af\u30ea\u30e0\u30be\u30f3\u30d6\u30ec\u30a4\u30af",
+        cp=5,
+        speed=3,
+        ability_text="\u5bfe\u6226\u76f8\u624b\u306e\u5168\u3066\u306e\u30e6\u30cb\u30c3\u30c8\u306b5000\u30c0\u30e1\u30fc\u30b8\u3092\u4e0e\u3048\u308b",
+    )
+
+
+def create_game_state(
+    card_catalog: dict[str, CardDefinition],
+    *,
+    joker_catalog: dict[str, JokerDefinition] | None = None,
+    seed: int = 0,
+) -> GameState:
+    active_joker_catalog = dict(joker_catalog or {})
+    if DEFAULT_JOKER_NO not in active_joker_catalog:
+        active_joker_catalog[DEFAULT_JOKER_NO] = default_joker_definition()
     state = GameState(
         card_catalog=card_catalog,
+        joker_catalog=active_joker_catalog,
         players={
             "P1": AgentInfo(player_id="P1"),
             "P2": AgentInfo(player_id="P2"),
@@ -164,7 +214,7 @@ def _printed_keywords(card: CardDefinition) -> list[str]:
             keywords.append("indomitable")
         if ability.timing != "PASSIVE":
             continue
-        if ability.name == "不屈" and "indomitable" not in keywords:
+        if ability.name == "\u4e0d\u5c48" and "indomitable" not in keywords:
             keywords.append("indomitable")
         for step in ability.effect_steps:
             if step.get("effect") == "grant_keyword":

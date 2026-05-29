@@ -6,7 +6,7 @@ import sys
 from pathlib import Path
 from typing import Any, Sequence
 
-from tojs_reborn.engine.state import load_card_catalog
+from tojs_reborn.engine.state import load_card_catalog, load_joker_catalog
 
 from .decklist import DecklistError, load_decklist
 from .match_cli import _build_player
@@ -34,6 +34,7 @@ def run_match_batch_cli(argv: Sequence[str] | None = None) -> int:
     try:
         seeds = parse_seed_spec(args.seeds)
         card_catalog = load_card_catalog(args.cards)
+        joker_catalog = load_joker_catalog(args.cards)
         deck1 = load_decklist(args.deck1, card_catalog, strict_deck_rule=args.strict_deck_rule)
         deck2 = load_decklist(args.deck2, card_catalog, strict_deck_rule=args.strict_deck_rule)
     except (DecklistError, FileNotFoundError, ValueError) as exc:
@@ -46,6 +47,7 @@ def run_match_batch_cli(argv: Sequence[str] | None = None) -> int:
         item = _run_one_seed(
             seed,
             card_catalog=card_catalog,
+            joker_catalog=joker_catalog,
             deck1=deck1,
             deck2=deck2,
             p1=args.p1,
@@ -92,6 +94,7 @@ def _run_one_seed(
     seed: int,
     *,
     card_catalog,
+    joker_catalog,
     deck1,
     deck2,
     p1: str,
@@ -107,6 +110,7 @@ def _run_one_seed(
         state = setup_match_state(
             card_catalog,
             {"P1": deck1, "P2": deck2},
+            joker_catalog=joker_catalog,
             config=MatchSetupConfig(seed=seed),
         )
         players = {

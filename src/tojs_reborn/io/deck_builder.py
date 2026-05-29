@@ -73,6 +73,7 @@ def decklist_json(deck_name: str, card_nos: Sequence[str], card_catalog: dict[st
     counts = Counter(card_nos)
     return {
         "deck_name": deck_name,
+        "joker": "JK-01",
         "cards": [
             {"card_name": card_catalog[card_no].name, "count": count}
             for card_no, count in sorted(counts.items(), key=lambda item: _card_sort_key(item[0], card_catalog))

@@ -5,8 +5,8 @@ import json
 from pathlib import Path
 from typing import Any
 
-from .excel_loader import load_cardpool_from_xlsx
-from .schema import ExcelAbility, ExcelCard, NormalizationIssue
+from .excel_loader import load_cardpool_from_xlsx, load_jokers_from_xlsx
+from .schema import ExcelAbility, ExcelCard, ExcelJoker, NormalizationIssue
 
 
 KNOWN_TIMINGS = {
@@ -154,6 +154,7 @@ def normalize_cardpool(
     excel_path = Path(excel_path)
     mapping_path = Path(mapping_path)
     cards = load_cardpool_from_xlsx(excel_path)
+    jokers = load_jokers_from_xlsx(excel_path)
     mapping = load_ability_mapping(mapping_path)
     issues: list[NormalizationIssue] = []
 
@@ -185,8 +186,19 @@ def normalize_cardpool(
             "ability_mapping_sha256": _sha256_file(mapping_path),
         },
         "cards": normalized_cards,
+        "jokers": [_normalize_joker(joker) for joker in jokers],
     }
     return normalized, report
+
+
+def _normalize_joker(joker: ExcelJoker) -> dict[str, Any]:
+    return {
+        "joker_no": joker.joker_no,
+        "name": joker.name,
+        "cp": joker.cp,
+        "speed": joker.speed,
+        "ability_text": joker.ability_text,
+    }
 
 
 def write_normalized_outputs(

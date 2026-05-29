@@ -25,10 +25,18 @@ class ExcelCard:
 
 
 @dataclass(frozen=True)
+class ExcelJoker:
+    joker_no: str
+    name: str
+    cp: int
+    speed: int
+    ability_text: str
+
+
+@dataclass(frozen=True)
 class NormalizationIssue:
     severity: str
     code: str
     message: str
     card_no: str | None = None
     ability_key: str | None = None
-

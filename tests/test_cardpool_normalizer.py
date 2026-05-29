@@ -9,7 +9,7 @@ SRC_PATH = ROOT / "src"
 if SRC_PATH.exists():
     sys.path.insert(0, str(SRC_PATH))
 
-from tojs_reborn.cardpool.excel_loader import load_cardpool_from_xlsx
+from tojs_reborn.cardpool.excel_loader import load_cardpool_from_xlsx, load_jokers_from_xlsx
 from tojs_reborn.cardpool.normalizer import load_ability_mapping, normalize_cardpool, write_normalized_outputs
 from tojs_reborn.cardpool.status_report import build_card_status_markdown, build_card_status_rows
 
@@ -31,13 +31,24 @@ class CardpoolNormalizerTest(unittest.TestCase):
         self.assertEqual(card_by_no["1-0-040"].name, excel_card("1-0-040").name)
         self.assertEqual(card_by_no["1-0-040"].abilities[0].name, excel_card("1-0-040").abilities[0].name)
 
+    def test_load_jokers_from_xlsx_reads_joker_sheet(self) -> None:
+        jokers = load_jokers_from_xlsx(EXCEL_PATH)
+        joker_by_no = {joker.joker_no: joker for joker in jokers}
+
+        self.assertIn("JK-01", joker_by_no)
+        self.assertEqual(joker_by_no["JK-01"].name, "\u30af\u30ea\u30e0\u30be\u30f3\u30d6\u30ec\u30a4\u30af")
+        self.assertEqual(joker_by_no["JK-01"].cp, 5)
+        self.assertGreater(joker_by_no["JK-01"].speed, 0)
+
     def test_normalize_cardpool_outputs_happaloid_supported_draw(self) -> None:
         normalized, report = normalize_cardpool(EXCEL_PATH, MAPPING_PATH)
         card_by_no = {card["card_no"]: card for card in normalized["cards"]}
+        joker_by_no = {joker["joker_no"]: joker for joker in normalized["jokers"]}
         happaloid = card_by_no["1-0-040"]
         ability = happaloid["abilities"][0]
 
         self.assertEqual(report["errors"], [])
+        self.assertIn("JK-01", joker_by_no)
         self.assertGreaterEqual(report["supported_ability_count"], 60)
         self.assertEqual(report["status_counts"]["supported"], report["supported_ability_count"])
         self.assertGreater(report["timing_counts"]["SELF_CIP"], 0)

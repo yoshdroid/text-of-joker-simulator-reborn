@@ -7,7 +7,7 @@ from dataclasses import dataclass
 from pathlib import Path
 from typing import Sequence
 
-from tojs_reborn.engine.state import load_card_catalog
+from tojs_reborn.engine.state import load_card_catalog, load_joker_catalog
 
 from .decklist import DecklistError, load_decklist
 from .match_runner import ActionPlayer, FirstLegalPlayer, MatchRunner, replay_match_record, snapshot_match_initial_state
@@ -44,11 +44,13 @@ def run_match_cli(argv: Sequence[str] | None = None) -> int:
 
     try:
         card_catalog = load_card_catalog(args.cards)
+        joker_catalog = load_joker_catalog(args.cards)
         deck1 = load_decklist(args.deck1, card_catalog, strict_deck_rule=args.strict_deck_rule)
         deck2 = load_decklist(args.deck2, card_catalog, strict_deck_rule=args.strict_deck_rule)
         state = setup_match_state(
             card_catalog,
             {"P1": deck1, "P2": deck2},
+            joker_catalog=joker_catalog,
             config=MatchSetupConfig(seed=args.seed),
         )
         players = {

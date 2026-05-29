@@ -22,6 +22,7 @@ class DecklistEntry:
 class Decklist:
     deck_name: str
     entries: tuple[DecklistEntry, ...]
+    joker_no: str = "JK-01"
 
     def expanded_card_nos(self) -> list[str]:
         card_nos: list[str] = []
@@ -69,7 +70,10 @@ def parse_decklist(
         entries.append(DecklistEntry(card_no=card_no, count=count))
         card_counts[card_no] = card_counts.get(card_no, 0) + count
 
-    decklist = Decklist(deck_name=deck_name, entries=tuple(entries))
+    joker_no = data.get("joker", "JK-01")
+    if not isinstance(joker_no, str) or not joker_no:
+        raise DecklistError("joker must be a non-empty string")
+    decklist = Decklist(deck_name=deck_name, entries=tuple(entries), joker_no=joker_no)
     expanded = decklist.expanded_card_nos()
     if not expanded:
         raise DecklistError("deck must contain at least one card")

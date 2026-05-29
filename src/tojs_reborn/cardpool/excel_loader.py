@@ -5,7 +5,7 @@ import zipfile
 from pathlib import Path
 from xml.etree import ElementTree as ET
 
-from .schema import ExcelAbility, ExcelCard
+from .schema import ExcelAbility, ExcelCard, ExcelJoker
 
 
 SPREADSHEET_NS = {"a": "http://schemas.openxmlformats.org/spreadsheetml/2006/main"}
@@ -29,8 +29,32 @@ def load_cardpool_from_xlsx(path: str | Path) -> list[ExcelCard]:
     ]
 
 
+def load_jokers_from_xlsx(path: str | Path) -> list[ExcelJoker]:
+    workbook_path = Path(path)
+    with zipfile.ZipFile(workbook_path) as archive:
+        shared_strings = _load_shared_strings(archive)
+        rows = _load_joker_rows(archive, shared_strings)
+    if not rows:
+        return []
+    header = rows[0]
+    return [
+        _build_joker(header, row)
+        for row in rows[1:]
+        if any(cell != "" for cell in row) and row[: len(header)] != header
+    ]
+
+
 def _load_cardpool_rows(archive: zipfile.ZipFile, shared_strings: list[str]) -> list[list[str]]:
     required_headers = {"no", "category", "rarity", "color", "name", "cp", "bp", "abilities"}
+    for worksheet in _load_worksheets(archive):
+        rows = _read_rows(worksheet, shared_strings)
+        if rows and required_headers.issubset(set(rows[0])):
+            return rows
+    return []
+
+
+def _load_joker_rows(archive: zipfile.ZipFile, shared_strings: list[str]) -> list[list[str]]:
+    required_headers = {"no", "JOKER", "name", "cp", "speed", "ability"}
     for worksheet in _load_worksheets(archive):
         rows = _read_rows(worksheet, shared_strings)
         if rows and required_headers.issubset(set(rows[0])):
@@ -101,6 +125,17 @@ def _build_card(header: list[str], row: list[str]) -> ExcelCard:
         cp=_parse_optional_int(data.get("cp", "")),
         bp_by_level=_parse_bp_levels(data.get("bp", "")),
         abilities=abilities,
+    )
+
+
+def _build_joker(header: list[str], row: list[str]) -> ExcelJoker:
+    data = {key: row[index] if index < len(row) else "" for index, key in enumerate(header)}
+    return ExcelJoker(
+        joker_no=data["no"],
+        name=data["name"],
+        cp=int(data["cp"]),
+        speed=int(data["speed"]),
+        ability_text=data.get("ability", ""),
     )
 
 
