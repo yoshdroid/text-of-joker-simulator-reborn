@@ -75,6 +75,8 @@ class AgentInfo:
     life: int = 7
     current_cp: int = 0
     joker_no: str = DEFAULT_JOKER_NO
+    joker_gauge: int = 0
+    joker_granted: bool = False
     initial_deck_card_nos: list[str] = field(default_factory=list)
     deck: Deck = field(default_factory=Deck)
     hand: Hand = field(default_factory=Hand)

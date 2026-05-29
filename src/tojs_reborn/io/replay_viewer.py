@@ -144,6 +144,8 @@ def _load_optional_card_catalog(path: str) -> dict[str, CardDefinition]:
 class ReplayViewerPlayerState:
     life: int = 0
     current_cp: int = 0
+    joker_gauge: int = 0
+    joker_granted: bool = False
     deck: list[str] = field(default_factory=list)
     hand: list[str] = field(default_factory=list)
     battlefield: list[str] = field(default_factory=list)
@@ -174,6 +176,8 @@ class ReplayViewerState:
             players[player_id] = ReplayViewerPlayerState(
                 life=int(item.get("life", 0)),
                 current_cp=int(item.get("current_cp", 0)),
+                joker_gauge=int(item.get("joker_gauge", 0)),
+                joker_granted=bool(item.get("joker_granted", False)),
                 deck=list(item.get("deck") or []),
                 hand=list(item.get("hand") or []),
                 battlefield=list(item.get("battlefield") or []),
@@ -222,6 +226,19 @@ class ReplayViewerState:
             player_id = payload.get("player_id")
             if isinstance(player_id, str):
                 self._player(player_id).life = int(payload.get("after_life", self._player(player_id).life))
+        elif event_type == "joker_gauge_changed":
+            player_id = payload.get("player_id")
+            if isinstance(player_id, str):
+                self._player(player_id).joker_gauge = int(payload.get("after_gauge", self._player(player_id).joker_gauge))
+        elif event_type == "joker_card_granted":
+            player_id = payload.get("player_id")
+            card_instance_id = payload.get("card_instance_id")
+            if isinstance(player_id, str):
+                player = self._player(player_id)
+                player.joker_gauge = int(payload.get("after_gauge", 0))
+                player.joker_granted = True
+                if isinstance(card_instance_id, str):
+                    player.hand.append(card_instance_id)
         elif event_type == "card_moved":
             self._apply_card_moved(event)
         elif event_type == "deck_refreshed" and isinstance(actor, str):
@@ -311,6 +328,7 @@ class ReplayViewerState:
                 "     "
                 f"{player_id} life={player.life} cp={player.current_cp} "
                 f"hand={len(player.hand)} deck={len(player.deck)} discard={len(player.discard_pile)} "
+                f"joker={player.joker_gauge} "
                 f"battlefield=[{', '.join(battlefield)}] "
                 f"trigger=[{', '.join(trigger_zone)}]"
             )

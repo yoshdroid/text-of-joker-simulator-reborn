@@ -8,6 +8,7 @@ from typing import Protocol
 from tojs_reborn.engine.actions import drive_unit, override_card, set_trigger
 from tojs_reborn.engine.combat import attack_bypasses_block, declare_attack, declare_block, resolve_unblocked_attack
 from tojs_reborn.engine.integrity import assert_game_state_integrity
+from tojs_reborn.engine.joker import try_grant_joker
 from tojs_reborn.engine.legal_actions import list_block_actions, list_legal_actions
 from tojs_reborn.engine.replay import build_replay_record, snapshot_initial_state, state_from_snapshot
 from tojs_reborn.engine.rules import opponent_id, turn_cp_for
@@ -154,6 +155,7 @@ class MatchRunner:
     def run_turn_action(self, player_id: str) -> dict:
         if self.record_intents:
             self._active_intent = {"type": "match_turn_action", "player_id": player_id, "choices": []}
+        try_grant_joker(self.state, player_id)
         legal_actions = list_legal_actions(self.state, player_id)
         selected = self._choose_action(player_id, legal_actions, role="turn_action")
         try:
@@ -538,7 +540,9 @@ class MatchRunner:
     def _restore_final_turn_end_time_if_needed(self) -> None:
         if not self.state.event_store.events:
             return
-        last_event = self.state.event_store.events[-1]
+        last_event = next((event for event in reversed(self.state.event_store.events) if event.type == "turn_ended"), None)
+        if last_event is None:
+            return
         if last_event.type != "turn_ended" or last_event.actor_player_id != "P2":
             return
         self.state.round_no = last_event.round_no

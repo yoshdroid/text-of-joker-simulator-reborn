@@ -56,6 +56,8 @@ def _drive_actions(state: GameState, player_id: str) -> list[dict[str, Any]]:
     actions = []
     for card_instance_id in player.hand.cards:
         card_no = state.card_instances[card_instance_id].card_no
+        if card_no not in state.card_catalog:
+            continue
         card = state.card_catalog[card_no]
         cost_info = unit_drive_cost(state, player_id, card_instance_id)
         if (
@@ -124,6 +126,8 @@ def _set_trigger_actions(state: GameState, player_id: str) -> list[dict[str, Any
     actions = []
     for card_instance_id in player.hand.cards:
         card_no = state.card_instances[card_instance_id].card_no
+        if card_no not in state.card_catalog:
+            continue
         card = state.card_catalog[card_no]
         if card.category in {"trigger", "intercept", "unit", "evolve"}:
             actions.append(
@@ -148,12 +152,16 @@ def _override_actions(state: GameState, player_id: str) -> list[dict[str, Any]]:
     actions = []
     for target_card_instance_id in player.hand.cards:
         target = state.card_instances[target_card_instance_id]
+        if target.card_no not in state.card_catalog:
+            continue
         if target.level >= 3:
             continue
         for material_card_instance_id in player.hand.cards:
             if material_card_instance_id == target_card_instance_id:
                 continue
             material = state.card_instances[material_card_instance_id]
+            if material.card_no not in state.card_catalog:
+                continue
             if material.card_no == target.card_no:
                 actions.append(
                     {

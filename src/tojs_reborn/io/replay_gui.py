@@ -217,10 +217,28 @@ class ReplayTkGui:
             f"DISCARD {status.get('discard_count')}  TRIGGER {status.get('trigger_zone_count')}"
         )
         self.board_canvas.create_text(16, y, anchor="nw", fill="#f2f5f8", font=("TkDefaultFont", 11, "bold"), text=title)
-        y += 24
+        self._render_joker_gauge(16, y + 20, int(status.get("joker_gauge") or 0), bool(status.get("joker_granted")))
+        y += 40
         for label, zone in self._zone_order():
             y = self._render_zone(y, label, zone, player.get(zone) or [])
         return y + 8
+
+    def _render_joker_gauge(self, x: int, y: int, value: int, granted: bool) -> None:
+        width = 220
+        height = 8
+        clamped = max(0, min(100, value))
+        self.board_canvas.create_rectangle(x, y, x + width, y + height, fill="#160608", outline="#3a2224")
+        filled_width = int(width * clamped / 100)
+        if filled_width > 0:
+            steps = max(1, min(filled_width, 44))
+            for index in range(steps):
+                left = x + int(filled_width * index / steps)
+                right = x + int(filled_width * (index + 1) / steps)
+                ratio = index / max(1, steps - 1)
+                color = _red_gradient(ratio)
+                self.board_canvas.create_rectangle(left, y, right, y + height, fill=color, outline=color)
+        label = "JOKER used" if granted else f"JOKER {clamped}"
+        self.board_canvas.create_text(x + width + 8, y - 2, anchor="nw", fill="#ffb4b4", font=("TkDefaultFont", 8, "bold"), text=label)
 
     def _zone_order(self) -> tuple[tuple[str, str], ...]:
         return (
@@ -394,6 +412,14 @@ def _load_optional_card_catalog(path: str) -> dict[str, CardDefinition]:
 def _scaled_card_size(card_width: int, card_scale: float) -> tuple[int, int]:
     scale = max(0.1, card_scale)
     return max(1, int(card_width * scale)), max(1, int(card_width * 1.42 * scale))
+
+
+def _red_gradient(ratio: float) -> str:
+    clamped = max(0.0, min(1.0, ratio))
+    red = int(55 + 200 * clamped)
+    green = int(6 + 28 * clamped)
+    blue = int(10 + 20 * clamped)
+    return f"#{red:02x}{green:02x}{blue:02x}"
 
 
 def _frame_index_for_event_no(frames: list[dict[str, Any]], event_no: int | None) -> int:

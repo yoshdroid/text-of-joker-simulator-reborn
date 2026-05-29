@@ -3,6 +3,7 @@ from __future__ import annotations
 from .actions import draw_cards
 from .effects import get_effect_handlers
 from .events import EventSource
+from .joker import gain_joker_gauge_for_turn_end
 from .resolver import AbilityCostChoice, OptionalAbilityChoice, resolve_turn_ended
 from .rules import get_unit_bp, opponent_id, unit_is_silenced
 from .state import GameState
@@ -67,6 +68,7 @@ def end_turn(
         actor_player_id=player_id,
     )
     resolve_turn_ended(state, player_id, turn_event, get_effect_handlers(), optional_ability_choice, ability_cost_choice)
+    gain_joker_gauge_for_turn_end(state, player_id, cause_event_no=turn_event.event_no)
     _expire_turn_modifiers(state, turn_event.event_no)
     _clear_turn_damage(state, turn_event.event_no)
     if player_id == "P2":

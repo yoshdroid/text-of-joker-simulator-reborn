@@ -4,6 +4,7 @@ from collections.abc import Callable
 
 from .effects import get_effect_handlers
 from .events import EventSource, FactEvent
+from .joker import gain_joker_gauge_for_life_loss
 from .rules import get_unit_bp, get_unit_remaining_bp, opponent_id, unit_is_silenced
 from .resolver import (
     AbilityCostChoice,
@@ -77,6 +78,7 @@ def resolve_unblocked_attack(state: GameState, attack_event_no: int) -> None:
             "reason": "player_attack",
         },
     )
+    gain_joker_gauge_for_life_loss(state, opponent.player_id, 1, cause_event_no=life_event.event_no)
     resolve_player_attack_succeeded(state, attacker, life_event, get_effect_handlers())
 
 
@@ -87,7 +89,7 @@ def attack_player_legacy(state: GameState, player_id: str, attacker_unit_id: str
     opponent = state.players[opponent_id(player_id)]
     before_life = opponent.life
     opponent.life -= 1
-    state.event_store.append(
+    life_event = state.event_store.append(
         "life_changed",
         round_no=state.round_no,
         turn_no=state.turn_no,
@@ -102,6 +104,7 @@ def attack_player_legacy(state: GameState, player_id: str, attacker_unit_id: str
             "reason": "player_attack",
         },
     )
+    gain_joker_gauge_for_life_loss(state, opponent.player_id, 1, cause_event_no=life_event.event_no)
 
 
 def attack_unit(state: GameState, player_id: str, attacker_unit_id: str, blocker_unit_id: str) -> None:
@@ -407,7 +410,7 @@ def _resolve_pierce_keyword(state: GameState, winner: UnitState, cause_event_no:
     opponent = state.players[opponent_id(winner.owner_player_id)]
     before_life = opponent.life
     opponent.life -= 1
-    state.event_store.append(
+    life_event = state.event_store.append(
         "life_changed",
         round_no=state.round_no,
         turn_no=state.turn_no,
@@ -423,6 +426,7 @@ def _resolve_pierce_keyword(state: GameState, winner: UnitState, cause_event_no:
             "keyword": "pierce",
         },
     )
+    gain_joker_gauge_for_life_loss(state, opponent.player_id, 1, cause_event_no=life_event.event_no)
 
 
 def _reward_battle_winner(

@@ -14,6 +14,7 @@ from tojs_reborn.engine.actions import EFFECT_FIZZLED_REASONS, draw_cards, drive
 from tojs_reborn.engine.combat import attack_bypasses_block, attack_player, attack_unit, declare_attack, declare_block, destroy_lethal_units, destroy_unit, resolve_unblocked_attack
 from tojs_reborn.engine.events import EventSource, EventStore
 from tojs_reborn.engine.integrity import assert_game_state_integrity
+from tojs_reborn.engine.joker import try_grant_joker
 from tojs_reborn.engine.legal_actions import list_block_actions, list_legal_actions
 from tojs_reborn.engine.replay import (
     build_replay_record,
@@ -129,6 +130,47 @@ class EngineTest(unittest.TestCase):
         self.assertEqual(self.catalog["1-0-001"].bp_by_level[0], 3)
         self.assertEqual(get_unit_base_bp(state, unit), 3000)
         self.assertEqual(get_unit_bp(state, unit), 3000)
+
+    def test_joker_gauge_gains_on_turn_end(self) -> None:
+        state = create_game_state(self.catalog)
+
+        end_turn(state, "P1")
+
+        self.assertEqual(state.players["P1"].joker_gauge, 12)
+        self.assertTrue(any(event.type == "joker_gauge_changed" for event in state.event_store.events))
+
+    def test_joker_gauge_gains_on_life_loss(self) -> None:
+        state = create_game_state(self.catalog)
+        _card, attacker = self._add_battlefield_unit(state, "P1", "1-0-001")
+
+        attack_player(state, "P1", attacker.unit_id)
+
+        self.assertEqual(state.players["P2"].life, 6)
+        self.assertEqual(state.players["P2"].joker_gauge, 10)
+
+    def test_joker_is_granted_on_own_turn_when_gauge_full_and_hand_has_space(self) -> None:
+        state = create_game_state(self.catalog)
+        state.turn_player_id = "P1"
+        state.players["P1"].joker_gauge = 100
+
+        self.assertTrue(try_grant_joker(state, "P1"))
+
+        hand_card_nos = [state.card_instances[card_instance_id].card_no for card_instance_id in state.players["P1"].hand.cards]
+        self.assertEqual(hand_card_nos, ["JK-01"])
+        self.assertEqual(state.players["P1"].joker_gauge, 0)
+        self.assertTrue(state.players["P1"].joker_granted)
+        self.assertEqual(list_legal_actions(state, "P1")[-1]["type"], "pass")
+
+    def test_joker_grant_waits_until_own_turn_hand_has_space(self) -> None:
+        state = create_game_state(self.catalog)
+        state.turn_player_id = "P1"
+        state.players["P1"].joker_gauge = 100
+        for _ in range(MAX_HAND_SIZE):
+            state.players["P1"].hand.add(state.create_card_instance("1-0-040", "P1").instance_id)
+
+        self.assertFalse(try_grant_joker(state, "P1"))
+        state.players["P1"].hand.cards.pop()
+        self.assertTrue(try_grant_joker(state, "P1"))
 
     def test_draw_cards_moves_deck_top_to_hand_and_records_events(self) -> None:
         state = create_game_state(self.catalog)
@@ -877,7 +919,7 @@ class EngineTest(unittest.TestCase):
         self.assertEqual(state.players["P2"].life, 6)
         self.assertEqual(
             [event.type for event in state.event_store.events],
-            ["action_declared", "unit_attacked", "block_choice_resolved", "life_changed"],
+            ["action_declared", "unit_attacked", "block_choice_resolved", "life_changed", "joker_gauge_changed"],
         )
 
     def test_blocked_battle_destroys_both_units_and_moves_to_discard(self) -> None:

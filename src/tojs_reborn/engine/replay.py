@@ -109,6 +109,8 @@ def snapshot_initial_state(state: GameState) -> dict[str, Any]:
                 "life": player.life,
                 "current_cp": player.current_cp,
                 "joker_no": player.joker_no,
+                "joker_gauge": player.joker_gauge,
+                "joker_granted": player.joker_granted,
                 "initial_deck_card_nos": list(player.initial_deck_card_nos),
                 "deck": list(player.deck.cards),
                 "hand": list(player.hand.cards),
@@ -176,6 +178,8 @@ def state_from_snapshot(
         player.life = int(item["life"])
         player.current_cp = int(item["current_cp"])
         player.joker_no = item.get("joker_no", "JK-01")
+        player.joker_gauge = int(item.get("joker_gauge", 0))
+        player.joker_granted = bool(item.get("joker_granted", False))
         player.initial_deck_card_nos = list(item.get("initial_deck_card_nos", []))
         player.deck.cards = list(item["deck"])
         player.hand.cards = list(item["hand"])
@@ -218,6 +222,8 @@ def state_digest(state: GameState) -> dict[str, Any]:
             "life": player.life,
             "current_cp": player.current_cp,
             "joker_no": player.joker_no,
+            "joker_gauge": player.joker_gauge,
+            "joker_granted": player.joker_granted,
             "initial_deck_card_nos": list(player.initial_deck_card_nos),
             "deck": list(player.deck.cards),
             "hand": list(player.hand.cards),

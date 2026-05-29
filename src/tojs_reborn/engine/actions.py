@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 from .events import EventSource, FactEvent
+from .joker import gain_joker_gauge_for_life_loss
 from .rules import (
     MAX_BATTLEFIELD_UNITS,
     MAX_CP,
@@ -720,7 +721,7 @@ def _handle_deal_life_damage(
     amount = int(step.get("amount", 0))
     before_life = player.life
     player.life -= amount
-    state.event_store.append(
+    life_event = state.event_store.append(
         "life_changed",
         round_no=state.round_no,
         turn_no=state.turn_no,
@@ -735,6 +736,7 @@ def _handle_deal_life_damage(
             "reason": "effect",
         },
     )
+    gain_joker_gauge_for_life_loss(state, target_player_id, amount, cause_event_no=life_event.event_no)
 
 
 def _handle_change_cp(

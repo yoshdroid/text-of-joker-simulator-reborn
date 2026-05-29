@@ -69,6 +69,8 @@ def _register_decklist(
     if decklist.joker_no not in state.joker_catalog:
         raise ValueError(f"unknown joker_no: {decklist.joker_no}")
     player.joker_no = decklist.joker_no
+    player.joker_gauge = 0
+    player.joker_granted = False
     player.initial_deck_card_nos = list(expanded_card_nos)
 
     deck_card_nos = list(expanded_card_nos)

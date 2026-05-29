@@ -127,6 +127,20 @@ def unit_choice_target_view(state: GameState, player_id: str, unit_id: str) -> d
 
 def card_choice_target_view(state: GameState, player_id: str, card_instance_id: str) -> dict[str, Any]:
     instance = state.card_instances[card_instance_id]
+    if instance.card_no in state.joker_catalog:
+        joker = state.joker_catalog[instance.card_no]
+        return {
+            "type": "card",
+            "controller": instance.owner_player_id,
+            "is_owner": instance.owner_player_id == player_id,
+            "card_instance_id": card_instance_id,
+            "card_no": instance.card_no,
+            "card_name": joker.name,
+            "category": "joker",
+            "color": "joker",
+            "cp": joker.cp,
+            "level": instance.level,
+        }
     card = state.card_catalog[instance.card_no]
     return {
         "type": "card",
@@ -147,6 +161,9 @@ def _public_player_state(state: GameState, player_id: str, viewer_player_id: str
     return {
         "life": player.life,
         "current_cp": player.current_cp,
+        "joker_no": player.joker_no,
+        "joker_gauge": player.joker_gauge,
+        "joker_granted": player.joker_granted,
         "hand_count": len(player.hand.cards),
         "deck_count": len(player.deck.cards),
         "discard_pile": [_card_instance_view(state, card_instance_id) for card_instance_id in player.discard_pile.cards],
@@ -198,6 +215,17 @@ def _card_choice_label(target: dict[str, Any]) -> str:
 
 def _card_instance_view(state: GameState, card_instance_id: str) -> dict[str, Any]:
     instance = state.card_instances[card_instance_id]
+    if instance.card_no in state.joker_catalog:
+        joker = state.joker_catalog[instance.card_no]
+        return {
+            "card_no": instance.card_no,
+            "name": joker.name,
+            "category": "joker",
+            "color": "joker",
+            "cp": joker.cp,
+            "card_instance_id": card_instance_id,
+            "level": instance.level,
+        }
     card = state.card_catalog[instance.card_no]
     view = card_summary(card, instance.card_no)
     view["card_instance_id"] = card_instance_id

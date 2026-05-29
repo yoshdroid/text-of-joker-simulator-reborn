@@ -157,6 +157,8 @@ def _player_model(
         "status": {
             "life": player.life,
             "current_cp": player.current_cp,
+            "joker_gauge": player.joker_gauge,
+            "joker_granted": player.joker_granted,
             "hand_count": len(player.hand),
             "deck_count": len(player.deck),
             "discard_count": len(player.discard_pile),
