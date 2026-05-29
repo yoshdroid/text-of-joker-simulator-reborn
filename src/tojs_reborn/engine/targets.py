@@ -1,7 +1,7 @@
 from __future__ import annotations
 
 from .events import FactEvent
-from .rules import opponent_id
+from .rules import get_unit_bp, opponent_id
 from .state import AbilityDefinition, GameState, UnitState
 
 
@@ -105,6 +105,7 @@ def resolve_unit_targets_for_effect(
 
 def unit_candidates_for_selector(state: GameState, player_id: str, selector: dict) -> list[UnitState]:
     candidates = [state.units[unit_id] for unit_id in state.players[player_id].battlefield.units if unit_id in state.units]
+    candidates = [unit for unit in candidates if _unit_is_selectable(state, unit)]
     if "exhausted" in selector:
         expected = bool(selector["exhausted"])
         candidates = [unit for unit in candidates if unit.exhausted == expected]
@@ -118,6 +119,12 @@ def unit_candidates_for_selector(state: GameState, player_id: str, selector: dic
         color = selector["color"]
         candidates = [unit for unit in candidates if state.card_catalog[unit.card_no].color == color]
     return candidates
+
+
+def _unit_is_selectable(state: GameState, unit: UnitState) -> bool:
+    if unit.unit_id in state.pending_destroyed_units:
+        return False
+    return unit.current_damage < get_unit_bp(state, unit)
 
 
 def _resolve_unit_target(

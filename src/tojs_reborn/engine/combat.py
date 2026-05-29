@@ -140,6 +140,7 @@ def resolve_blocked_battle(
         return
     if battle_started_callback is not None:
         battle_started_callback(state, battle_event.event_no)
+    destroy_lethal_units(state, [attacker, blocker], battle_event.event_no, reason="pre_battle_effect")
     if not _battle_units_still_present(state, attacker, blocker):
         _emit_battle_cancelled(state, attacker, blocker, battle_event.event_no, reason="unit_left_before_battle_damage")
         return
@@ -243,7 +244,7 @@ def _deal_battle_damage(state: GameState, source: UnitState, target: UnitState, 
     )
 
 
-def destroy_lethal_units(state: GameState, units: list[UnitState], cause_event_no: int) -> None:
+def destroy_lethal_units(state: GameState, units: list[UnitState], cause_event_no: int, *, reason: str = "battle") -> None:
     destroyed_units = [
         unit
         for unit in units
@@ -258,7 +259,7 @@ def destroy_lethal_units(state: GameState, units: list[UnitState], cause_event_n
     )
     for unit in destroyed_units:
         if unit.unit_id in state.units:
-            _destroy_unit(state, unit, cause_event_no)
+            _destroy_unit(state, unit, cause_event_no, reason=reason)
 
 
 def destroy_unit(state: GameState, unit: UnitState, cause_event_no: int, *, reason: str = "effect") -> None:
@@ -378,7 +379,12 @@ def _emit_battle_result(
 
 
 def _battle_units_still_present(state: GameState, attacker: UnitState, blocker: UnitState) -> bool:
-    return attacker.unit_id in state.units and blocker.unit_id in state.units
+    return (
+        attacker.unit_id in state.units
+        and blocker.unit_id in state.units
+        and attacker.unit_id not in state.pending_destroyed_units
+        and blocker.unit_id not in state.pending_destroyed_units
+    )
 
 
 def _emit_battle_cancelled(

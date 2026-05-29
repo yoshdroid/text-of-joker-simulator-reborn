@@ -1954,7 +1954,7 @@ class EngineTest(unittest.TestCase):
         )
         self.assertEqual(window["inactive_candidates"][0]["details"]["required_cp"], 2)
 
-    def test_moon_savior_attack_window_opens_for_owner_attack_and_pass_is_logged(self) -> None:
+    def test_moon_savior_attack_window_requires_level_two_or_higher_rival_target(self) -> None:
         state = create_game_state(self.catalog)
         state.turn_player_id = "P1"
         _attacker_card, attacker = self._add_battlefield_unit(state, "P1", "1-0-027")
@@ -1973,8 +1973,7 @@ class EngineTest(unittest.TestCase):
         activated_count = process_intercept_window(state, "attack", cause_event.event_no)
 
         self.assertEqual(activated_count, 0)
-        self.assertIn("intercept_window_opened", [event.type for event in state.event_store.events])
-        self.assertEqual([event.type for event in state.event_store.events].count("intercept_passed"), 2)
+        self.assertNotIn("intercept_window_opened", [event.type for event in state.event_store.events])
         self.assertEqual(state.players["P1"].trigger_zone.cards, [moon_savior.instance_id])
 
     def test_moon_savior_attack_window_ignores_rival_attack(self) -> None:
@@ -2066,6 +2065,26 @@ class EngineTest(unittest.TestCase):
         last_pass_index = max(index for index, event in enumerate(events) if event.type == "intercept_passed")
         self.assertGreater(destroyed_move_index, last_pass_index)
 
+    def test_ectoplasm_destroyed_unit_window_requires_selectable_rival_unit(self) -> None:
+        state = create_game_state(self.catalog)
+        state.turn_player_id = "P1"
+        _destroyed_card, destroyed_unit = self._add_battlefield_unit(state, "P1", "1-0-031")
+        ectoplasm = state.create_card_instance("1-0-092", "P1")
+        state.players["P1"].trigger_zone.add(ectoplasm.instance_id)
+        state.players["P1"].current_cp = 3
+
+        first_event_no = len(state.event_store.events) + 1
+        destroy_unit(state, destroyed_unit, first_event_no, reason="scenario")
+        activated_count = process_windows_for_events(
+            state,
+            first_event_no,
+            choose_intercept=lambda _player_id, actions: actions[0],
+        )
+
+        self.assertEqual(activated_count, 0)
+        self.assertNotIn("intercept_window_opened", [event.type for event in state.event_store.events])
+        self.assertEqual(state.players["P1"].trigger_zone.cards, [ectoplasm.instance_id])
+
     def test_battle_intercept_window_opens_attacker_side_first(self) -> None:
         state = create_game_state(self.catalog)
         state.turn_player_id = "P1"
@@ -2153,6 +2172,46 @@ class EngineTest(unittest.TestCase):
         self.assertEqual(bp_event.payload["amount"], -2000)
         self.assertEqual(bp_event.payload["after_bp"], 1000)
         self.assertNotIn(blocker.unit_id, state.units)
+
+    def test_pre_battle_effect_destroy_cancels_battle_without_win_event(self) -> None:
+        state = create_game_state(self.catalog)
+        state.turn_player_id = "P1"
+        _attacker_card, attacker = self._add_battlefield_unit(state, "P1", "1-0-027")
+        _blocker_card, blocker = self._add_battlefield_unit(state, "P2", "1-0-001")
+        power_shortage = state.create_card_instance("1-0-065", "P2")
+        state.players["P2"].trigger_zone.add(power_shortage.instance_id)
+        state.players["P2"].current_cp = 1
+
+        attack_event = declare_attack(state, "P1", attacker.unit_id)
+        declare_block(
+            state,
+            "P2",
+            blocker.unit_id,
+            attacker.unit_id,
+            attack_event.event_no,
+            battle_started_callback=lambda scenario_state, event_no: process_windows_for_events(
+                scenario_state,
+                event_no,
+                choose_intercept=lambda _player_id, actions: actions[0],
+            ),
+        )
+
+        event_types = [event.type for event in state.event_store.events]
+        self.assertIn("unit_destroyed", event_types)
+        self.assertIn("battle_cancelled", event_types)
+        self.assertNotIn("battle_won", event_types)
+        self.assertNotIn("battle_lost", event_types)
+        self.assertNotIn("damage_dealt", event_types)
+        self.assertNotIn(attacker.unit_id, state.units)
+        destroyed_index = event_types.index("unit_destroyed")
+        last_battle_pass_index = max(
+            index
+            for index, event in enumerate(state.event_store.events)
+            if event.type == "intercept_passed" and event.payload.get("window") == "battle"
+        )
+        cancelled_index = event_types.index("battle_cancelled")
+        self.assertLess(destroyed_index, last_battle_pass_index)
+        self.assertLess(destroyed_index, cancelled_index)
 
     def test_heroic_sword_increases_owner_battle_unit_bp_until_turn_end(self) -> None:
         state = create_game_state(self.catalog)

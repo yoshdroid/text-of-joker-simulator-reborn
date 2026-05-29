@@ -794,6 +794,10 @@ def _handle_modify_bp(
             "duration": step.get("duration", "turn"),
         },
     )
+    if get_unit_bp(state, target) <= 0:
+        from .combat import destroy_lethal_units
+
+        destroy_lethal_units(state, [target], ability_event.event_no, reason="effect")
 
 
 def _handle_modify_bp_units(

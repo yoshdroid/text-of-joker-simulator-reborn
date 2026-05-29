@@ -5,6 +5,7 @@ from typing import Any
 
 from .events import FactEvent
 from .state import AbilityDefinition, GameState
+from .targets import resolve_player_id, unit_candidates_for_selector
 
 
 COLORED_INTERCEPT_COLORS = {"赤", "黄", "青", "緑"}
@@ -68,9 +69,21 @@ def ability_matches_window(
         return False
     if not _window_condition_matches(state, ability, cause_event, player_id):
         return False
+    if not _ability_has_required_targets(state, ability, player_id):
+        return False
     if ability.timing.upper().endswith("_UNIT_ENTERED") and cause_event.actor_player_id != player_id:
         return False
     return True
+
+
+def _ability_has_required_targets(state: GameState, ability: AbilityDefinition, player_id: str) -> bool:
+    selector = ability.raw.get("selector")
+    if not isinstance(selector, dict):
+        return True
+    if selector.get("type") != "unit" or not bool(selector.get("required", True)):
+        return True
+    controller = resolve_player_id(player_id, selector.get("controller"))
+    return bool(unit_candidates_for_selector(state, controller, selector))
 
 
 def _window_condition_matches(state: GameState, ability: AbilityDefinition, cause_event: FactEvent, player_id: str) -> bool:
