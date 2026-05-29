@@ -15,6 +15,7 @@ def list_legal_actions(state: GameState, player_id: str) -> list[dict[str, Any]]
     actions.extend(_drive_actions(state, player_id))
     actions.extend(_set_trigger_actions(state, player_id))
     actions.extend(_override_actions(state, player_id))
+    actions.extend(_play_joker_actions(state, player_id))
     actions.extend(_attack_actions(state, player_id))
     actions.append(_pass_action())
     return actions
@@ -202,6 +203,32 @@ def _attack_actions(state: GameState, player_id: str) -> list[dict[str, Any]]:
                 "defender_player_id": rival.player_id,
                 "unit": unit_public_view(state, unit_id),
                 "display": {"label": f"{card.name}でアタックする"},
+            }
+        )
+    return actions
+
+
+def _play_joker_actions(state: GameState, player_id: str) -> list[dict[str, Any]]:
+    player = state.players[player_id]
+    actions = []
+    for card_instance_id in player.hand.cards:
+        card_no = state.card_instances[card_instance_id].card_no
+        joker = state.joker_catalog.get(card_no)
+        if joker is None or player.current_cp < joker.cp:
+            continue
+        actions.append(
+            {
+                "type": "play_joker",
+                "card_instance_id": card_instance_id,
+                "joker_no": card_no,
+                "cp_cost": joker.cp,
+                "display": {
+                    "label": f"{joker.name}を発動する",
+                    "card_no": card_no,
+                    "card_name": joker.name,
+                    "category": "joker",
+                    "cp": joker.cp,
+                },
             }
         )
     return actions

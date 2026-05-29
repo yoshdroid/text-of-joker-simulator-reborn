@@ -8,7 +8,7 @@ from typing import Protocol
 from tojs_reborn.engine.actions import drive_unit, override_card, set_trigger
 from tojs_reborn.engine.combat import attack_bypasses_block, declare_attack, declare_block, resolve_unblocked_attack
 from tojs_reborn.engine.integrity import assert_game_state_integrity
-from tojs_reborn.engine.joker import try_grant_joker
+from tojs_reborn.engine.joker import play_joker, try_grant_joker
 from tojs_reborn.engine.legal_actions import list_block_actions, list_legal_actions
 from tojs_reborn.engine.replay import build_replay_record, snapshot_initial_state, state_from_snapshot
 from tojs_reborn.engine.rules import opponent_id, turn_cp_for
@@ -239,6 +239,9 @@ class MatchRunner:
             self._process_windows_from(first_event_no)
         elif action_type == "override_card":
             override_card(self.state, player_id, action["target_card_instance_id"], action["material_card_instance_id"])
+            self._process_windows_from(first_event_no)
+        elif action_type == "play_joker":
+            play_joker(self.state, player_id, action["card_instance_id"])
             self._process_windows_from(first_event_no)
         elif action_type == "attack":
             attack_event = declare_attack(

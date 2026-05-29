@@ -239,6 +239,10 @@ class ReplayViewerState:
                 player.joker_granted = True
                 if isinstance(card_instance_id, str):
                     player.hand.append(card_instance_id)
+        elif event_type == "joker_card_used" and isinstance(actor, str):
+            card_instance_id = payload.get("card_instance_id")
+            if isinstance(card_instance_id, str):
+                _remove_if_present(self._player(actor).hand, card_instance_id)
         elif event_type == "card_moved":
             self._apply_card_moved(event)
         elif event_type == "deck_refreshed" and isinstance(actor, str):

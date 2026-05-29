@@ -1,8 +1,8 @@
 from __future__ import annotations
 
 from .events import EventSource
-from .rules import MAX_HAND_SIZE
-from .state import GameState
+from .rules import MAX_HAND_SIZE, get_unit_bp, opponent_id
+from .state import GameState, UnitState
 
 
 JOKER_TURN_END_GAIN_MULTIPLIER = 4
@@ -95,3 +95,104 @@ def try_grant_joker(state: GameState, player_id: str, *, cause_event_no: int | N
         },
     )
     return True
+
+
+def play_joker(state: GameState, player_id: str, card_instance_id: str) -> None:
+    if state.turn_player_id != player_id:
+        raise ValueError(f"not turn player: {player_id}")
+    player = state.players[player_id]
+    if card_instance_id not in player.hand.cards:
+        raise ValueError(f"joker card is not in hand: {card_instance_id}")
+    instance = state.card_instances[card_instance_id]
+    if instance.card_no not in state.joker_catalog:
+        raise ValueError(f"card is not a joker: {instance.card_no}")
+    joker = state.joker_catalog[instance.card_no]
+    if player.current_cp < joker.cp:
+        raise ValueError(f"not enough CP to play joker: required={joker.cp} current={player.current_cp}")
+
+    action_event = state.event_store.append(
+        "action_declared",
+        round_no=state.round_no,
+        turn_no=state.turn_no,
+        actor_player_id=player_id,
+        source=EventSource(card_no=instance.card_no, card_instance_id=card_instance_id),
+        payload={"action": "play_joker", "card_instance_id": card_instance_id, "joker_no": instance.card_no},
+    )
+    before_cp = player.current_cp
+    player.current_cp -= joker.cp
+    state.event_store.append(
+        "cp_changed",
+        round_no=state.round_no,
+        turn_no=state.turn_no,
+        actor_player_id=player_id,
+        cause_event_no=action_event.event_no,
+        source=EventSource(card_no=instance.card_no, card_instance_id=card_instance_id),
+        payload={"before_cp": before_cp, "after_cp": player.current_cp, "amount": -joker.cp, "reason": "joker"},
+    )
+    player.hand.remove(card_instance_id)
+    used_event = state.event_store.append(
+        "joker_card_used",
+        round_no=state.round_no,
+        turn_no=state.turn_no,
+        actor_player_id=player_id,
+        cause_event_no=action_event.event_no,
+        source=EventSource(card_no=instance.card_no, card_instance_id=card_instance_id),
+        payload={"joker_no": instance.card_no, "card_instance_id": card_instance_id},
+    )
+    _resolve_joker_effect(state, player_id, instance.card_no, used_event.event_no, card_instance_id)
+
+
+def _resolve_joker_effect(
+    state: GameState,
+    player_id: str,
+    joker_no: str,
+    cause_event_no: int,
+    card_instance_id: str,
+) -> None:
+    if joker_no != "JK-01":
+        state.event_store.append(
+            "joker_effect_fizzled",
+            round_no=state.round_no,
+            turn_no=state.turn_no,
+            actor_player_id=player_id,
+            cause_event_no=cause_event_no,
+            source=EventSource(card_no=joker_no, card_instance_id=card_instance_id),
+            payload={"joker_no": joker_no, "reason": "unsupported_joker"},
+        )
+        return
+    targets = [state.units[unit_id] for unit_id in state.players[opponent_id(player_id)].battlefield.units if unit_id in state.units]
+    for target in targets:
+        _deal_joker_damage(state, player_id, target, 5000, cause_event_no=cause_event_no, joker_no=joker_no, card_instance_id=card_instance_id)
+
+
+def _deal_joker_damage(
+    state: GameState,
+    player_id: str,
+    target: UnitState,
+    amount: int,
+    *,
+    cause_event_no: int,
+    joker_no: str,
+    card_instance_id: str,
+) -> None:
+    before_damage = target.current_damage
+    target.current_damage += amount
+    damage_event = state.event_store.append(
+        "damage_dealt",
+        round_no=state.round_no,
+        turn_no=state.turn_no,
+        actor_player_id=player_id,
+        cause_event_no=cause_event_no,
+        source=EventSource(card_no=joker_no, card_instance_id=card_instance_id),
+        payload={
+            "target_unit_id": target.unit_id,
+            "before_damage": before_damage,
+            "after_damage": target.current_damage,
+            "amount": amount,
+            "reason": "joker",
+        },
+    )
+    if target.current_damage >= get_unit_bp(state, target):
+        from .combat import destroy_lethal_units
+
+        destroy_lethal_units(state, [target], damage_event.event_no)

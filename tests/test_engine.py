@@ -14,7 +14,7 @@ from tojs_reborn.engine.actions import EFFECT_FIZZLED_REASONS, draw_cards, drive
 from tojs_reborn.engine.combat import attack_bypasses_block, attack_player, attack_unit, declare_attack, declare_block, destroy_lethal_units, destroy_unit, resolve_unblocked_attack
 from tojs_reborn.engine.events import EventSource, EventStore
 from tojs_reborn.engine.integrity import assert_game_state_integrity
-from tojs_reborn.engine.joker import try_grant_joker
+from tojs_reborn.engine.joker import play_joker, try_grant_joker
 from tojs_reborn.engine.legal_actions import list_block_actions, list_legal_actions
 from tojs_reborn.engine.replay import (
     build_replay_record,
@@ -171,6 +171,33 @@ class EngineTest(unittest.TestCase):
         self.assertFalse(try_grant_joker(state, "P1"))
         state.players["P1"].hand.cards.pop()
         self.assertTrue(try_grant_joker(state, "P1"))
+
+    def test_play_crimson_break_spends_cp_and_damages_all_rival_units(self) -> None:
+        state = create_game_state(self.catalog)
+        state.turn_player_id = "P1"
+        state.players["P1"].current_cp = 5
+        joker = state.create_card_instance("JK-01", "P1")
+        state.players["P1"].hand.add(joker.instance_id)
+        _own_card, own_unit = self._add_battlefield_unit(state, "P1", "1-0-040")
+        _rival_card, rival_unit = self._add_battlefield_unit(state, "P2", "1-0-040")
+
+        play_joker(state, "P1", joker.instance_id)
+
+        self.assertEqual(state.players["P1"].current_cp, 0)
+        self.assertNotIn(joker.instance_id, state.players["P1"].hand.cards)
+        self.assertIn(own_unit.unit_id, state.units)
+        self.assertNotIn(rival_unit.unit_id, state.units)
+        self.assertTrue(any(event.type == "joker_card_used" for event in state.event_store.events))
+
+    def test_play_joker_legal_action_requires_cp(self) -> None:
+        state = create_game_state(self.catalog)
+        state.turn_player_id = "P1"
+        joker = state.create_card_instance("JK-01", "P1")
+        state.players["P1"].hand.add(joker.instance_id)
+
+        self.assertFalse(any(action["type"] == "play_joker" for action in list_legal_actions(state, "P1")))
+        state.players["P1"].current_cp = 5
+        self.assertTrue(any(action["type"] == "play_joker" for action in list_legal_actions(state, "P1")))
 
     def test_draw_cards_moves_deck_top_to_hand_and_records_events(self) -> None:
         state = create_game_state(self.catalog)

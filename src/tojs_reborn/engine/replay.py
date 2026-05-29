@@ -4,6 +4,7 @@ from typing import Any
 
 from .actions import drive_unit, override_card, set_trigger
 from .combat import attack_player, attack_unit
+from .joker import play_joker
 from .rules import ruleset_to_dict
 from .state import CardDefinition, GameState, JokerDefinition, create_game_state
 from .turn import end_turn, start_turn
@@ -67,6 +68,8 @@ def apply_intent(state: GameState, intent: dict[str, Any]) -> None:
         set_trigger(state, player_id, intent["card_instance_id"])
     elif intent_type == "override_card":
         override_card(state, player_id, intent["target_card_instance_id"], intent["material_card_instance_id"])
+    elif intent_type == "play_joker":
+        play_joker(state, player_id, intent["card_instance_id"])
     elif intent_type == "overclock_unit":
         raise ValueError("overclock_unit intent is deprecated; use override_card in hand and drive_unit")
     elif intent_type == "attack_player":
