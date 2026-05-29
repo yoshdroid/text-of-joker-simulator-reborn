@@ -2179,7 +2179,10 @@ class EngineTest(unittest.TestCase):
         _attacker_card, attacker = self._add_battlefield_unit(state, "P1", "1-0-027")
         _blocker_card, blocker = self._add_battlefield_unit(state, "P2", "1-0-001")
         power_shortage = state.create_card_instance("1-0-065", "P2")
+        ectoplasm = state.create_card_instance("1-0-092", "P1")
+        state.players["P1"].trigger_zone.add(ectoplasm.instance_id)
         state.players["P2"].trigger_zone.add(power_shortage.instance_id)
+        state.players["P1"].current_cp = 3
         state.players["P2"].current_cp = 1
 
         attack_event = declare_attack(state, "P1", attacker.unit_id)
@@ -2199,18 +2202,26 @@ class EngineTest(unittest.TestCase):
         event_types = [event.type for event in state.event_store.events]
         self.assertIn("unit_destroyed", event_types)
         self.assertIn("battle_cancelled", event_types)
+        self.assertIn("intercept_activated", event_types)
         self.assertNotIn("battle_won", event_types)
         self.assertNotIn("battle_lost", event_types)
         self.assertNotIn("damage_dealt", event_types)
         self.assertNotIn(attacker.unit_id, state.units)
+        self.assertNotIn(blocker.unit_id, state.units)
         destroyed_index = event_types.index("unit_destroyed")
         last_battle_pass_index = max(
             index
             for index, event in enumerate(state.event_store.events)
             if event.type == "intercept_passed" and event.payload.get("window") == "battle"
         )
+        destroyed_window_index = next(
+            index
+            for index, event in enumerate(state.event_store.events)
+            if event.type == "intercept_window_opened" and event.payload.get("window") == "unit_destroyed"
+        )
         cancelled_index = event_types.index("battle_cancelled")
         self.assertLess(destroyed_index, last_battle_pass_index)
+        self.assertLess(destroyed_window_index, last_battle_pass_index)
         self.assertLess(destroyed_index, cancelled_index)
 
     def test_heroic_sword_increases_owner_battle_unit_bp_until_turn_end(self) -> None:

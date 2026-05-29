@@ -176,6 +176,7 @@ def process_intercept_window(
             )
             selected = fallback
         if selected["type"] == "activate_intercept":
+            nested_first_event_no = len(state.event_store.events) + 1
             activated = _activate_card(
                 state,
                 current_player_id,
@@ -187,6 +188,12 @@ def process_intercept_window(
             )
             if activated:
                 activated_count += 1
+                activated_count += process_windows_for_events(
+                    state,
+                    nested_first_event_no,
+                    choose_intercept,
+                    effect_handlers,
+                )
                 consecutive_passes = 0
             else:
                 consecutive_passes += 1

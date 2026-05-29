@@ -32,3 +32,10 @@ intercept_windowが割り込みで開くようにする。
 もしルインガーディアンが damage_dealt後に BPを残していた場合、
 エクトプラズムを発動可能、発動させた場合にはルインガーディアンを選択して破壊することができる。
 この場合も、戦闘勝利とはならずに終了する。
+
+--------
+c061540 Tighten intercept target checks and battle cancellationを確認しました。
+
+0296 ミイラくんが破壊されたことを契機に ユニット効果で手札破壊（手札はない） ->  エクトプラズムの順番で発動するので、
+0302 破壊時 intercept_windowは、0290の 戦闘時 intercept_window が閉じる前に openし解決まで進むようにして。
+破壊時効果は FIFOではなく スタックに積みLIFOで処理する。
