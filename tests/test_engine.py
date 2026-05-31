@@ -23,7 +23,7 @@ from tojs_reborn.engine.replay import (
     verify_replay_record,
 )
 from tojs_reborn.engine.rules import MAX_HAND_SIZE, MAX_TRIGGER_ZONE_CARDS, Ruleset, get_unit_base_bp, get_unit_bp, life_damage_for, ruleset_to_dict, turn_cp_for
-from tojs_reborn.engine.state import AbilityDefinition, CardDefinition, create_game_state
+from tojs_reborn.engine.state import AbilityDefinition, CardDefinition, create_game_state, load_joker_catalog
 from tojs_reborn.engine.turn import end_turn, start_turn
 from tojs_reborn.engine.windows import list_trigger_intercept_window, process_intercept_window, process_trigger_window, process_windows_for_events
 
@@ -106,12 +106,16 @@ def draw_window_card(card_no: str, category: str, timing: str) -> CardDefinition
 class EngineTest(unittest.TestCase):
     def setUp(self) -> None:
         self.catalog = build_catalog()
+        self.joker_catalog = load_joker_catalog(ROOT / "carddata" / "generated" / "cards.normalized.json")
 
     def _add_battlefield_unit(self, state, player_id: str, card_no: str, *, level: int = 1):
         card = state.create_card_instance(card_no, player_id, level=level)
         unit = state.create_unit(card.instance_id)
         state.players[player_id].battlefield.add(unit.unit_id)
         return card, unit
+
+    def _create_state_with_jokers(self):
+        return create_game_state(self.catalog, joker_catalog=self.joker_catalog)
 
     def test_event_store_assigns_sequential_event_numbers(self) -> None:
         store = EventStore()
@@ -123,7 +127,7 @@ class EngineTest(unittest.TestCase):
         self.assertEqual(second.event_no, 2)
 
     def test_unit_printed_bp_is_scaled_to_game_bp(self) -> None:
-        state = create_game_state(self.catalog)
+        state = self._create_state_with_jokers()
         card = state.create_card_instance("1-0-001", "P1")
         unit = state.create_unit(card.instance_id)
 
@@ -216,6 +220,26 @@ class EngineTest(unittest.TestCase):
         end_turn(state, "P1")
 
         self.assertEqual(state.players["P1"].joker_gauge, 0)
+
+    def test_play_divine_shield_recovers_all_own_units(self) -> None:
+        state = self._create_state_with_jokers()
+        state.turn_player_id = "P1"
+        state.players["P1"].current_cp = 4
+        joker = state.create_card_instance("JK-02", "P1")
+        state.players["P1"].hand.add(joker.instance_id)
+        _own_card, own_unit = self._add_battlefield_unit(state, "P1", "1-0-040")
+        _ready_card, ready_unit = self._add_battlefield_unit(state, "P1", "1-0-001")
+        _rival_card, rival_unit = self._add_battlefield_unit(state, "P2", "1-0-040")
+        own_unit.exhausted = True
+        rival_unit.exhausted = True
+
+        play_joker(state, "P1", joker.instance_id)
+
+        self.assertFalse(own_unit.exhausted)
+        self.assertFalse(ready_unit.exhausted)
+        self.assertTrue(rival_unit.exhausted)
+        recovered_events = [event for event in state.event_store.events if event.type == "unit_action_recovered"]
+        self.assertEqual([event.payload["unit_id"] for event in recovered_events], [own_unit.unit_id])
 
     def test_draw_cards_moves_deck_top_to_hand_and_records_events(self) -> None:
         state = create_game_state(self.catalog)

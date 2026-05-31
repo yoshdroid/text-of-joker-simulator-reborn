@@ -149,20 +149,47 @@ def _resolve_joker_effect(
     cause_event_no: int,
     card_instance_id: str,
 ) -> None:
-    if joker_no != "JK-01":
+    if joker_no == "JK-01":
+        targets = [state.units[unit_id] for unit_id in state.players[opponent_id(player_id)].battlefield.units if unit_id in state.units]
+        for target in targets:
+            _deal_joker_damage(state, player_id, target, 5000, cause_event_no=cause_event_no, joker_no=joker_no, card_instance_id=card_instance_id)
+        return
+    if joker_no == "JK-02":
+        _recover_all_own_units(state, player_id, cause_event_no=cause_event_no, joker_no=joker_no, card_instance_id=card_instance_id)
+        return
+    state.event_store.append(
+        "joker_effect_fizzled",
+        round_no=state.round_no,
+        turn_no=state.turn_no,
+        actor_player_id=player_id,
+        cause_event_no=cause_event_no,
+        source=EventSource(card_no=joker_no, card_instance_id=card_instance_id),
+        payload={"joker_no": joker_no, "reason": "unsupported_joker"},
+    )
+
+
+def _recover_all_own_units(
+    state: GameState,
+    player_id: str,
+    *,
+    cause_event_no: int,
+    joker_no: str,
+    card_instance_id: str,
+) -> None:
+    for unit_id in list(state.players[player_id].battlefield.units):
+        unit = state.units.get(unit_id)
+        if unit is None or not unit.exhausted:
+            continue
+        unit.exhausted = False
         state.event_store.append(
-            "joker_effect_fizzled",
+            "unit_action_recovered",
             round_no=state.round_no,
             turn_no=state.turn_no,
             actor_player_id=player_id,
             cause_event_no=cause_event_no,
             source=EventSource(card_no=joker_no, card_instance_id=card_instance_id),
-            payload={"joker_no": joker_no, "reason": "unsupported_joker"},
+            payload={"unit_id": unit.unit_id, "reason": "joker"},
         )
-        return
-    targets = [state.units[unit_id] for unit_id in state.players[opponent_id(player_id)].battlefield.units if unit_id in state.units]
-    for target in targets:
-        _deal_joker_damage(state, player_id, target, 5000, cause_event_no=cause_event_no, joker_no=joker_no, card_instance_id=card_instance_id)
 
 
 def _deal_joker_damage(
