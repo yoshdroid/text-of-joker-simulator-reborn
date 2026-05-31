@@ -39,3 +39,19 @@ c061540 Tighten intercept target checks and battle cancellationを確認しま�
 0296 ミイラくんが破壊されたことを契機に ユニット効果で手札破壊（手札はない） ->  エクトプラズムの順番で発動するので、
 0302 破壊時 intercept_windowは、0290の 戦闘時 intercept_window が閉じる前に openし解決まで進むようにして。
 破壊時効果は FIFOではなく スタックに積みLIFOで処理する。
+
+0290 intercept_window_opened battle
+0292 パワーショーテージ発動
+0295 BP 0
+0296 ミイラくん unit_destroyed
+0297 ミイラくん PIG
+0299 intercept_window_opened unit_destroyed
+0300 エクトプラズム発動
+0302 エクトプラズム ability_resolved
+0311/0312 battle window pass
+0313 battle_cancelled
+
+--------
+3f98252 Process nested windows during intercept resolution  
+
+よさそう。
