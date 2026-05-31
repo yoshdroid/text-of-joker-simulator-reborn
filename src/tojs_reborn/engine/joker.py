@@ -1,7 +1,7 @@
 from __future__ import annotations
 
 from .events import EventSource
-from .rules import MAX_HAND_SIZE, get_unit_bp, opponent_id
+from .rules import MAX_HAND_SIZE, get_unit_base_bp, get_unit_bp, opponent_id
 from .state import GameState, UnitState
 
 
@@ -178,6 +178,16 @@ def _resolve_joker_effect(
             source=EventSource(card_no=joker_no, card_instance_id=card_instance_id),
         )
         return
+    if joker_no == "JK-05":
+        _modify_own_units_base_bp(
+            state,
+            player_id,
+            amount=5000,
+            cause_event_no=cause_event_no,
+            joker_no=joker_no,
+            card_instance_id=card_instance_id,
+        )
+        return
     _append_joker_effect_fizzled(state, player_id, joker_no, card_instance_id, cause_event_no, "unsupported_joker")
 
 
@@ -327,6 +337,47 @@ def _return_unit_to_hand(
         },
     )
     del state.units[unit.unit_id]
+
+
+def _modify_own_units_base_bp(
+    state: GameState,
+    player_id: str,
+    *,
+    amount: int,
+    cause_event_no: int,
+    joker_no: str,
+    card_instance_id: str,
+) -> None:
+    for unit_id in list(state.players[player_id].battlefield.units):
+        unit = state.units.get(unit_id)
+        if unit is None:
+            continue
+        before_base_bp = get_unit_base_bp(state, unit)
+        before_bp = get_unit_bp(state, unit)
+        unit.base_bp_modifiers.append(
+            {
+                "amount": amount,
+                "duration": "permanent",
+                "source_event_no": cause_event_no,
+            }
+        )
+        state.event_store.append(
+            "base_bp_modified",
+            round_no=state.round_no,
+            turn_no=state.turn_no,
+            actor_player_id=player_id,
+            cause_event_no=cause_event_no,
+            source=EventSource(card_no=joker_no, card_instance_id=card_instance_id),
+            payload={
+                "target_unit_id": unit.unit_id,
+                "before_base_bp": before_base_bp,
+                "after_base_bp": get_unit_base_bp(state, unit),
+                "before_bp": before_bp,
+                "after_bp": get_unit_bp(state, unit),
+                "amount": amount,
+                "duration": "permanent",
+            },
+        )
 
 
 def _deal_joker_damage(

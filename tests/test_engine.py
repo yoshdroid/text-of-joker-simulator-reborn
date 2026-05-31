@@ -279,6 +279,24 @@ class EngineTest(unittest.TestCase):
         drawn_event = [event for event in state.event_store.events if event.type == "cards_drawn"][-1]
         self.assertEqual(drawn_event.payload["count"], 5)
 
+    def test_play_massive_surge_permanently_increases_own_unit_base_bp(self) -> None:
+        state = self._create_state_with_jokers()
+        state.turn_player_id = "P1"
+        state.players["P1"].current_cp = 2
+        joker = state.create_card_instance("JK-05", "P1")
+        state.players["P1"].hand.add(joker.instance_id)
+        _own_card, own_unit = self._add_battlefield_unit(state, "P1", "1-0-001")
+        _rival_card, rival_unit = self._add_battlefield_unit(state, "P2", "1-0-040")
+        before_rival_base_bp = get_unit_base_bp(state, rival_unit)
+
+        play_joker(state, "P1", joker.instance_id)
+
+        self.assertEqual(get_unit_base_bp(state, own_unit), 8000)
+        self.assertEqual(get_unit_bp(state, own_unit), 8000)
+        self.assertEqual(get_unit_base_bp(state, rival_unit), before_rival_base_bp)
+        events = [event for event in state.event_store.events if event.type == "base_bp_modified"]
+        self.assertEqual([event.payload["target_unit_id"] for event in events], [own_unit.unit_id])
+
     def test_draw_cards_moves_deck_top_to_hand_and_records_events(self) -> None:
         state = create_game_state(self.catalog)
         card = state.create_card_instance("1-0-001", "P1")
