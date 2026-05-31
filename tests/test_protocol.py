@@ -301,6 +301,16 @@ class ProtocolTest(unittest.TestCase):
             choose_aggressive_action(
                 [
                     {"type": "pass"},
+                    {"type": "attack", "attacker_unit_id": "u0001"},
+                    {"type": "play_joker", "card_instance_id": "c0009", "joker_no": "JK-01"},
+                ]
+            )["type"],
+            "play_joker",
+        )
+        self.assertEqual(
+            choose_aggressive_action(
+                [
+                    {"type": "pass"},
                     {"type": "drive_unit", "card_instance_id": "c0001"},
                     {"type": "drive_unit", "card_instance_id": "c0002", "evolve_target_unit_id": "u0001"},
                 ]

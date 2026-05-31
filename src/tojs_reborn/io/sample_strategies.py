@@ -46,6 +46,7 @@ def choose_pass_action(legal_actions: list[dict[str, Any]]) -> dict[str, Any]:
 
 def choose_aggressive_action(legal_actions: list[dict[str, Any]]) -> dict[str, Any]:
     priorities = [
+        _is_play_joker,
         _is_attack,
         _is_block,
         _is_activate_intercept,
@@ -115,6 +116,10 @@ def _is_block(action: dict[str, Any]) -> bool:
 
 def _is_activate_intercept(action: dict[str, Any]) -> bool:
     return action.get("type") == "activate_intercept"
+
+
+def _is_play_joker(action: dict[str, Any]) -> bool:
+    return action.get("type") == "play_joker"
 
 
 def _is_evolve_drive(action: dict[str, Any]) -> bool:
