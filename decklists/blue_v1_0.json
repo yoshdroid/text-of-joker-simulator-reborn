@@ -1,0 +1,74 @@
+{
+  "deck_name": "blue_v1_0",
+  "joker": "JK-07",
+  "cards": [
+    {
+      "card_name": "絶妙な挑発",
+      "count": 1
+    },
+    {
+      "card_name": "疑惑のロシアンルーレット",
+      "count": 1
+    },
+    {
+      "card_name": "新品の鎧",
+      "count": 3
+    },
+    {
+      "card_name": "何でも屋の陳列台",
+      "count": 3
+    },
+    {
+      "card_name": "チェックメイト",
+      "count": 1
+    },
+    {
+      "card_name": "ムーンセイヴァー",
+      "count": 3
+    },
+    {
+      "card_name": "ダーク・アーマー",
+      "count": 2
+    },
+    {
+      "card_name": "ミイラくん",
+      "count": 3
+    },
+    {
+      "card_name": "カラスマドウ",
+      "count": 3
+    },
+    {
+      "card_name": "スカルウォーカー",
+      "count": 3
+    },
+    {
+      "card_name": "中忍月影",
+      "count": 3
+    },
+    {
+      "card_name": "堕天馬アルゲニブ",
+      "count": 2
+    },
+    {
+      "card_name": "ユーベル・ヘルメス",
+      "count": 1
+    },
+    {
+      "card_name": "エクトプラズム",
+      "count": 3
+    },
+    {
+      "card_name": "解呪",
+      "count": 2
+    },
+    {
+      "card_name": "ヴァイパー",
+      "count": 3
+    },
+    {
+      "card_name": "冥王ハデス",
+      "count": 3
+    }
+  ]
+}

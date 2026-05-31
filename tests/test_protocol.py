@@ -25,6 +25,7 @@ from tojs_reborn.io.match_runner import FirstLegalPlayer, MatchRunner, replay_ma
 from tojs_reborn.io.match_cli import run_match_cli
 from tojs_reborn.io.match_batch_cli import parse_seed_spec, run_match_batch_cli
 from tojs_reborn.io.match_setup import MatchSetupConfig, setup_match_state
+from tojs_reborn.io.player_blue import BlueControlPlayer
 from tojs_reborn.io.player_codex import CodexYellowPlayer
 from tojs_reborn.io.player_runner import (
     JsonLinePlayer,
@@ -355,6 +356,43 @@ class ProtocolTest(unittest.TestCase):
 
         self.assertEqual(selected["type"], "set_trigger")
         self.assertEqual(selected["card_instance_id"], "c0002")
+
+    def test_blue_control_player_prioritizes_removal_plan(self) -> None:
+        player = BlueControlPlayer()
+        message = {
+            "type": "request_action",
+            "player_id": "P1",
+            "request_context": {"kind": "turn_action"},
+            "public_state": {
+                "players": {
+                    "P1": {"battlefield": [{"unit_id": "u0001", "card_no": "1-0-027", "current_bp": 1000}]},
+                    "P2": {
+                        "battlefield": [
+                            {"unit_id": "u0002", "card_no": "1-0-040", "current_bp": 1000},
+                            {"unit_id": "u0003", "card_no": "1-0-048", "current_bp": 7000},
+                        ]
+                    },
+                }
+            },
+            "legal_actions": [
+                {"type": "pass"},
+                {"type": "attack", "unit": {"card_no": "1-0-027", "current_bp": 1000}},
+                {"type": "play_joker", "card_instance_id": "c0007", "joker_no": "JK-07"},
+                {"type": "drive_unit", "card": {"card_no": "1-0-033"}},
+            ],
+        }
+
+        self.assertEqual(player.choose_action(message)["type"], "play_joker")
+        window_message = {
+            "type": "request_action",
+            "request_context": {"kind": "intercept_window"},
+            "legal_actions": [
+                {"type": "pass_window"},
+                {"type": "activate_intercept", "card": {"card_no": "1-0-089"}},
+                {"type": "activate_intercept", "card": {"card_no": "1-0-092"}},
+            ],
+        }
+        self.assertEqual(player.choose_action(window_message)["card"]["card_no"], "1-0-092")
 
     def test_state_update_and_mulligan_messages_round_trip(self) -> None:
         state = create_game_state(self.catalog)

@@ -10,7 +10,7 @@ from tojs_reborn.engine.combat import attack_bypasses_block, declare_attack, dec
 from tojs_reborn.engine.integrity import assert_game_state_integrity
 from tojs_reborn.engine.joker import play_joker, try_grant_joker
 from tojs_reborn.engine.legal_actions import list_block_actions, list_legal_actions
-from tojs_reborn.engine.replay import build_replay_record, snapshot_initial_state, state_from_snapshot
+from tojs_reborn.engine.replay import _rng_state_from_json, _rng_state_to_json, build_replay_record, snapshot_initial_state, state_from_snapshot
 from tojs_reborn.engine.rules import opponent_id, turn_cp_for
 from tojs_reborn.engine.state import AbilityDefinition, GameState, UnitState
 from tojs_reborn.engine.turn import end_turn, start_turn
@@ -741,6 +741,7 @@ def _perform_mulligan_on_state(state: GameState, player_id: str, attempt: int) -
         "drawn_card_instance_ids": drawn_card_instance_ids,
         "hand_card_instance_ids": list(player.hand.cards),
         "deck_card_instance_ids": list(player.deck.cards),
+        "rng_state_after_shuffle": _rng_state_to_json(state.rng.getstate()),
     }
     state.event_store.append(
         "deck_shuffled",
@@ -767,6 +768,8 @@ def _apply_recorded_mulligan_result(state: GameState, player_id: str, payload: d
     player = state.players[player_id]
     player.hand.cards = list(payload["hand_card_instance_ids"])
     player.deck.cards = list(payload["deck_card_instance_ids"])
+    if "rng_state_after_shuffle" in payload:
+        state.rng.setstate(_rng_state_from_json(payload["rng_state_after_shuffle"]))
     state.event_store.append(
         "deck_shuffled",
         round_no=state.round_no,

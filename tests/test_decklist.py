@@ -131,6 +131,16 @@ class DecklistTest(unittest.TestCase):
         self.assertEqual(len(card_nos), 40)
         self.assertTrue(all(self.catalog[card_no].color in {"黄", "無"} for card_no in card_nos))
 
+    def test_blue_deck_uses_blue_and_colorless_cards(self) -> None:
+        deck = load_decklist(ROOT / "decklists" / "blue_v1_0.json", self.catalog, strict_deck_rule=True)
+
+        card_nos = deck.expanded_card_nos()
+        self.assertEqual(deck.deck_name, "blue_v1_0")
+        self.assertEqual(deck.joker_no, "JK-07")
+        self.assertEqual(len(card_nos), 40)
+        allowed_colors = {self.catalog["1-0-027"].color, self.catalog["1-0-061"].color}
+        self.assertTrue(all(self.catalog[card_no].color in allowed_colors for card_no in card_nos))
+
     def test_deck_builder_regulation_status_reports_pass_and_violate(self) -> None:
         valid = ["1-0-040"] * 3 + ["1-0-001"] * 3 + ["1-0-004"] * 3 + ["1-0-005"] * 3
         valid += ["1-0-006"] * 3 + ["1-0-007"] * 3 + ["1-0-010"] * 3 + ["1-0-016"] * 3
