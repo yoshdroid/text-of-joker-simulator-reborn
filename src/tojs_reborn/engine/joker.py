@@ -188,6 +188,15 @@ def _resolve_joker_effect(
             card_instance_id=card_instance_id,
         )
         return
+    if joker_no == "JK-06":
+        _discard_rival_hand(
+            state,
+            player_id,
+            cause_event_no=cause_event_no,
+            joker_no=joker_no,
+            card_instance_id=card_instance_id,
+        )
+        return
     _append_joker_effect_fizzled(state, player_id, joker_no, card_instance_id, cause_event_no, "unsupported_joker")
 
 
@@ -376,6 +385,40 @@ def _modify_own_units_base_bp(
                 "after_bp": get_unit_bp(state, unit),
                 "amount": amount,
                 "duration": "permanent",
+            },
+        )
+
+
+def _discard_rival_hand(
+    state: GameState,
+    player_id: str,
+    *,
+    cause_event_no: int,
+    joker_no: str,
+    card_instance_id: str,
+) -> None:
+    rival_player_id = opponent_id(player_id)
+    rival = state.players[rival_player_id]
+    if not rival.hand.cards:
+        _append_joker_effect_fizzled(state, player_id, joker_no, card_instance_id, cause_event_no, "no_valid_target")
+        return
+    moved = list(rival.hand.cards)
+    rival.hand.cards = []
+    for moved_card_instance_id in moved:
+        instance = state.card_instances[moved_card_instance_id]
+        rival.discard_pile.add(moved_card_instance_id)
+        state.event_store.append(
+            "card_moved",
+            round_no=state.round_no,
+            turn_no=state.turn_no,
+            actor_player_id=rival_player_id,
+            cause_event_no=cause_event_no,
+            source=EventSource(card_no=instance.card_no, card_instance_id=moved_card_instance_id),
+            payload={
+                "from_zone": "hand",
+                "to_zone": "discard_pile",
+                "owner_player_id": rival_player_id,
+                "reason": "joker_discard_hand",
             },
         )
 

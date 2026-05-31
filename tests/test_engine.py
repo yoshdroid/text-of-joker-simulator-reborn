@@ -297,6 +297,24 @@ class EngineTest(unittest.TestCase):
         events = [event for event in state.event_store.events if event.type == "base_bp_modified"]
         self.assertEqual([event.payload["target_unit_id"] for event in events], [own_unit.unit_id])
 
+    def test_play_meiten_kyosatsu_discards_all_rival_hand_cards(self) -> None:
+        state = self._create_state_with_jokers()
+        state.turn_player_id = "P1"
+        state.players["P1"].current_cp = 2
+        joker = state.create_card_instance("JK-06", "P1")
+        state.players["P1"].hand.add(joker.instance_id)
+        rival_cards = [state.create_card_instance(card_no, "P2") for card_no in ("1-0-001", "1-0-002", "1-0-061")]
+        for card in rival_cards:
+            state.players["P2"].hand.add(card.instance_id)
+
+        play_joker(state, "P1", joker.instance_id)
+
+        self.assertEqual(state.players["P2"].hand.cards, [])
+        self.assertEqual(set(state.players["P2"].discard_pile.cards), {card.instance_id for card in rival_cards})
+        move_events = [event for event in state.event_store.events if event.type == "card_moved"]
+        self.assertEqual([event.payload["reason"] for event in move_events], ["joker_discard_hand"] * 3)
+        self.assertNotIn(joker.instance_id, state.players["P1"].discard_pile.cards)
+
     def test_draw_cards_moves_deck_top_to_hand_and_records_events(self) -> None:
         state = create_game_state(self.catalog)
         card = state.create_card_instance("1-0-001", "P1")
