@@ -241,6 +241,28 @@ class EngineTest(unittest.TestCase):
         recovered_events = [event for event in state.event_store.events if event.type == "unit_action_recovered"]
         self.assertEqual([event.payload["unit_id"] for event in recovered_events], [own_unit.unit_id])
 
+    def test_play_shooting_star_returns_up_to_two_rival_units(self) -> None:
+        state = self._create_state_with_jokers()
+        state.turn_player_id = "P1"
+        state.players["P1"].current_cp = 3
+        joker = state.create_card_instance("JK-03", "P1")
+        state.players["P1"].hand.add(joker.instance_id)
+        _card1, unit1 = self._add_battlefield_unit(state, "P2", "1-0-040", level=2)
+        _card2, unit2 = self._add_battlefield_unit(state, "P2", "1-0-001")
+        _card3, unit3 = self._add_battlefield_unit(state, "P2", "1-0-004")
+        state.card_instances[unit1.card_instance_id].level = 2
+
+        play_joker(state, "P1", joker.instance_id)
+
+        self.assertNotIn(unit1.unit_id, state.units)
+        self.assertNotIn(unit2.unit_id, state.units)
+        self.assertIn(unit3.unit_id, state.units)
+        self.assertIn(unit1.card_instance_id, state.players["P2"].hand.cards)
+        self.assertIn(unit2.card_instance_id, state.players["P2"].hand.cards)
+        self.assertEqual(state.card_instances[unit1.card_instance_id].level, 1)
+        returned = [event for event in state.event_store.events if event.type == "unit_returned_to_hand"]
+        self.assertEqual([event.payload["target_unit_id"] for event in returned], [unit1.unit_id, unit2.unit_id])
+
     def test_draw_cards_moves_deck_top_to_hand_and_records_events(self) -> None:
         state = create_game_state(self.catalog)
         card = state.create_card_instance("1-0-001", "P1")

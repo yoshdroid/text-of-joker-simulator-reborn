@@ -157,6 +157,27 @@ def _resolve_joker_effect(
     if joker_no == "JK-02":
         _recover_all_own_units(state, player_id, cause_event_no=cause_event_no, joker_no=joker_no, card_instance_id=card_instance_id)
         return
+    if joker_no == "JK-03":
+        _return_rival_units_to_hand(
+            state,
+            player_id,
+            max_count=2,
+            cause_event_no=cause_event_no,
+            joker_no=joker_no,
+            card_instance_id=card_instance_id,
+        )
+        return
+    _append_joker_effect_fizzled(state, player_id, joker_no, card_instance_id, cause_event_no, "unsupported_joker")
+
+
+def _append_joker_effect_fizzled(
+    state: GameState,
+    player_id: str,
+    joker_no: str,
+    card_instance_id: str,
+    cause_event_no: int,
+    reason: str,
+) -> None:
     state.event_store.append(
         "joker_effect_fizzled",
         round_no=state.round_no,
@@ -164,7 +185,7 @@ def _resolve_joker_effect(
         actor_player_id=player_id,
         cause_event_no=cause_event_no,
         source=EventSource(card_no=joker_no, card_instance_id=card_instance_id),
-        payload={"joker_no": joker_no, "reason": "unsupported_joker"},
+        payload={"joker_no": joker_no, "reason": reason},
     )
 
 
@@ -190,6 +211,111 @@ def _recover_all_own_units(
             source=EventSource(card_no=joker_no, card_instance_id=card_instance_id),
             payload={"unit_id": unit.unit_id, "reason": "joker"},
         )
+
+
+def _return_rival_units_to_hand(
+    state: GameState,
+    player_id: str,
+    *,
+    max_count: int,
+    cause_event_no: int,
+    joker_no: str,
+    card_instance_id: str,
+) -> None:
+    rival_player_id = opponent_id(player_id)
+    candidates = [unit_id for unit_id in state.players[rival_player_id].battlefield.units if unit_id in state.units]
+    selected_unit_ids = candidates[:max_count]
+    if not selected_unit_ids:
+        _append_joker_effect_fizzled(state, player_id, joker_no, card_instance_id, cause_event_no, "no_valid_target")
+        return
+    request_event = state.event_store.append(
+        "choice_requested",
+        round_no=state.round_no,
+        turn_no=state.turn_no,
+        actor_player_id=player_id,
+        cause_event_no=cause_event_no,
+        source=EventSource(card_no=joker_no, card_instance_id=card_instance_id),
+        payload={
+            "choice_id": "target_units",
+            "type": "unit",
+            "candidate_unit_ids": candidates,
+            "count": min(max_count, len(candidates)),
+            "required": True,
+        },
+    )
+    state.event_store.append(
+        "choice_selected",
+        round_no=state.round_no,
+        turn_no=state.turn_no,
+        actor_player_id=player_id,
+        cause_event_no=request_event.event_no,
+        source=EventSource(card_no=joker_no, card_instance_id=card_instance_id),
+        payload={
+            "choice_id": "target_units",
+            "chosen_unit_ids": selected_unit_ids,
+            "fallback": "first_legal",
+        },
+    )
+    for unit_id in selected_unit_ids:
+        unit = state.units.get(unit_id)
+        if unit is not None:
+            _return_unit_to_hand(state, player_id, unit, cause_event_no=cause_event_no, joker_no=joker_no, card_instance_id=card_instance_id)
+
+
+def _return_unit_to_hand(
+    state: GameState,
+    actor_player_id: str,
+    unit: UnitState,
+    *,
+    cause_event_no: int,
+    joker_no: str,
+    card_instance_id: str,
+) -> None:
+    owner = state.players[unit.owner_player_id]
+    if unit.unit_id not in owner.battlefield.units:
+        return
+    owner.battlefield.remove(unit.unit_id)
+    instance = state.card_instances[unit.card_instance_id]
+    before_level = instance.level
+    instance.level = 1
+    to_zone = "hand" if len(owner.hand.cards) < MAX_HAND_SIZE else "discard_pile"
+    if to_zone == "hand":
+        owner.hand.add(unit.card_instance_id)
+    else:
+        owner.discard_pile.add(unit.card_instance_id)
+    state.event_store.append(
+        "card_moved",
+        round_no=state.round_no,
+        turn_no=state.turn_no,
+        actor_player_id=unit.owner_player_id,
+        cause_event_no=cause_event_no,
+        source=EventSource(card_no=unit.card_no, card_instance_id=unit.card_instance_id, unit_id=unit.unit_id),
+        payload={
+            "from_zone": "battlefield",
+            "to_zone": to_zone,
+            "owner_player_id": unit.owner_player_id,
+            "reason": "joker_return_unit",
+            "hand_limit": MAX_HAND_SIZE,
+            "hand_limit_exceeded": to_zone == "discard_pile",
+            "before_level": before_level,
+            "after_level": instance.level,
+        },
+    )
+    state.event_store.append(
+        "unit_returned_to_hand",
+        round_no=state.round_no,
+        turn_no=state.turn_no,
+        actor_player_id=actor_player_id,
+        cause_event_no=cause_event_no,
+        source=EventSource(card_no=joker_no, card_instance_id=card_instance_id),
+        payload={
+            "target_unit_id": unit.unit_id,
+            "target_card_instance_id": unit.card_instance_id,
+            "owner_player_id": unit.owner_player_id,
+            "to_zone": to_zone,
+        },
+    )
+    del state.units[unit.unit_id]
 
 
 def _deal_joker_damage(
