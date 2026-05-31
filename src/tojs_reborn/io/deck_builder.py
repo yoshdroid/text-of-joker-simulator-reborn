@@ -9,7 +9,7 @@ from dataclasses import dataclass
 from pathlib import Path
 from typing import Any, Sequence
 
-from tojs_reborn.engine.state import CardDefinition, load_card_catalog
+from tojs_reborn.engine.state import CardDefinition, JokerDefinition, load_card_catalog, load_joker_catalog
 
 from .gui_view_model import find_card_image
 
@@ -37,11 +37,13 @@ def run_deck_builder_cli(argv: Sequence[str] | None = None) -> int:
 
     try:
         card_catalog = load_card_catalog(args.cards)
+        joker_catalog = load_joker_catalog(args.cards)
         if args.no_window:
-            print(json.dumps({"card_count": len(card_catalog)}, ensure_ascii=False, separators=(",", ":")))
+            print(json.dumps({"card_count": len(card_catalog), "joker_count": len(joker_catalog)}, ensure_ascii=False, separators=(",", ":")))
             return 0
         DeckBuilderTkGui(
             card_catalog=card_catalog,
+            joker_catalog=joker_catalog,
             images_dir=Path(args.images),
             deck_dir=Path(args.deck_dir),
             deck_name=args.deck_name,
@@ -69,11 +71,17 @@ def regulation_status(card_nos: Sequence[str]) -> DeckRegulationStatus:
     )
 
 
-def decklist_json(deck_name: str, card_nos: Sequence[str], card_catalog: dict[str, CardDefinition]) -> dict[str, Any]:
+def decklist_json(
+    deck_name: str,
+    card_nos: Sequence[str],
+    card_catalog: dict[str, CardDefinition],
+    *,
+    joker_no: str = "JK-01",
+) -> dict[str, Any]:
     counts = Counter(card_nos)
     return {
         "deck_name": deck_name,
-        "joker": "JK-01",
+        "joker": joker_no,
         "cards": [
             {"card_name": card_catalog[card_no].name, "count": count}
             for card_no, count in sorted(counts.items(), key=lambda item: _card_sort_key(item[0], card_catalog))
@@ -141,6 +149,7 @@ class DeckBuilderTkGui:
         self,
         *,
         card_catalog: dict[str, CardDefinition],
+        joker_catalog: dict[str, JokerDefinition],
         images_dir: Path,
         deck_dir: Path,
         deck_name: str,
@@ -152,6 +161,7 @@ class DeckBuilderTkGui:
         self.ttk = ttk
         self.messagebox = messagebox
         self.card_catalog = card_catalog
+        self.joker_catalog = joker_catalog
         self.images_dir = images_dir
         self.deck_dir = deck_dir
         self.deck_card_nos: list[str] = []
@@ -169,6 +179,7 @@ class DeckBuilderTkGui:
         self.color_var = tk.StringVar(value="all")
         self.category_var = tk.StringVar(value="all")
         self.deck_name_var = tk.StringVar(value=deck_name)
+        self.joker_var = tk.StringVar(value=self._joker_display_value("JK-01"))
         self.status_var = tk.StringVar()
 
         self._build_layout()
@@ -190,6 +201,8 @@ class DeckBuilderTkGui:
         self.ttk.Combobox(toolbar, textvariable=self.category_var, values=self._category_values(), width=10, state="readonly").pack(side=self.tk.LEFT, padx=3)
         self.tk.Label(toolbar, text="Deck", bg="#222831", fg="#f2f5f8").pack(side=self.tk.LEFT, padx=(18, 3))
         self.ttk.Entry(toolbar, textvariable=self.deck_name_var, width=22).pack(side=self.tk.LEFT, padx=3)
+        self.tk.Label(toolbar, text="Joker", bg="#222831", fg="#f2f5f8").pack(side=self.tk.LEFT, padx=(12, 3))
+        self.ttk.Combobox(toolbar, textvariable=self.joker_var, values=self._joker_values(), width=28, state="readonly").pack(side=self.tk.LEFT, padx=3)
         self.ttk.Button(toolbar, text="Save", command=self._save_deck).pack(side=self.tk.LEFT, padx=8)
         self.tk.Label(toolbar, textvariable=self.status_var, bg="#222831", fg="#f2f5f8").pack(side=self.tk.RIGHT, padx=10)
 
@@ -341,7 +354,7 @@ class DeckBuilderTkGui:
     def _save_deck(self) -> None:
         deck_name = self.deck_name_var.get().strip() or "unnamed"
         safe_name = _safe_filename(deck_name)
-        data = decklist_json(deck_name, self.deck_card_nos, self.card_catalog)
+        data = decklist_json(deck_name, self.deck_card_nos, self.card_catalog, joker_no=self._selected_joker_no())
         self.deck_dir.mkdir(parents=True, exist_ok=True)
         path = self.deck_dir / f"{safe_name}.json"
         path.write_text(json.dumps(data, ensure_ascii=False, indent=2) + "\n", encoding="utf-8")
@@ -354,6 +367,17 @@ class DeckBuilderTkGui:
 
     def _category_values(self) -> list[str]:
         return ["all"] + sorted({card.category for card in self.card_catalog.values() if card.category})
+
+    def _joker_values(self) -> list[str]:
+        return [self._joker_display_value(joker_no) for joker_no in sorted(self.joker_catalog)]
+
+    def _joker_display_value(self, joker_no: str) -> str:
+        joker = self.joker_catalog.get(joker_no)
+        return f"{joker_no} {joker.name}" if joker is not None else joker_no
+
+    def _selected_joker_no(self) -> str:
+        value = self.joker_var.get().strip()
+        return value.split(" ", 1)[0] if value else "JK-01"
 
     def _short_label(self, value: str) -> str:
         return value if len(value) <= 14 else value[:13] + "..."

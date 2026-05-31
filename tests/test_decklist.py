@@ -145,11 +145,13 @@ class DecklistTest(unittest.TestCase):
         self.assertEqual(status.over_limit, {"1-0-040": 4})
 
     def test_deck_builder_outputs_card_name_decklist_json(self) -> None:
-        data = decklist_json("builder_sample", ["1-0-040", "1-0-040", "1-0-001"], self.catalog)
+        data = decklist_json("builder_sample", ["1-0-040", "1-0-040", "1-0-001"], self.catalog, joker_no="JK-04")
 
         self.assertEqual(data["deck_name"], "builder_sample")
+        self.assertEqual(data["joker"], "JK-04")
         self.assertEqual({tuple(sorted(item)) for item in data["cards"]}, {("card_name", "count")})
         parsed = parse_decklist(data, self.catalog)
+        self.assertEqual(parsed.joker_no, "JK-04")
         self.assertEqual(sorted(parsed.expanded_card_nos()), ["1-0-001", "1-0-040", "1-0-040"])
 
     def test_deck_builder_filters_and_formats_card_details(self) -> None:
