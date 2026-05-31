@@ -9,8 +9,9 @@ from typing import Any, Sequence
 
 from tojs_reborn.engine.combat import attack_player, attack_unit, declare_attack, declare_block, destroy_unit, resolve_unblocked_attack
 from tojs_reborn.engine.actions import drive_unit, override_card, set_trigger
+from tojs_reborn.engine.joker import play_joker
 from tojs_reborn.engine.replay import build_replay_record, snapshot_initial_state, verify_replay_record
-from tojs_reborn.engine.state import GameState, load_card_catalog
+from tojs_reborn.engine.state import GameState, JokerDefinition, load_card_catalog, load_joker_catalog
 from tojs_reborn.engine.turn import end_turn, start_turn
 from tojs_reborn.engine.windows import process_windows_for_events
 
@@ -20,6 +21,7 @@ from .scenario_catalog import build_scenario_catalog_markdown, scenario_catalog_
 
 ScenarioBuilder = Callable[[dict[str, Any]], tuple[GameState, dict[str, Any]]]
 _SEED_OVERRIDE: int | None = None
+_JOKER_CATALOG: dict[str, JokerDefinition] | None = None
 
 
 FILLER_CARD_NOS = (
@@ -100,6 +102,7 @@ SCENARIOS: dict[str, ScenarioBuilder] = {
     "v8_final_tactics_end": lambda catalog: _scenario_v8_final_tactics_end(catalog),
     "v8_final_turn_intercepts": lambda catalog: _scenario_v8_final_turn_intercepts(catalog),
     "v9_evolve_trigger_cost_reduction": lambda catalog: _scenario_v9_evolve_trigger_cost_reduction(catalog),
+    "v9_joker_all": lambda catalog: _scenario_v9_joker_all(catalog),
     "v9_unit_trigger_cost_reduction": lambda catalog: _scenario_v9_unit_trigger_cost_reduction(catalog),
     "viper_discard_unit_recover": lambda catalog: _scenario_viper_discard_unit_recover(catalog),
 }
@@ -126,11 +129,14 @@ def run_scenario_cli(argv: Sequence[str] | None = None) -> int:
 
     try:
         catalog = load_card_catalog(args.cards)
+        joker_catalog = load_joker_catalog(args.cards)
         scenario_names = sorted(SCENARIOS) if args.scenario == "all" else [args.scenario]
         outputs = []
-        global _SEED_OVERRIDE
+        global _SEED_OVERRIDE, _JOKER_CATALOG
         previous_seed_override = _SEED_OVERRIDE
+        previous_joker_catalog = _JOKER_CATALOG
         _SEED_OVERRIDE = args.seed
+        _JOKER_CATALOG = joker_catalog
         try:
             for scenario_name in scenario_names:
                 state, initial_state = SCENARIOS[scenario_name](catalog)
@@ -152,6 +158,7 @@ def run_scenario_cli(argv: Sequence[str] | None = None) -> int:
                 outputs.append(output)
         finally:
             _SEED_OVERRIDE = previous_seed_override
+            _JOKER_CATALOG = previous_joker_catalog
         if args.catalog_markdown:
             catalog_path = Path(args.catalog_markdown)
             catalog_path.parent.mkdir(parents=True, exist_ok=True)
@@ -190,6 +197,10 @@ def _scenario_replay_path(args: argparse.Namespace, scenario_name: str) -> Path:
 
 def _scenario_seed(default_seed: int) -> int:
     return default_seed if _SEED_OVERRIDE is None else _SEED_OVERRIDE
+
+
+def _scenario_joker_catalog() -> dict[str, JokerDefinition] | None:
+    return _JOKER_CATALOG
 
 
 def _scenario_bloodhound_level3_damage(catalog: dict[str, Any]) -> tuple[GameState, dict[str, Any]]:
@@ -331,6 +342,46 @@ def _scenario_v9_evolve_trigger_cost_reduction(catalog: dict[str, Any]) -> tuple
 
     set_trigger(state, "P1", reducer.instance_id)
     drive_unit(state, "P1", evolve_card.instance_id, evolve_target_unit_id=base_unit.unit_id)
+    return state, initial_state
+
+
+def _scenario_v9_joker_all(catalog: dict[str, Any]) -> tuple[GameState, dict[str, Any]]:
+    from tojs_reborn.engine.state import create_game_state
+
+    state = create_game_state(catalog, joker_catalog=_scenario_joker_catalog(), seed=_scenario_seed(93))
+    state.turn_player_id = "P1"
+    for card_no in ("1-0-014", "1-0-021", "1-0-045"):
+        _card, unit = _add_battlefield_unit(state, "P1", card_no, level=3)
+        unit.exhausted = True
+    _add_battlefield_unit(state, "P1", "1-0-048", level=3)
+    for card_no in ("1-0-007", "1-0-009", "1-0-036", "1-0-038", "1-0-048"):
+        _add_battlefield_unit(state, "P2", card_no, level=3)
+    for card_no in ("1-0-001", "1-0-004"):
+        _add_hand_card(state, "P2", card_no)
+    for card_no in ("1-0-040", "1-0-041", "1-0-042", "1-0-043", "1-0-044"):
+        _add_deck_card(state, "P1", card_no)
+    jokers = {joker_no: state.create_card_instance(joker_no, "P1") for joker_no in sorted(state.joker_catalog)}
+    for joker_no in ("JK-01", "JK-02", "JK-03", "JK-04", "JK-05", "JK-06", "JK-07"):
+        state.players["P1"].hand.add(jokers[joker_no].instance_id)
+    initial_state = snapshot_initial_state(state)
+
+    for joker_no in ("JK-01", "JK-02", "JK-03", "JK-04", "JK-05", "JK-06", "JK-07"):
+        state.players["P1"].current_cp = 12
+        play_joker(state, "P1", jokers[joker_no].instance_id)
+    expected_event_types = {
+        "damage_dealt",
+        "unit_action_recovered",
+        "unit_returned_to_hand",
+        "cards_drawn",
+        "base_bp_modified",
+        "card_moved",
+        "random_resolved",
+        "unit_destroyed",
+    }
+    event_types = {event.type for event in state.event_store.events}
+    missing = expected_event_types - event_types
+    if missing:
+        raise AssertionError(f"joker scenario missing expected events: {sorted(missing)}")
     return state, initial_state
 
 

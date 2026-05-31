@@ -2316,6 +2316,7 @@ class ProtocolTest(unittest.TestCase):
                 "v8_final_tactics_end",
                 "v8_final_turn_intercepts",
                 "v9_evolve_trigger_cost_reduction",
+                "v9_joker_all",
                 "v9_unit_trigger_cost_reduction",
                 "v8_next_10_cards",
                 "v8_next_batch_triggers",
@@ -2329,6 +2330,8 @@ class ProtocolTest(unittest.TestCase):
             replay = json.loads((output_dir / f"{item['scenario']}.json").read_text(encoding="utf-8"))
             initial_card_counts_by_owner: dict[str, Counter[str]] = {}
             for card in replay["initial_state"]["card_instances"].values():
+                if str(card["card_no"]).startswith("JK-"):
+                    continue
                 initial_card_counts_by_owner.setdefault(card["owner_player_id"], Counter())[card["card_no"]] += 1
             for player_id, player in replay["initial_state"]["players"].items():
                 initial_deck_card_nos = player["initial_deck_card_nos"]
