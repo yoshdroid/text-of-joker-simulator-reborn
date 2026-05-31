@@ -24,6 +24,8 @@ def card_can_activate(state: GameState, player_id: str, card_instance_id: str) -
 
 def explain_card_activation(state: GameState, player_id: str, card_instance_id: str) -> ActivationCheck:
     instance = state.card_instances[card_instance_id]
+    if instance.card_no in state.joker_catalog:
+        return explain_joker_activation(state, player_id, card_instance_id)
     card = state.card_catalog[instance.card_no]
     details: dict[str, Any] = {
         "card_instance_id": card_instance_id,
@@ -46,6 +48,30 @@ def explain_card_activation(state: GameState, player_id: str, card_instance_id: 
     details.update({"required_unit_color": card.color, "has_same_color_unit": has_same_color_unit})
     if not has_same_color_unit:
         reasons.append("missing_same_color_unit")
+    return ActivationCheck(not reasons, tuple(reasons), details)
+
+
+def explain_joker_activation(state: GameState, player_id: str, card_instance_id: str) -> ActivationCheck:
+    instance = state.card_instances[card_instance_id]
+    joker = state.joker_catalog.get(instance.card_no)
+    details: dict[str, Any] = {
+        "card_instance_id": card_instance_id,
+        "card_no": instance.card_no,
+        "category": "joker",
+        "joker_no": instance.card_no,
+        "current_cp": state.players[player_id].current_cp,
+    }
+    reasons: list[str] = []
+    if joker is None:
+        reasons.append("not_joker")
+        return ActivationCheck(False, tuple(reasons), details)
+    details.update({"required_cp": joker.cp, "speed": joker.speed})
+    if state.turn_player_id != player_id:
+        reasons.append("not_turn_player")
+    if card_instance_id not in state.players[player_id].hand.cards:
+        reasons.append("card_not_in_hand")
+    if state.players[player_id].current_cp < joker.cp:
+        reasons.append("insufficient_cp")
     return ActivationCheck(not reasons, tuple(reasons), details)
 
 

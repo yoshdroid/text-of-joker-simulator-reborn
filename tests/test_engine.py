@@ -9,7 +9,7 @@ if SRC_PATH.exists():
     sys.path.insert(0, str(SRC_PATH))
 
 from tojs_reborn.cardpool.normalizer import normalize_cardpool
-from tojs_reborn.engine.activation_requirements import explain_card_activation
+from tojs_reborn.engine.activation_requirements import explain_card_activation, explain_joker_activation
 from tojs_reborn.engine.actions import EFFECT_FIZZLED_REASONS, draw_cards, drive_unit, overclock_unit, override_card, set_trigger
 from tojs_reborn.engine.combat import attack_bypasses_block, attack_player, attack_unit, declare_attack, declare_block, destroy_lethal_units, destroy_unit, resolve_unblocked_attack
 from tojs_reborn.engine.events import EventSource, EventStore
@@ -202,6 +202,26 @@ class EngineTest(unittest.TestCase):
         self.assertFalse(any(action["type"] == "play_joker" for action in list_legal_actions(state, "P1")))
         state.players["P1"].current_cp = 5
         self.assertTrue(any(action["type"] == "play_joker" for action in list_legal_actions(state, "P1")))
+
+    def test_explain_joker_activation_reports_structured_reasons(self) -> None:
+        state = create_game_state(self.catalog)
+        state.turn_player_id = "P2"
+        joker = state.create_card_instance("JK-01", "P1")
+        state.players["P1"].hand.add(joker.instance_id)
+
+        check = explain_joker_activation(state, "P1", joker.instance_id)
+
+        self.assertFalse(check.can_activate)
+        self.assertEqual(check.reasons, ("not_turn_player", "insufficient_cp"))
+        self.assertEqual(check.details["category"], "joker")
+        self.assertEqual(check.details["required_cp"], 5)
+
+        state.turn_player_id = "P1"
+        state.players["P1"].current_cp = 5
+        self.assertTrue(explain_card_activation(state, "P1", joker.instance_id).can_activate)
+        action = next(action for action in list_legal_actions(state, "P1") if action["type"] == "play_joker")
+        self.assertEqual(action["activation"]["reasons"], [])
+        self.assertEqual(action["activation"]["details"]["joker_no"], "JK-01")
 
     def test_joker_cannot_be_set_to_trigger_zone(self) -> None:
         state = create_game_state(self.catalog)

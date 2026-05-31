@@ -2,6 +2,7 @@ from __future__ import annotations
 
 from typing import Any
 
+from .activation_requirements import explain_joker_activation
 from .rules import MAX_BATTLEFIELD_UNITS, MAX_TRIGGER_ZONE_CARDS, opponent_id
 from .state import GameState
 from .unit_drive_cost import unit_drive_cost
@@ -214,7 +215,10 @@ def _play_joker_actions(state: GameState, player_id: str) -> list[dict[str, Any]
     for card_instance_id in player.hand.cards:
         card_no = state.card_instances[card_instance_id].card_no
         joker = state.joker_catalog.get(card_no)
-        if joker is None or player.current_cp < joker.cp:
+        if joker is None:
+            continue
+        activation_check = explain_joker_activation(state, player_id, card_instance_id)
+        if not activation_check.can_activate:
             continue
         actions.append(
             {
@@ -222,6 +226,10 @@ def _play_joker_actions(state: GameState, player_id: str) -> list[dict[str, Any]
                 "card_instance_id": card_instance_id,
                 "joker_no": card_no,
                 "cp_cost": joker.cp,
+                "activation": {
+                    "reasons": list(activation_check.reasons),
+                    "details": activation_check.details,
+                },
                 "display": {
                     "label": f"{joker.name}を発動する",
                     "card_no": card_no,
