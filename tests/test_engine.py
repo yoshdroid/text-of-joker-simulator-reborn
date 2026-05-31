@@ -263,6 +263,22 @@ class EngineTest(unittest.TestCase):
         returned = [event for event in state.event_store.events if event.type == "unit_returned_to_hand"]
         self.assertEqual([event.payload["target_unit_id"] for event in returned], [unit1.unit_id, unit2.unit_id])
 
+    def test_play_wonderful_hand_draws_five_cards(self) -> None:
+        state = self._create_state_with_jokers()
+        state.turn_player_id = "P1"
+        state.players["P1"].current_cp = 3
+        joker = state.create_card_instance("JK-04", "P1")
+        state.players["P1"].hand.add(joker.instance_id)
+        deck_cards = [state.create_card_instance("1-0-040", "P1").instance_id for _ in range(5)]
+        state.players["P1"].deck.cards.extend(deck_cards)
+
+        play_joker(state, "P1", joker.instance_id)
+
+        self.assertEqual(state.players["P1"].hand.cards, deck_cards)
+        self.assertEqual(state.players["P1"].deck.cards, [])
+        drawn_event = [event for event in state.event_store.events if event.type == "cards_drawn"][-1]
+        self.assertEqual(drawn_event.payload["count"], 5)
+
     def test_draw_cards_moves_deck_top_to_hand_and_records_events(self) -> None:
         state = create_game_state(self.catalog)
         card = state.create_card_instance("1-0-001", "P1")

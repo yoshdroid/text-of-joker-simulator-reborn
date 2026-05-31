@@ -167,6 +167,17 @@ def _resolve_joker_effect(
             card_instance_id=card_instance_id,
         )
         return
+    if joker_no == "JK-04":
+        from .actions import draw_cards
+
+        draw_cards(
+            state,
+            player_id,
+            5,
+            cause_event_no=cause_event_no,
+            source=EventSource(card_no=joker_no, card_instance_id=card_instance_id),
+        )
+        return
     _append_joker_effect_fizzled(state, player_id, joker_no, card_instance_id, cause_event_no, "unsupported_joker")
 
 
