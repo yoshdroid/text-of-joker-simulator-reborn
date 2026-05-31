@@ -197,6 +197,16 @@ def _resolve_joker_effect(
             card_instance_id=card_instance_id,
         )
         return
+    if joker_no == "JK-07":
+        _destroy_random_rival_units(
+            state,
+            player_id,
+            max_count=2,
+            cause_event_no=cause_event_no,
+            joker_no=joker_no,
+            card_instance_id=card_instance_id,
+        )
+        return
     _append_joker_effect_fizzled(state, player_id, joker_no, card_instance_id, cause_event_no, "unsupported_joker")
 
 
@@ -421,6 +431,44 @@ def _discard_rival_hand(
                 "reason": "joker_discard_hand",
             },
         )
+
+
+def _destroy_random_rival_units(
+    state: GameState,
+    player_id: str,
+    *,
+    max_count: int,
+    cause_event_no: int,
+    joker_no: str,
+    card_instance_id: str,
+) -> None:
+    rival_player_id = opponent_id(player_id)
+    candidates = [unit_id for unit_id in state.players[rival_player_id].battlefield.units if unit_id in state.units]
+    if not candidates:
+        _append_joker_effect_fizzled(state, player_id, joker_no, card_instance_id, cause_event_no, "no_valid_target")
+        return
+    count = min(max_count, len(candidates))
+    chosen_unit_ids = state.rng.sample(candidates, count)
+    random_event = state.event_store.append(
+        "random_resolved",
+        round_no=state.round_no,
+        turn_no=state.turn_no,
+        actor_player_id=player_id,
+        cause_event_no=cause_event_no,
+        source=EventSource(card_no=joker_no, card_instance_id=card_instance_id),
+        payload={
+            "kind": "unit",
+            "seed": state.seed,
+            "player_id": rival_player_id,
+            "candidate_unit_ids": candidates,
+            "chosen_indices": [candidates.index(unit_id) for unit_id in chosen_unit_ids],
+            "chosen_unit_ids": chosen_unit_ids,
+        },
+    )
+    units = [state.units[unit_id] for unit_id in chosen_unit_ids if unit_id in state.units]
+    from .combat import destroy_units
+
+    destroy_units(state, units, random_event.event_no, reason="joker")
 
 
 def _deal_joker_damage(

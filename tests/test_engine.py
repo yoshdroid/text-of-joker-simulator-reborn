@@ -315,6 +315,26 @@ class EngineTest(unittest.TestCase):
         self.assertEqual([event.payload["reason"] for event in move_events], ["joker_discard_hand"] * 3)
         self.assertNotIn(joker.instance_id, state.players["P1"].discard_pile.cards)
 
+    def test_play_despair_raid_randomly_destroys_up_to_two_rival_units(self) -> None:
+        state = create_game_state(self.catalog, joker_catalog=self.joker_catalog, seed=7)
+        state.turn_player_id = "P1"
+        state.players["P1"].current_cp = 5
+        joker = state.create_card_instance("JK-07", "P1")
+        state.players["P1"].hand.add(joker.instance_id)
+        rival_units = [self._add_battlefield_unit(state, "P2", card_no)[1] for card_no in ("1-0-001", "1-0-002", "1-0-003")]
+
+        play_joker(state, "P1", joker.instance_id)
+
+        random_event = next(event for event in state.event_store.events if event.type == "random_resolved")
+        self.assertEqual(random_event.payload["kind"], "unit")
+        self.assertEqual(random_event.payload["seed"], 7)
+        self.assertEqual(random_event.payload["candidate_unit_ids"], [unit.unit_id for unit in rival_units])
+        destroyed_unit_ids = set(random_event.payload["chosen_unit_ids"])
+        self.assertEqual(len(destroyed_unit_ids), 2)
+        self.assertEqual(set(state.players["P2"].battlefield.units), {unit.unit_id for unit in rival_units} - destroyed_unit_ids)
+        destroyed_events = [event for event in state.event_store.events if event.type == "unit_destroyed"]
+        self.assertEqual({event.source.unit_id for event in destroyed_events}, destroyed_unit_ids)
+
     def test_draw_cards_moves_deck_top_to_hand_and_records_events(self) -> None:
         state = create_game_state(self.catalog)
         card = state.create_card_instance("1-0-001", "P1")
